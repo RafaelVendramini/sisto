@@ -1,0 +1,24 @@
+name: Spike
+description: Investigar uma solução ou tecnologia
+title: "[SPIKE] "
+labels:
+  - spike
+
+body:
+  - type: textarea
+    id: investigacao
+    attributes:
+      label: O que precisamos investigar?
+      description: Explique a dúvida ou problema técnico.
+      placeholder: "Exemplo: Investigar como realizar autenticação usando JWT."
+    validations:
+      required: true
+
+  - type: textarea
+    id: resultado
+    attributes:
+      label: O que precisamos descobrir?
+      description: Descreva qual resultado esperamos obter.
+      placeholder: "Exemplo: Identificar a melhor forma de implementar e documentar a solução."
+    validations:
+      required: true

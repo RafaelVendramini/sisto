@@ -1,0 +1,24 @@
+name: Task
+description: Criar uma tarefa de desenvolvimento
+title: "[TASK] "
+labels:
+  - task
+
+body:
+  - type: textarea
+    id: tarefa
+    attributes:
+      label: O que precisa ser feito?
+      description: Descreva claramente a tarefa.
+      placeholder: "Exemplo: Criar o endpoint para cadastrar clientes."
+    validations:
+      required: true
+
+  - type: textarea
+    id: criterio
+    attributes:
+      label: Critério de conclusão
+      description: Como saberemos que a tarefa está concluída?
+      placeholder: "Exemplo: O endpoint deve cadastrar um cliente e retornar HTTP 201."
+    validations:
+      required: true

@@ -1,0 +1,33 @@
+name: Bug
+description: Registrar um problema no sistema
+title: "[BUG] "
+labels:
+  - bug
+
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o problema encontrado.
+      placeholder: "Exemplo: Ao cadastrar um cliente sem telefone, a aplicação apresenta erro 500."
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: O que deveria acontecer?
+      description: Descreva o comportamento esperado.
+      placeholder: "Exemplo: A aplicação deveria informar que o telefone é obrigatório."
+    validations:
+      required: true
+
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como reproduzir?
+      description: Informe os passos para encontrar o problema.
+      placeholder: "1. Acesse...\n2. Informe...\n3. Clique em..."
+    validations:
+      required: true

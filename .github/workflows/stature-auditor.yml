@@ -1,0 +1,91 @@
+
+name: Stature Auditor v0.1
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  auditor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Auditar Pull Request
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            let nota = 0;
+            const resultado = [];
+
+            // 1. Issue vinculada
+            if (/Closes\s+#\d+/i.test(pr.body || "")) {
+              nota += 2;
+              resultado.push("✅ Issue vinculada");
+            } else {
+              resultado.push("❌ Falta 'Closes #numero'");
+            }
+
+            // 2. Branch
+            const branch = pr.head.ref;
+            const padrao = /^(feature|task|bugfix|spike)\/\d+-[a-z0-9-]+$/;
+
+            if (padrao.test(branch)) {
+              nota += 2;
+              resultado.push("✅ Branch correta");
+            } else {
+              resultado.push("❌ Branch fora do padrão");
+            }
+
+            // 3. Commits
+            const commits = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+
+            if (commits.data.length > 0) {
+              nota += 2;
+              resultado.push(`✅ ${commits.data.length} commit(s)`);
+            } else {
+              resultado.push("❌ Nenhum commit");
+            }
+
+            // 4. Destino
+            if (pr.base.ref === "developer") {
+              nota += 2;
+              resultado.push("✅ Destino developer");
+            } else {
+              resultado.push("❌ PR não aponta para developer");
+            }
+
+            // 5. Merge
+            if (context.payload.action === "closed") {
+              if (pr.merged) {
+                nota += 2;
+                resultado.push("✅ PR mesclada");
+              } else {
+                resultado.push("❌ PR fechada sem merge");
+              }
+            } else {
+              resultado.push("⏳ Merge pendente");
+            }
+
+            const relatorio =
+            `## 📋 Stature Auditor v0.1
+
+            **Pontuação:** ${nota}/10
+
+            ${resultado.join("\n")}`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: relatorio
+            });

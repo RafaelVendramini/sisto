@@ -1,0 +1,59 @@
+name: Story
+description: Criar uma história de usuário
+title: "[STORY] "
+
+body:
+
+- type: textarea
+  id: user_story
+  attributes:
+    label: História de usuário
+    description: Descreva a funcionalidade sob a perspectiva do usuário.
+    placeholder: |
+      Como [tipo de usuário],
+      quero [ação],
+      para [benefício].
+  validations:
+    required: true
+
+- type: textarea
+  id: specification
+  attributes:
+    label: Specification
+    description: Defina o comportamento que deve ser implementado.
+    placeholder: |
+      ## Objetivo
+      O que deve ser realizado.
+
+      ## Entradas
+      Dados necessários.
+
+      ## Regras
+      Condições que devem ser respeitadas.
+
+      ## Resultado esperado
+      O que deve acontecer.
+  validations:
+    required: true
+
+- type: textarea
+  id: acceptance
+  attributes:
+    label: Critérios de aceite
+    description: Liste os critérios que devem ser atendidos para considerar a Story concluída.
+    placeholder: |
+      - [ ] Critério 1
+      - [ ] Critério 2
+      - [ ] Critério 3
+  validations:
+    required: true
+
+- type: textarea
+  id: evidence
+  attributes:
+    label: Evidência esperada
+    description: Explique como a equipe pretende demonstrar que a Story foi concluída.
+    placeholder: |
+      Exemplo: teste funcional, vídeo, print, resposta da API.
+  validations:
+    required: true

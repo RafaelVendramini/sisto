@@ -1,0 +1,24 @@
+name: Subtask
+description: Dividir uma Task em uma atividade menor
+title: "[SUBTASK] "
+labels:
+  - subtask
+
+body:
+  - type: textarea
+    id: atividade
+    attributes:
+      label: O que será feito?
+      description: Descreva a atividade específica.
+      placeholder: "Exemplo: Criar a classe ClienteRepository."
+    validations:
+      required: true
+
+  - type: textarea
+    id: task
+    attributes:
+      label: Task relacionada
+      description: Informe qual Task maior esta Subtask ajuda a concluir.
+      placeholder: "Exemplo: #25 - Implementar cadastro de clientes."
+    validations:
+      required: true
