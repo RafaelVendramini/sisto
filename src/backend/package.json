@@ -6,15 +6,24 @@
   "type": "module",
   "main": "src/server.js",
   "engines": {
-    "node": ">=22.9.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "node --watch --env-file-if-exists=.env src/server.js",
     "start": "node --env-file-if-exists=.env src/server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:test:reset": "node prisma/reset-test-db.js"
   },
   "dependencies": {
-    "express": "^5.2.1"
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "express": "^5.2.1",
+    "prisma": "^7.10.0"
   },
   "devDependencies": {
     "supertest": "^7.3.0",
