@@ -2,8 +2,16 @@
 // A URL de conexão NÃO fica aqui: no Prisma 7 ela é lida em prisma7.config.js
 // a partir da variável DATABASE_URL (arquivo .env, nunca versionado).
 //
-// Os models (Seção 11 do SSD) serão adicionados nas Subtasks #7, #8 e #9.
-// Convenção (SSD 1.2): todo `id` e toda FK `*_id` são Int com autoincremento.
+// Models da Seção 11 do SSD (v1.2). Esta parte cobre os cadastros (Subtask #7);
+// ocorrências/auditoria entram na Subtask #8.
+//
+// Convenções:
+// - Todo `id` e toda FK `*_id` são Int com autoincremento (SSD 1.2).
+// - Models no singular, sem acento (Usuario, Turma, ...); tabelas mapeadas com
+//   @@map para o plural minúsculo (usuarios, turmas, ...), evitando aspas em SQL.
+// - Campos em snake_case exatamente como na Seção 11 (senha_hash, tutor_id...).
+// - Valores de enum em MAIÚSCULAS ASCII (Prisma não aceita acento/espaço/hífen);
+//   o rótulo exibido ao usuário é responsabilidade da aplicação.
 
 generator client {
   // Gerador em JavaScript (o projeto não usa TypeScript).
@@ -13,4 +21,84 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// Perfis de usuário (RF01). Mapeamento para os rótulos do SSD:
+//   PROFESSOR              -> Professor
+//   TUTOR                  -> Tutor
+//   GESTAO                 -> Gestão
+//   PEDAGOGICO             -> Pedagógico
+//   TECNICO_ADMINISTRATIVO -> Técnico-administrativo
+enum Perfil {
+  PROFESSOR
+  TUTOR
+  GESTAO
+  PEDAGOGICO
+  TECNICO_ADMINISTRATIVO
+
+  @@map("perfil")
+}
+
+// Status do usuário (RN07): ativo, bloqueado, desativado.
+// Usuários nunca são excluídos; só ATIVO autentica (RN09).
+enum StatusUsuario {
+  ATIVO
+  BLOQUEADO
+  DESATIVADO
+
+  @@map("status_usuario")
+}
+
+// Entidade: Usuário
+model Usuario {
+  id         Int           @id @default(autoincrement())
+  nome       String
+  email      String        @unique // identificador de login (RF02)
+  senha_hash String // somente o hash bcrypt, nunca a senha (RNF03)
+  perfil     Perfil
+  status     StatusUsuario @default(ATIVO)
+
+  // Estudantes dos quais este usuário é o professor tutor (RF16)
+  tutorados Estudante[] @relation("TutorEstudante")
+
+  @@map("usuarios")
+}
+
+// Entidade: Turma
+model Turma {
+  id    Int    @id @default(autoincrement())
+  nome  String
+  etapa String
+
+  estudantes Estudante[]
+
+  @@map("turmas")
+}
+
+// Entidade: Estudante
+model Estudante {
+  id             Int     @id @default(autoincrement())
+  nome_completo  String
+  codigo_escolar String?
+  turma_id       Int
+  tutor_id       Int?
+
+  // Turma obrigatória. Restrict: não se exclui turma com estudantes vinculados.
+  turma Turma    @relation(fields: [turma_id], references: [id], onDelete: Restrict)
+  // Tutor opcional. Restrict (sem cascade): usuários nunca são excluídos (RN07);
+  // se alguém tentar, o banco impede em vez de apagar/desvincular estudantes.
+  tutor Usuario? @relation("TutorEstudante", fields: [tutor_id], references: [id], onDelete: Restrict)
+
+  @@index([turma_id])
+  @@index([tutor_id])
+  @@map("estudantes")
+}
+
+// Entidade: Categoria
+model Categoria {
+  id        Int     @id @default(autoincrement())
+  nome      String
+  descricao String?
+
+  @@map("categorias")
 }
