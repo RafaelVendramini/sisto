@@ -1,68 +1,51 @@
-> **🔴 Todas as INSTRUÇÕES devem ser apagadas após preenchido os dados da seção. Inclusive esta.**
-
-# Nome do Sistema
-
-> **🔴 INSTRUÇÃO :** Substitua este título pelo nome oficial do sistema. O nome do sistema é formado por um nome curto e uma descrição de uma frase.
->
-> **Exemplo:** FinPess: um sistema de Finanças Pessoais
+# Sisto: um sistema de gestão de ocorrências de alunos
 
 ---
 
 ## Equipe
 
-> **🔴 INSTRUÇÃO:** Informe a identificação da equipe e do repositório.
-
 | Campo           | Valor          |
 | --------------- | -------------- |
-| **Equipe**      | LTD.2026.2-XXX |
-| **Repositório** | LTD.2026.2-XXX |
+| **Equipe**      | LTD.2026.2-006 |
+| **Repositório** | [STATURETECH/LTD.2026.2.006](https://github.com/STATURETECH/LTD.2026.2.006) |
 | **Turma**       | Quinta-feira   |
 
 
 ### Integrantes
 
-> **🔴 INSTRUÇÃO:** Preencha com os nomes completos de todos os membros da equipe.
+| Nome              | Função |
+| ----------------- | ------ |
+| Rafael Vendramini | Dev    |
+| Gabriel Luna      | Dev    |
 
-| Nome | Função |
-| ---- | ------ |
-|      | Dev    |
-|      | Dev    |
-|      | Dev    |
+**Professor Orientador:** Kesede Julio
 
 ---
 
 ## Cliente
 
-> **🔴 INSTRUÇÃO:** Identifique o cliente ou empresa para quem o sistema será desenvolvido.
-
 | Campo                           | Valor |
 | ------------------------------- | ----- |
-| **Cliente (Nome/Razão Social)** |       |
-| **CPF/CNPJ**                    |       |
-| **Contato**                     |       |
-| **E-mail**                      |       |
+| **Cliente (Nome/Razão Social)** | Escola Estadual José Carlos Nogueira Reverendo – Professor |
+| **CPF/CNPJ**                    | Não informado (unidade da rede estadual de ensino de São Paulo) |
+| **Contato**                     | Suzany Sturaro (Diretora de Escola) e Anderson (Professor) |
+| **E-mail**                      | [e-mail fornecido à equipe] |
 
 ---
 
 ## Objetivo
 
-> **🔴 INSTRUÇÃO:** Descreva, em um único parágrafo, o propósito do sistema e o problema que ele resolve.
->
-> **Exemplo:** Desenvolver uma aplicação web que permita controlar receitas, despesas e acompanhar o saldo financeiro mensal dos usuários.
+Desenvolver uma aplicação web responsiva para registro, encaminhamento, acompanhamento e geração de relatórios das ocorrências escolares da EE José Carlos Nogueira, que hoje registra cerca de 50 ocorrências por dia em formulários de papel. O sistema substitui o preenchimento em papel, reduz o retrabalho de transcrição para a Plataforma Conviva e mantém um histórico digital seguro, com acesso restrito por perfil e em conformidade com a LGPD.
 
 ---
 
 ## Tecnologias
 
-> **🔴 INSTRUÇÃO:** Liste apenas as tecnologias realmente utilizadas no projeto.
->
-> **Exemplo:** Java 21, Spring Boot, MySQL, Gradle, ChatGPT.
-
-* **Linguagem:**
-* **Framework:**
-* **Banco de Dados:**
-* **Gerenciador de Dependências:**
-* **Ferramenta(s) de IA:**
+* **Linguagem:** JavaScript (Node.js e navegador)
+* **Framework:** Express (API REST) e React + Vite (front-end); Prisma ORM; testes com Vitest
+* **Banco de Dados:** PostgreSQL
+* **Gerenciador de Dependências:** npm
+* **Ferramenta(s) de IA:** Claude Code (CLI, com equipe de agentes definida em `CLAUDE.md`) e IA conversacional
 
 ---
 
@@ -89,13 +72,17 @@
 - **docs/SSD.md:** especificação oficial do sistema.
 - **.github/:** não altere nenhum arquivo desta pasta, sob o risco de perder a nota da Sprint.
 - **.github/AIP-LTD.md:** protocolo de desenvolvimento com IA.
-- **src/:** código-fonte da aplicação.
+- **src/:** código-fonte da aplicação (`src/backend` e `src/frontend`).
+
+Arquivos complementares da equipe:
+
+- **CLAUDE.md** e **.claude/agents/:** regras do projeto e equipe de agentes de IA.
+- **docs/PLANO-SPRINTS.md:** planejamento das Sprints do MVP.
+- **docs/apresentacao/:** slides do SeNAS e logo do Sisto.
 
 ---
 
 ## Status do Projeto
-
-> **🔴 INSTRUÇÃO (APAGAR):** Atualize ao final de cada Sprint.
 
 | Item             | Valor              |
 | ---------------- | ------------------ |
@@ -107,18 +94,14 @@
 
 ## Links do Projeto
 
-> **🔴 INSTRUÇÃO (APAGAR):** Informe os links quando estiverem disponíveis.
-
 | Recurso        | Link |
 | -------------- | ---- |
-| GitHub Project |      |
-| Swagger        |      |
-| Deploy         |      |
+| GitHub Project | A definir |
+| Swagger        | A definir |
+| Deploy         | A definir |
 
 ---
 
 ## Licença
-
-> **🔴 INSTRUÇÃO (APAGAR):** Mantenha esta seção ou substitua pela licença definida pela equipe.
 
 Projeto desenvolvido no **LTD — Laboratório de Transformação Digital** para fins acadêmicos de Engenharia de Software.
