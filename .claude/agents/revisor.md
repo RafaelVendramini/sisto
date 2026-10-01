@@ -15,7 +15,7 @@ Use `git diff developer...HEAD` (ou o diff indicado) e leia a Issue e o `docs/SS
 - Segue a estrutura e a stack do `CLAUDE.md` (camadas, JavaScript sem TypeScript, Vitest)?
 
 ### 2. Correção
-- Bugs, casos de erro sem tratamento, regras de negócio (RN01–RN08) aplicadas de forma errada ou faltando.
+- Bugs, casos de erro sem tratamento, regras de negócio (RN01–RN10) aplicadas de forma errada ou faltando.
 - Existem testes para o que mudou?
 
 ### 3. Segurança e LGPD

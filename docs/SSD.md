@@ -118,8 +118,10 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | RN04   | O status de uma ocorrência segue o fluxo aberto → em acompanhamento → encerrado, sem retorno a status anterior e sem pular etapas. Uma ocorrência só pode ser encerrada se houver ao menos uma providência adotada registrada durante o acompanhamento. |
 | RN05   | Dados de estudantes utilizados em ambiente de desenvolvimento e testes devem ser fictícios ou anonimizados. |
 | RN06   | Os registros devem ser redigidos de forma objetiva e descritiva, sem linguagem ofensiva ou classificações que estigmatizem os estudantes. |
-| RN07   | Um usuário que deixa de pertencer à unidade escolar deve ser bloqueado/desativado, mantendo-se o histórico dos registros que criou. |
+| RN07   | Um usuário que deixa de pertencer à unidade escolar deve ser bloqueado/desativado, mantendo-se o histórico dos registros que criou. O status do usuário assume os valores **ativo**, **bloqueado** ou **desativado**; usuários nunca são excluídos, e a Gestão pode reativá-los (voltar para **ativo**). |
 | RN08   | Toda alteração em uma ocorrência (status, providências, encaminhamentos, comunicações) deve gerar um registro no histórico, com usuário, data/hora e descrição da alteração. |
+| RN09   | Somente usuários com status **ativo** podem autenticar-se e acessar o sistema. O bloqueio ou a desativação corta o acesso imediatamente, inclusive de sessões já abertas (o status é verificado a cada requisição autenticada). |
+| RN10   | Senhas devem ter no mínimo 8 caracteres. No cadastro, a Gestão define uma senha temporária para o novo usuário; não há troca obrigatória no primeiro acesso. |
 
 ---
 
@@ -175,10 +177,10 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 
 | Código | Descrição |
 | ------ | --------- |
-| RF01   | O sistema deve permitir o cadastro de usuários autorizados, com definição de perfil (Professor, Tutor, Gestão, Pedagógico, Técnico-administrativo). |
-| RF02   | O sistema deve permitir autenticação individual por usuário e senha. |
+| RF01   | O sistema deve permitir o cadastro de usuários autorizados, com definição de perfil (Professor, Tutor, Gestão, Pedagógico, Técnico-administrativo) e de senha temporária inicial (RN10). |
+| RF02   | O sistema deve permitir autenticação individual por usuário e senha, sendo o e-mail (único) o identificador de login, e o encerramento da sessão (logout). |
 | RF03   | O sistema deve permitir a recuperação de acesso (redefinição de senha). |
-| RF04   | O sistema deve permitir o bloqueio ou a desativação de usuários. |
+| RF04   | O sistema deve permitir o bloqueio, a desativação e a reativação de usuários (RN07, RN09). |
 | RF05   | O sistema deve permitir o registro de ocorrências com os campos: profissional responsável, data e horário, local, turma, estudante(s) envolvido(s), categoria, descrição, demais envolvidos, testemunhas, providências imediatas, encaminhamentos e observações. |
 | RF06   | O sistema deve permitir o registro de mais de um estudante envolvido em uma mesma ocorrência. |
 | RF07   | O sistema deve permitir a criação e a edição de categorias de ocorrência. |
@@ -202,7 +204,7 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | ------ | -------------------------- |
 | RNF01  | Interface responsiva, utilizável em computadores, tablets e celulares. |
 | RNF02  | Navegação simples e linguagem clara, adequada a usuários com diferentes níveis de familiaridade tecnológica. |
-| RNF03  | Controle de acesso por usuário e senha, com perfis de permissão; senhas armazenadas com hash. |
+| RNF03  | Controle de acesso por usuário e senha, com perfis de permissão; senhas armazenadas com hash. A sessão (token JWT) expira em 8 horas, sem renovação automática (refresh). |
 | RNF04  | Registro de atividades realizadas no sistema (log/auditoria básica). |
 | RNF05  | Cópias de segurança e proteção dos dados armazenados. |
 | RNF06  | Tratamento de dados pessoais em conformidade com a LGPD (finalidade definida, acesso restrito, prevenção de exposição indevida). |
@@ -228,31 +230,33 @@ Cliente-servidor com API REST (JSON). O front-end React consome a API Node.js/Ex
 O back-end segue arquitetura em camadas:
 
 * **Routes** — definição dos endpoints
-* **Middlewares** — autenticação e verificação de permissão por perfil (RN01, RF14)
+* **Middlewares** — autenticação (incluindo a verificação, a cada requisição, de que o usuário está ativo — RN09) e verificação de permissão por perfil (RN01, RF14)
 * **Controllers** — recebem as requisições e devolvem as respostas
-* **Services** — regras de negócio (RN01–RN08), histórico e auditoria
+* **Services** — regras de negócio (RN01–RN10), histórico e auditoria
 * **Prisma (camada de dados)** — acesso ao banco de dados
 
 ---
 
 # 11. Modelo de Dados
 
+> Todos os identificadores (`id`) e chaves estrangeiras (`*_id`) são do tipo **Int** com autoincremento.
+
 ## Entidade: Usuário
 
 | Campo    | Tipo   | Obrigatório |
 | -------- | ------ | ----------- |
-| id       | Long   | Sim         |
+| id       | Int   | Sim         |
 | nome     | String | Sim         |
-| email    | String | Sim         |
+| email    | String | Sim (único; identificador de login) |
 | senha_hash | String | Sim       |
-| perfil   | String | Sim         |
-| status   | String | Sim         |
+| perfil   | String | Sim (Professor, Tutor, Gestão, Pedagógico, Técnico-administrativo) |
+| status   | String | Sim (ativo, bloqueado, desativado) |
 
 ## Entidade: Turma
 
 | Campo  | Tipo   | Obrigatório |
 | ------ | ------ | ----------- |
-| id     | Long   | Sim         |
+| id     | Int   | Sim         |
 | nome   | String | Sim         |
 | etapa  | String | Sim         |
 
@@ -260,17 +264,17 @@ O back-end segue arquitetura em camadas:
 
 | Campo          | Tipo   | Obrigatório |
 | -------------- | ------ | ----------- |
-| id             | Long   | Sim         |
+| id             | Int   | Sim         |
 | nome_completo  | String | Sim         |
 | codigo_escolar | String | Não         |
-| turma_id       | Long   | Sim         |
-| tutor_id       | Long   | Não         |
+| turma_id       | Int   | Sim         |
+| tutor_id       | Int   | Não         |
 
 ## Entidade: Categoria
 
 | Campo     | Tipo   | Obrigatório |
 | --------- | ------ | ----------- |
-| id        | Long   | Sim         |
+| id        | Int   | Sim         |
 | nome      | String | Sim         |
 | descricao | String | Não         |
 
@@ -278,18 +282,18 @@ O back-end segue arquitetura em camadas:
 
 | Campo                       | Tipo     | Obrigatório |
 | --------------------------- | -------- | ----------- |
-| id                          | Long     | Sim         |
+| id                          | Int     | Sim         |
 | data_hora                   | DateTime | Sim         |
 | local                       | String   | Sim         |
-| turma_id                    | Long     | Sim         |
-| categoria_id                | Long     | Sim         |
+| turma_id                    | Int     | Sim         |
+| categoria_id                | Int     | Sim         |
 | descricao                   | String   | Sim         |
 | demais_envolvidos           | String   | Não         |
 | testemunhas                 | String   | Não         |
 | providencias_imediatas      | String   | Não         |
 | observacoes                 | String   | Não         |
-| profissional_responsavel_id | Long     | Sim         |
-| responsavel_acompanhamento_id | Long   | Não         |
+| profissional_responsavel_id | Int     | Sim         |
+| responsavel_acompanhamento_id | Int   | Não         |
 | status                      | String   | Sim         |
 | data_encerramento           | DateTime | Não         |
 
@@ -297,18 +301,18 @@ O back-end segue arquitetura em camadas:
 
 | Campo         | Tipo | Obrigatório |
 | ------------- | ---- | ----------- |
-| ocorrencia_id | Long | Sim         |
-| estudante_id  | Long | Sim         |
+| ocorrencia_id | Int | Sim         |
+| estudante_id  | Int | Sim         |
 
 ## Entidade: Encaminhamento
 
 | Campo                  | Tipo     | Obrigatório |
 | ---------------------- | -------- | ----------- |
-| id                     | Long     | Sim         |
-| ocorrencia_id          | Long     | Sim         |
+| id                     | Int     | Sim         |
+| ocorrencia_id          | Int     | Sim         |
 | destinatario_perfil    | String   | Sim         |
-| destinatario_usuario_id| Long     | Não         |
-| registrado_por_id      | Long     | Sim         |
+| destinatario_usuario_id| Int     | Não         |
+| registrado_por_id      | Int     | Sim         |
 | data_hora              | DateTime | Sim         |
 | observacao             | String   | Não         |
 
@@ -316,31 +320,31 @@ O back-end segue arquitetura em camadas:
 
 | Campo             | Tipo     | Obrigatório |
 | ----------------- | -------- | ----------- |
-| id                | Long     | Sim         |
-| ocorrencia_id     | Long     | Sim         |
+| id                | Int     | Sim         |
+| ocorrencia_id     | Int     | Sim         |
 | descricao         | String   | Sim         |
-| registrado_por_id | Long     | Sim         |
+| registrado_por_id | Int     | Sim         |
 | data_hora         | DateTime | Sim         |
 
 ## Entidade: Comunicação
 
 | Campo             | Tipo     | Obrigatório |
 | ----------------- | -------- | ----------- |
-| id                | Long     | Sim         |
-| ocorrencia_id     | Long     | Sim         |
+| id                | Int     | Sim         |
+| ocorrencia_id     | Int     | Sim         |
 | destinatario      | String   | Sim         |
 | meio              | String   | Sim         |
 | descricao         | String   | Sim         |
-| registrado_por_id | Long     | Sim         |
+| registrado_por_id | Int     | Sim         |
 | data_hora         | DateTime | Sim         |
 
 ## Entidade: HistóricoOcorrência
 
 | Campo         | Tipo     | Obrigatório |
 | ------------- | -------- | ----------- |
-| id            | Long     | Sim         |
-| ocorrencia_id | Long     | Sim         |
-| usuario_id    | Long     | Sim         |
+| id            | Int     | Sim         |
+| ocorrencia_id | Int     | Sim         |
+| usuario_id    | Int     | Sim         |
 | acao          | String   | Sim         |
 | descricao     | String   | Não         |
 | data_hora     | DateTime | Sim         |
@@ -349,8 +353,8 @@ O back-end segue arquitetura em camadas:
 
 | Campo      | Tipo     | Obrigatório |
 | ---------- | -------- | ----------- |
-| id         | Long     | Sim         |
-| usuario_id | Long     | Não         |
+| id         | Int     | Sim         |
+| usuario_id | Int     | Não         |
 | acao       | String   | Sim         |
 | recurso    | String   | Sim         |
 | data_hora  | DateTime | Sim         |
@@ -397,6 +401,13 @@ API REST (JSON) implementada em Node.js + Express. Endpoints previstos para o MV
 | GET    | /ocorrencias/{id}/historico          | Consultar histórico da ocorrência |
 | GET    | /relatorios                          | Gerar relatórios (por período, turma, categoria) |
 
+Observações sobre autenticação:
+
+* `POST /auth/login` recebe e-mail e senha e devolve um token JWT com validade de 8 horas, sem refresh (RNF03). Somente usuários com status **ativo** autenticam (RN09).
+* O logout (RF02) é feito no front-end, descartando o token; não há endpoint de logout no MVP.
+* O middleware de autenticação consulta o status do usuário no banco a cada requisição; usuário bloqueado ou desativado tem o acesso negado imediatamente (RN09).
+* `POST /usuarios` recebe a senha temporária definida pela Gestão (mínimo de 8 caracteres — RN10). `PUT /usuarios/{id}` permite alterar o status entre ativo, bloqueado e desativado (RF04, RN07).
+
 ---
 
 # 13. Critérios Gerais de Aceite
@@ -418,6 +429,7 @@ Uma implementação somente poderá ser considerada concluída quando atender ao
 | ------ | ---------- | -------------- |
 | 1.0    | 17/09/2026 | Criação do SSD com base na proposta de solicitação da EE José Carlos Nogueira Reverendo – Professor |
 | 1.1    | 30/09/2026 | Ajuste do contato; matriz de permissões; cadastro de turmas/estudantes e tutoria (RF15, RF16); RN04 revisada e RN08; modelo de dados completado (campos do RF05, associativa, providências, comunicações, histórico, auditoria); endpoints da API ampliados; arquitetura definida (React + Node.js/Express + PostgreSQL/Prisma) |
+| 1.2    | 30/09/2026 | Decisões do planejamento da Sprint 1: e-mail único como identificador de login e logout no front-end (RF02); senha temporária definida pela Gestão no cadastro (RF01, RN10); bloqueio, desativação e reativação (RF04, RN07); status do usuário ativo/bloqueado/desativado (RN07, Seção 11); bloqueio com corte imediato de acesso (nova RN09); senha com mínimo de 8 caracteres (nova RN10); JWT com expiração de 8h sem refresh (RNF03); ids do tipo Int autoincremento (Seção 11); observações de autenticação na Seção 12 |
 
 ---
 
