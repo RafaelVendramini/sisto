@@ -1,0 +1,16 @@
+// Schema do Prisma — Sisto (back-end)
+// A URL de conexão NÃO fica aqui: no Prisma 7 ela é lida em prisma7.config.js
+// a partir da variável DATABASE_URL (arquivo .env, nunca versionado).
+//
+// Os models (Seção 11 do SSD) serão adicionados nas Subtasks #7, #8 e #9.
+// Convenção (SSD 1.2): todo `id` e toda FK `*_id` são Int com autoincremento.
+
+generator client {
+  // Gerador em JavaScript (o projeto não usa TypeScript).
+  // O client é gerado em node_modules/.prisma/client (artefato, fora do Git).
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
