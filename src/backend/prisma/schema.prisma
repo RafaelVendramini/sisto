@@ -2,8 +2,8 @@
 // A URL de conexão NÃO fica aqui: no Prisma 7 ela é lida em prisma7.config.js
 // a partir da variável DATABASE_URL (arquivo .env, nunca versionado).
 //
-// Models da Seção 11 do SSD (v1.2). Esta parte cobre os cadastros (Subtask #7);
-// ocorrências/auditoria entram na Subtask #8.
+// Models da Seção 11 do SSD (v1.2): cadastros (Subtask #7) e ocorrências/
+// auditoria (Subtask #8).
 //
 // Convenções:
 // - Todo `id` e toda FK `*_id` são Int com autoincremento (SSD 1.2).
@@ -12,6 +12,13 @@
 // - Campos em snake_case exatamente como na Seção 11 (senha_hash, tutor_id...).
 // - Valores de enum em MAIÚSCULAS ASCII (Prisma não aceita acento/espaço/hífen);
 //   o rótulo exibido ao usuário é responsabilidade da aplicação.
+// - Nenhuma relação usa exclusão em cascata. Toda FK para Usuario é Restrict:
+//   usuários nunca são excluídos e o histórico do que criaram é preservado (RN07).
+//   As entidades filhas de Ocorrencia também são Restrict: o SSD não prevê
+//   exclusão de ocorrências (Seção 12 não tem DELETE) e o histórico de
+//   alterações deve ser mantido (RN08, RF12); o banco impede apagar uma
+//   ocorrência — ou estudante/turma/categoria referenciados — em vez de apagar
+//   o histórico junto.
 
 generator client {
   // Gerador em JavaScript (o projeto não usa TypeScript).
@@ -49,6 +56,37 @@ enum StatusUsuario {
   @@map("status_usuario")
 }
 
+// Status da ocorrência (RF10, RN04). Mapeamento para os rótulos do SSD:
+//   ABERTO            -> aberto
+//   EM_ACOMPANHAMENTO -> em acompanhamento
+//   ENCERRADO         -> encerrado
+// O fluxo aberto -> em acompanhamento -> encerrado (sem retorno nem salto) é
+// regra de negócio (RN04) e fica no service, não no schema.
+enum StatusOcorrencia {
+  ABERTO
+  EM_ACOMPANHAMENTO
+  ENCERRADO
+
+  @@map("status_ocorrencia")
+}
+
+// Destinatário interno de um encaminhamento (RN03, RF08). Mapeamento:
+//   TUTOR             -> tutor
+//   EQUIPE_PEDAGOGICA -> equipe pedagógica
+//   GESTAO            -> gestão
+// Enum próprio (não reutiliza Perfil): o SSD admite só estes 3 destinatários;
+// Perfil aceitaria também PROFESSOR e TECNICO_ADMINISTRATIVO, que RN03/RF08
+// não permitem como destino. Além disso, aqui o valor designa um grupo/equipe
+// de destino, não o perfil de um usuário específico (o usuário, quando houver,
+// vai em destinatario_usuario_id).
+enum DestinatarioPerfil {
+  TUTOR
+  EQUIPE_PEDAGOGICA
+  GESTAO
+
+  @@map("destinatario_perfil")
+}
+
 // Entidade: Usuário
 model Usuario {
   id         Int           @id @default(autoincrement())
@@ -61,6 +99,16 @@ model Usuario {
   // Estudantes dos quais este usuário é o professor tutor (RF16)
   tutorados Estudante[] @relation("TutorEstudante")
 
+  // Lados inversos das relações de ocorrência/auditoria (Subtask #8).
+  ocorrencias_registradas     Ocorrencia[]          @relation("ProfissionalResponsavelOcorrencia")
+  ocorrencias_acompanhadas    Ocorrencia[]          @relation("ResponsavelAcompanhamentoOcorrencia")
+  encaminhamentos_recebidos   Encaminhamento[]      @relation("DestinatarioEncaminhamento")
+  encaminhamentos_registrados Encaminhamento[]      @relation("RegistradorEncaminhamento")
+  providencias_registradas    Providencia[]         @relation("RegistradorProvidencia")
+  comunicacoes_registradas    Comunicacao[]         @relation("RegistradorComunicacao")
+  historicos_ocorrencia       HistoricoOcorrencia[] @relation("UsuarioHistoricoOcorrencia")
+  logs_auditoria              LogAuditoria[]        @relation("UsuarioLogAuditoria")
+
   @@map("usuarios")
 }
 
@@ -70,7 +118,8 @@ model Turma {
   nome  String
   etapa String
 
-  estudantes Estudante[]
+  estudantes  Estudante[]
+  ocorrencias Ocorrencia[]
 
   @@map("turmas")
 }
@@ -89,6 +138,9 @@ model Estudante {
   // se alguém tentar, o banco impede em vez de apagar/desvincular estudantes.
   tutor Usuario? @relation("TutorEstudante", fields: [tutor_id], references: [id], onDelete: Restrict)
 
+  // Ocorrências em que o estudante está envolvido (N:N via OcorrenciaEstudante)
+  ocorrencias OcorrenciaEstudante[]
+
   @@index([turma_id])
   @@index([tutor_id])
   @@map("estudantes")
@@ -100,5 +152,150 @@ model Categoria {
   nome      String
   descricao String?
 
+  ocorrencias Ocorrencia[]
+
   @@map("categorias")
+}
+
+// Entidade: Ocorrência
+model Ocorrencia {
+  id                            Int              @id @default(autoincrement())
+  data_hora                     DateTime // data e horário do fato, informados por quem registra (UC01, passo 5)
+  local                         String
+  turma_id                      Int
+  categoria_id                  Int
+  descricao                     String
+  demais_envolvidos             String?
+  testemunhas                   String?
+  providencias_imediatas        String?
+  observacoes                   String?
+  profissional_responsavel_id   Int
+  responsavel_acompanhamento_id Int?
+  status                        StatusOcorrencia @default(ABERTO) // UC01, passo 8: registrada como "aberto"
+  data_encerramento             DateTime?
+
+  turma                      Turma     @relation(fields: [turma_id], references: [id], onDelete: Restrict)
+  categoria                  Categoria @relation(fields: [categoria_id], references: [id], onDelete: Restrict)
+  // Quem registrou a ocorrência (RN02). Restrict: preserva o registro (RN07).
+  profissional_responsavel   Usuario   @relation("ProfissionalResponsavelOcorrencia", fields: [profissional_responsavel_id], references: [id], onDelete: Restrict)
+  // Responsável pelo acompanhamento (UC02, UC04). Restrict (RN07).
+  responsavel_acompanhamento Usuario?  @relation("ResponsavelAcompanhamentoOcorrencia", fields: [responsavel_acompanhamento_id], references: [id], onDelete: Restrict)
+
+  estudantes      OcorrenciaEstudante[]
+  encaminhamentos Encaminhamento[]
+  providencias    Providencia[]
+  comunicacoes    Comunicacao[]
+  historico       HistoricoOcorrencia[]
+
+  // Filtros de consulta do RF11 (turma, categoria, profissional responsável)
+  // e ocorrências sob acompanhamento de um usuário (RN01).
+  @@index([turma_id])
+  @@index([categoria_id])
+  @@index([profissional_responsavel_id])
+  @@index([responsavel_acompanhamento_id])
+  @@map("ocorrencias")
+}
+
+// Entidade: OcorrenciaEstudante (associativa N:N — RF06, RN02).
+// A Seção 11 não lista `id`: a chave primária é composta pelas duas FKs, o que
+// também impede repetir o mesmo estudante na mesma ocorrência.
+model OcorrenciaEstudante {
+  ocorrencia_id Int
+  estudante_id  Int
+
+  ocorrencia Ocorrencia @relation(fields: [ocorrencia_id], references: [id], onDelete: Restrict)
+  estudante  Estudante  @relation(fields: [estudante_id], references: [id], onDelete: Restrict)
+
+  @@id([ocorrencia_id, estudante_id])
+  // A PK composta já indexa ocorrencia_id; este índice atende a consulta por estudante (RF11).
+  @@index([estudante_id])
+  @@map("ocorrencias_estudantes")
+}
+
+// Entidade: Encaminhamento (RN03, RF08, UC02)
+model Encaminhamento {
+  id                      Int                @id @default(autoincrement())
+  ocorrencia_id           Int
+  destinatario_perfil     DestinatarioPerfil
+  destinatario_usuario_id Int?
+  registrado_por_id       Int
+  data_hora               DateTime
+  observacao              String?
+
+  ocorrencia           Ocorrencia @relation(fields: [ocorrencia_id], references: [id], onDelete: Restrict)
+  destinatario_usuario Usuario?   @relation("DestinatarioEncaminhamento", fields: [destinatario_usuario_id], references: [id], onDelete: Restrict)
+  registrado_por       Usuario    @relation("RegistradorEncaminhamento", fields: [registrado_por_id], references: [id], onDelete: Restrict)
+
+  @@index([ocorrencia_id])
+  // "Ver ocorrências encaminhadas a si" (matriz de permissões, RN01)
+  @@index([destinatario_usuario_id])
+  @@index([registrado_por_id])
+  @@map("encaminhamentos")
+}
+
+// Entidade: Providência (RN04: exigida para encerrar; UC04)
+model Providencia {
+  id                Int      @id @default(autoincrement())
+  ocorrencia_id     Int
+  descricao         String
+  registrado_por_id Int
+  data_hora         DateTime
+
+  ocorrencia     Ocorrencia @relation(fields: [ocorrencia_id], references: [id], onDelete: Restrict)
+  registrado_por Usuario    @relation("RegistradorProvidencia", fields: [registrado_por_id], references: [id], onDelete: Restrict)
+
+  @@index([ocorrencia_id])
+  @@index([registrado_por_id])
+  @@map("providencias")
+}
+
+// Entidade: Comunicação (RF09) — contato externo feito fora do sistema e
+// registrado nele (família, rede de proteção etc.).
+model Comunicacao {
+  id                Int      @id @default(autoincrement())
+  ocorrencia_id     Int
+  destinatario      String
+  meio              String
+  descricao         String
+  registrado_por_id Int
+  data_hora         DateTime
+
+  ocorrencia     Ocorrencia @relation(fields: [ocorrencia_id], references: [id], onDelete: Restrict)
+  registrado_por Usuario    @relation("RegistradorComunicacao", fields: [registrado_por_id], references: [id], onDelete: Restrict)
+
+  @@index([ocorrencia_id])
+  @@index([registrado_por_id])
+  @@map("comunicacoes")
+}
+
+// Entidade: HistóricoOcorrência (RN08, RF12)
+model HistoricoOcorrencia {
+  id            Int      @id @default(autoincrement())
+  ocorrencia_id Int
+  usuario_id    Int
+  acao          String
+  descricao     String?
+  data_hora     DateTime @default(now()) // RN08: data/hora em que a alteração foi registrada
+
+  ocorrencia Ocorrencia @relation(fields: [ocorrencia_id], references: [id], onDelete: Restrict)
+  usuario    Usuario    @relation("UsuarioHistoricoOcorrencia", fields: [usuario_id], references: [id], onDelete: Restrict)
+
+  @@index([ocorrencia_id])
+  @@index([usuario_id])
+  @@map("historicos_ocorrencia")
+}
+
+// Entidade: LogAuditoria (RNF04). usuario_id é opcional na Seção 11
+// (ex.: ação sem usuário autenticado).
+model LogAuditoria {
+  id         Int      @id @default(autoincrement())
+  usuario_id Int?
+  acao       String
+  recurso    String
+  data_hora  DateTime @default(now()) // RNF04: momento em que a atividade foi registrada
+
+  usuario Usuario? @relation("UsuarioLogAuditoria", fields: [usuario_id], references: [id], onDelete: Restrict)
+
+  @@index([usuario_id])
+  @@map("logs_auditoria")
 }
