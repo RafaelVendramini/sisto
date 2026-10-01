@@ -1,0 +1,14 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+
+# Variáveis de ambiente (o .env.example continua versionado)
+.env
+.env.*
+!.env.example
+
+# Logs e cobertura
+*.log
+coverage/

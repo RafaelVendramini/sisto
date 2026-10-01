@@ -1,0 +1,136 @@
+/* Estilos globais do Sisto. Layout mobile-first (RNF01). */
+:root {
+  --cor-primaria: #88185d;
+  --cor-destaque: #e6371e;
+  --cor-texto: #1f2430;
+  --cor-texto-secundario: #5b6575;
+  --cor-fundo: #f6f2f5;
+  --cor-superficie: #ffffff;
+  --cor-borda: #e3d6de;
+  --raio: 8px;
+  --largura-maxima: 1100px;
+
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--cor-texto);
+  background-color: var(--cor-fundo);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  color: var(--cor-primaria);
+}
+
+p {
+  margin: 0 0 0.5rem;
+}
+
+.texto-secundario {
+  color: var(--cor-texto-secundario);
+}
+
+/* Layout */
+.layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.layout__container {
+  width: 100%;
+  max-width: var(--largura-maxima);
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.layout__cabecalho {
+  background-color: var(--cor-superficie);
+  border-bottom: 4px solid var(--cor-primaria);
+}
+
+.layout__cabecalho-conteudo {
+  display: flex;
+  align-items: center;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.layout__logo {
+  display: block;
+  height: 48px;
+  width: auto;
+}
+
+.layout__principal {
+  flex: 1;
+  padding: 1.5rem 0;
+}
+
+.layout__rodape {
+  padding: 1rem 0;
+  font-size: 0.875rem;
+  text-align: center;
+  color: var(--cor-texto-secundario);
+  border-top: 1px solid var(--cor-borda);
+}
+
+/* Componentes simples */
+.cartao {
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-top: 4px solid var(--cor-destaque);
+  border-radius: var(--raio);
+  padding: 1.25rem;
+}
+
+/* Tablet */
+@media (min-width: 600px) {
+  .layout__container {
+    padding: 0 1.5rem;
+  }
+
+  .layout__logo {
+    height: 56px;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  .cartao {
+    padding: 1.75rem;
+  }
+}
+
+/* Computador */
+@media (min-width: 1024px) {
+  .layout__principal {
+    padding: 2.5rem 0;
+  }
+
+  .layout__logo {
+    height: 64px;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+}
