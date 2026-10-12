@@ -10,6 +10,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
+import { ErroHttp } from '../lib/erros.js';
 import { normalizarEmail } from './email.js';
 import { TAMANHO_MAXIMO_BYTES_SENHA } from './senha.js';
 
@@ -35,16 +36,6 @@ export const MENSAGEM_CREDENCIAIS_INVALIDAS = 'E-mail ou senha inválidos.';
  * e-mails cadastrados pelo tempo de resposta).
  */
 const HASH_FICTICIO = '$2b$12$T4ZmNL05v6MM5lGoIa2rV.F/Z.6QkBQ1rhDadDO4.pDyABQq02AqC';
-
-/** Erro de negócio com status HTTP; a mensagem é segura para o cliente. */
-export class ErroHttp extends Error {
-  constructor(status, mensagem) {
-    super(mensagem);
-    this.name = 'ErroHttp';
-    this.status = status;
-    this.expose = true;
-  }
-}
 
 /**
  * Lê e valida o segredo do JWT. Lança erro comum (vira 500 genérico no
