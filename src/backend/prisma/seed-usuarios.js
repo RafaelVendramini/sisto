@@ -19,6 +19,10 @@
 //   não reative usuário bloqueado/desativado nem troque senha em produção.
 //   Só os usuários ausentes são criados.
 import { gerarHashSenha, mensagemPoliticaSenha, CUSTO_BCRYPT } from '../src/services/senha.js';
+import { normalizarEmail } from '../src/services/email.js';
+
+// Reexportado para manter a API pública deste módulo (usada nos testes do seed).
+export { normalizarEmail };
 
 /**
  * Erro de validação do próprio seed (variáveis de ambiente). A mensagem é
@@ -67,11 +71,6 @@ const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Em produção o seed cria somente o usuário de Gestão. */
 export function ehProducao(env) {
   return env.NODE_ENV === 'production';
-}
-
-/** Normaliza e-mail: remove espaços nas pontas e converte para minúsculas (RF02). */
-export function normalizarEmail(email) {
-  return String(email).trim().toLowerCase();
 }
 
 /**
