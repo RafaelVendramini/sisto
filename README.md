@@ -29,7 +29,7 @@
 | **Cliente (Nome/Razão Social)** | Escola Estadual José Carlos Nogueira Reverendo – Professor |
 | **CPF/CNPJ**                    | Não informado (unidade da rede estadual de ensino de São Paulo) |
 | **Contato**                     | Suzany Sturaro (Diretora de Escola) e Anderson (Professor) |
-| **E-mail**                      | [e-mail fornecido à equipe] |
+| **E-mail**                      | [e-mail fornecido à equipe] (Prof. Anderson) |
 
 ---
 
@@ -42,8 +42,10 @@ Desenvolver uma aplicação web responsiva para registro, encaminhamento, acompa
 ## Tecnologias
 
 * **Linguagem:** JavaScript (Node.js e navegador)
-* **Framework:** Express (API REST) e React + Vite (front-end); Prisma ORM; testes com Vitest
-* **Banco de Dados:** PostgreSQL
+* **Framework:** Express (API REST) e React + Vite (front-end web responsivo)
+* **Banco de Dados:** PostgreSQL, com acesso via Prisma ORM
+* **Autenticação:** JWT, com senhas armazenadas com hash (bcrypt)
+* **Testes:** Vitest (com Supertest no back-end e Testing Library no front-end)
 * **Gerenciador de Dependências:** npm
 * **Ferramenta(s) de IA:** Claude Code (CLI, com equipe de agentes definida em `CLAUDE.md`) e IA conversacional
 
