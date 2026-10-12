@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import rotasAuth from './auth.js';
+import rotasUsuarios from './usuarios.js';
 import { exigirAutenticacao } from '../middlewares/autenticacao.js';
 import { rotaNaoEncontrada } from '../middlewares/erros.js';
 
@@ -24,6 +25,9 @@ rotas.use('/auth', rotasAuth, rotaNaoEncontrada);
  */
 export const protegidas = Router();
 protegidas.use(exigirAutenticacao);
+
+// Rotas de negócio (Seção 12).
+protegidas.use('/usuarios', rotasUsuarios);
 
 rotas.use(protegidas);
 
