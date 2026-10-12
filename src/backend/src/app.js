@@ -8,6 +8,8 @@ import { rotaNaoEncontrada, tratarErros } from './middlewares/erros.js';
  * @param {object} [opcoes]
  * @param {(app: import('express').Express) => void} [opcoes.registrarRotasExtras]
  *   Permite que os testes registrem rotas auxiliares antes dos tratadores de 404 e de erro.
+ *   Elas ficam DEPOIS do roteador principal e, portanto, já exigem JWT
+ *   (autenticação global de routes/index.js) — como qualquer rota nova.
  */
 export function criarApp({ registrarRotasExtras } = {}) {
   const app = express();

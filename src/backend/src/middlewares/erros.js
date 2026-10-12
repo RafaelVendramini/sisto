@@ -1,3 +1,8 @@
+import { ErroHttp } from '../lib/erros.js';
+
+/** Cabeçalhos (em minúsculas) que um ErroHttp pode definir na resposta. */
+const CABECALHOS_PERMITIDOS = new Set(['www-authenticate']);
+
 /**
  * Responde 404 em JSON para qualquer rota não registrada.
  */
@@ -20,6 +25,15 @@ export function tratarErros(err, req, res, next) {
         : err.expose && err.message
           ? err.message
           : 'Requisição inválida';
+    // Só ErroHttp (src/lib/erros.js) pode definir cabeçalhos, e apenas os da
+    // lista permitida (ex.: WWW-Authenticate no 401); os demais são ignorados.
+    if (err instanceof ErroHttp && err.cabecalhos) {
+      for (const [nome, valor] of Object.entries(err.cabecalhos)) {
+        if (CABECALHOS_PERMITIDOS.has(nome.toLowerCase()) && typeof valor === 'string') {
+          res.set(nome, valor);
+        }
+      }
+    }
     return res.status(status).json({ erro: mensagem });
   }
 
