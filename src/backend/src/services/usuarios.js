@@ -1,4 +1,4 @@
-// Cadastro e listagem de usuários — Sisto (Issue #12).
+// Cadastro, listagem e edição de usuários — Sisto (Issues #12 e #13).
 //
 // - RF01: cadastro de usuários autorizados com perfil e senha temporária.
 // - RN10: senha temporária com no mínimo 8 caracteres (definida pela Gestão);
@@ -8,7 +8,15 @@
 // - RNF06: nenhuma resposta inclui senha_hash (select explícito); nada de
 //   senha ou e-mail em mensagens de erro ou logs.
 // - RN01: a restrição ao perfil GESTAO é aplicada nas rotas (permitirPerfis).
-import { Perfil, StatusUsuario } from '@prisma/client';
+//
+// Edição, bloqueio, desativação e reativação (Issue #13):
+// - RF04 / RN07: status ATIVO, BLOQUEADO ou DESATIVADO; reativar = voltar a
+//   ATIVO. O usuário nunca é excluído (não há DELETE).
+// - RN09: o corte imediato do acesso vem do middleware de autenticação (#11),
+//   que consulta o status no banco a cada requisição.
+// - RN11 (SSD v1.3): o sistema mantém
+//   sempre ao menos um usuário GESTAO com status ATIVO.
+import { Perfil, Prisma, StatusUsuario } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
 import { normalizarEmail } from './email.js';
@@ -55,6 +63,35 @@ function ehTextoPreenchido(valor) {
   return typeof valor === 'string' && valor.trim() !== '';
 }
 
+// Validações por campo, compartilhadas entre o cadastro (#12) e a edição (#13).
+// Recebem um valor já verificado como texto não vazio (o cadastro verifica
+// isso antes, para listar todos os campos ausentes de uma vez).
+
+/** Nome: trim e limite técnico de tamanho. @returns {string} nome sem espaços nas pontas */
+function validarNome(nome) {
+  const nomeLimpo = nome.trim();
+  if (nomeLimpo.length > TAMANHO_MAXIMO_NOME) {
+    throw new ErroHttp(400, `O nome deve ter no máximo ${TAMANHO_MAXIMO_NOME} caracteres.`);
+  }
+  return nomeLimpo;
+}
+
+/** E-mail: normaliza (trim + minúsculas) e valida formato e tamanho. @returns {string} */
+function validarEmail(email) {
+  const emailNormalizado = normalizarEmail(email);
+  if (emailNormalizado.length > TAMANHO_MAXIMO_EMAIL || !REGEX_EMAIL.test(emailNormalizado)) {
+    throw new ErroHttp(400, 'Informe um e-mail em formato válido.');
+  }
+  return emailNormalizado;
+}
+
+/** Perfil: somente os valores exatos do enum Perfil. */
+function validarPerfil(perfil) {
+  if (!PERFIS_VALIDOS.includes(perfil)) {
+    throw new ErroHttp(400, `Perfil inválido. Valores aceitos: ${PERFIS_VALIDOS.join(', ')}.`);
+  }
+}
+
 /**
  * Valida e normaliza o corpo do cadastro.
  * @param {unknown} corpo
@@ -79,19 +116,9 @@ export function validarCadastroUsuario(corpo) {
     throw new ErroHttp(400, `Informe ${faltando.join(', ')} (texto não vazio).`);
   }
 
-  const nomeLimpo = nome.trim();
-  if (nomeLimpo.length > TAMANHO_MAXIMO_NOME) {
-    throw new ErroHttp(400, `O nome deve ter no máximo ${TAMANHO_MAXIMO_NOME} caracteres.`);
-  }
-
-  const emailNormalizado = normalizarEmail(email);
-  if (emailNormalizado.length > TAMANHO_MAXIMO_EMAIL || !REGEX_EMAIL.test(emailNormalizado)) {
-    throw new ErroHttp(400, 'Informe um e-mail em formato válido.');
-  }
-
-  if (!PERFIS_VALIDOS.includes(perfil)) {
-    throw new ErroHttp(400, `Perfil inválido. Valores aceitos: ${PERFIS_VALIDOS.join(', ')}.`);
-  }
+  const nomeLimpo = validarNome(nome);
+  const emailNormalizado = validarEmail(email);
+  validarPerfil(perfil);
 
   const problemaSenha = mensagemPoliticaSenha(senha);
   if (problemaSenha) {
@@ -150,4 +177,200 @@ export async function listarUsuarios({ db = prisma } = {}) {
     select: SELECAO_USUARIO_PUBLICO,
     orderBy: [{ nome: 'asc' }, { id: 'asc' }],
   });
+}
+
+// ---------------------------------------------------------------------------
+// Edição (PUT /usuarios/{id}) — Issue #13
+// ---------------------------------------------------------------------------
+
+/**
+ * Campos aceitos no corpo do PUT /usuarios/{id}. Outros campos (id,
+ * senha, senha_hash...) são IGNORADOS, como no cadastro; a troca de senha
+ * não faz parte desta Story.
+ */
+export const CAMPOS_EDICAO = Object.freeze(['nome', 'email', 'perfil', 'status']);
+
+/** Status aceitos: os valores do enum StatusUsuario (ATIVO, BLOQUEADO, DESATIVADO). */
+export const STATUS_VALIDOS = Object.freeze(Object.values(StatusUsuario));
+
+/** Maior valor de uma coluna Int do PostgreSQL (tipo do id, Seção 11). */
+const MAIOR_ID = 2_147_483_647;
+
+/** Tentativas da transação serializável antes de desistir com 409. */
+const TENTATIVAS_TRANSACAO = 3;
+
+export const MENSAGEM_ID_INVALIDO = 'Identificador de usuário inválido.';
+export const MENSAGEM_USUARIO_NAO_ENCONTRADO = 'Usuário não encontrado.';
+export const MENSAGEM_ALTERAR_PROPRIO_ACESSO =
+  'Você não pode bloquear, desativar ou alterar o perfil do seu próprio usuário.';
+export const MENSAGEM_ULTIMA_GESTAO_ATIVA =
+  'O sistema precisa manter ao menos um usuário da Gestão ativo. Ative ou cadastre outro usuário da Gestão antes desta alteração.';
+export const MENSAGEM_CONFLITO_CONCORRENTE =
+  'O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.';
+
+/**
+ * Converte o id da URL. Aceita apenas inteiro positivo em notação decimal
+ * simples ("1", "42"), dentro do limite do Int do banco.
+ * @param {unknown} valor
+ * @returns {number}
+ * @throws {ErroHttp} 400
+ */
+export function validarIdUsuario(valor) {
+  if (typeof valor !== 'string' || !/^[1-9][0-9]{0,9}$/.test(valor)) {
+    throw new ErroHttp(400, MENSAGEM_ID_INVALIDO);
+  }
+  const id = Number(valor);
+  if (id > MAIOR_ID) {
+    throw new ErroHttp(400, MENSAGEM_ID_INVALIDO);
+  }
+  return id;
+}
+
+/**
+ * Valida e normaliza o corpo da edição. Cada campo é opcional, mas ao menos
+ * um dos CAMPOS_EDICAO deve vir; um campo presente (inclusive null) é
+ * validado com as mesmas regras do cadastro.
+ * @param {unknown} corpo
+ * @returns {{ nome?: string, email?: string, perfil?: string, status?: string }}
+ * @throws {ErroHttp} 400 (a mensagem nunca contém o e-mail enviado)
+ */
+export function validarEdicaoUsuario(corpo) {
+  if (!corpo || typeof corpo !== 'object' || Array.isArray(corpo)) {
+    throw new ErroHttp(
+      400,
+      `Envie um objeto JSON com ao menos um dos campos: ${CAMPOS_EDICAO.join(', ')}.`,
+    );
+  }
+
+  const presentes = CAMPOS_EDICAO.filter((campo) => corpo[campo] !== undefined);
+  if (presentes.length === 0) {
+    throw new ErroHttp(400, `Informe ao menos um dos campos: ${CAMPOS_EDICAO.join(', ')}.`);
+  }
+
+  // Somente os CAMPOS_EDICAO são lidos; qualquer outro é ignorado.
+  const { nome, email, perfil, status } = corpo;
+  const dados = {};
+
+  if (nome !== undefined) {
+    if (!ehTextoPreenchido(nome)) throw new ErroHttp(400, 'Informe nome (texto não vazio).');
+    dados.nome = validarNome(nome);
+  }
+  if (email !== undefined) {
+    if (!ehTextoPreenchido(email)) throw new ErroHttp(400, 'Informe email (texto não vazio).');
+    dados.email = validarEmail(email);
+  }
+  if (perfil !== undefined) {
+    validarPerfil(perfil);
+    dados.perfil = perfil;
+  }
+  if (status !== undefined) {
+    if (!STATUS_VALIDOS.includes(status)) {
+      throw new ErroHttp(400, `Status inválido. Valores aceitos: ${STATUS_VALIDOS.join(', ')}.`);
+    }
+    dados.status = status;
+  }
+
+  return dados;
+}
+
+function ehGestaoAtiva({ perfil, status }) {
+  return perfil === Perfil.GESTAO && status === StatusUsuario.ATIVO;
+}
+
+/**
+ * Verificações que dependem do banco + atualização, dentro da transação.
+ * @param {object} tx client da transação
+ * @param {number} id
+ * @param {object} dados campos já validados
+ */
+async function verificarEAtualizar(tx, id, dados) {
+  const atual = await tx.usuario.findUnique({
+    where: { id },
+    select: { id: true, email: true, perfil: true, status: true },
+  });
+  if (!atual) {
+    throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
+  }
+
+  // E-mail único: manter o próprio e-mail não é conflito.
+  if (dados.email !== undefined && dados.email !== atual.email) {
+    const dono = await tx.usuario.findUnique({
+      where: { email: dados.email },
+      select: { id: true },
+    });
+    if (dono && dono.id !== id) {
+      throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO);
+    }
+  }
+
+  // Ao menos um GESTAO ATIVO: se este usuário é Gestão ativa e deixaria de
+  // ser (rebaixado, bloqueado ou desativado), precisa existir outro.
+  const depois = {
+    perfil: dados.perfil ?? atual.perfil,
+    status: dados.status ?? atual.status,
+  };
+  if (ehGestaoAtiva(atual) && !ehGestaoAtiva(depois)) {
+    const outrasGestoesAtivas = await tx.usuario.count({
+      where: { perfil: Perfil.GESTAO, status: StatusUsuario.ATIVO, id: { not: id } },
+    });
+    if (outrasGestoesAtivas === 0) {
+      throw new ErroHttp(409, MENSAGEM_ULTIMA_GESTAO_ATIVA);
+    }
+  }
+
+  return tx.usuario.update({ where: { id }, data: dados, select: SELECAO_USUARIO_PUBLICO });
+}
+
+/**
+ * Edita um usuário: nome, e-mail, perfil e/ou status (RF01, RF04, RN07).
+ *
+ * Concorrência: a leitura, as verificações (e-mail único, última Gestão
+ * ativa) e o update rodam numa transação SERIALIZABLE. Duas edições
+ * simultâneas que, juntas, deixariam o sistema sem Gestão ativa (ex.: cada
+ * uma rebaixa uma das duas únicas Gestões) não passam ambas: o PostgreSQL
+ * aborta uma delas (SQLSTATE 40001, que o Prisma expõe como P2034); ela é
+ * repetida e então esbarra na regra. Esgotadas as tentativas, responde 409.
+ *
+ * @param {unknown} idUrl id recebido na URL (texto)
+ * @param {unknown} corpo corpo da requisição
+ * @param {{ id: number, perfil: string }} solicitante usuário autenticado (req.usuario)
+ * @param {object} [deps]
+ * @param {object} [deps.db] client Prisma (injetável em testes)
+ * @returns {Promise<{ id: number, nome: string, email: string, perfil: string, status: string }>}
+ * @throws {ErroHttp} 400 (dados/id inválidos), 404 (inexistente) ou 409 (conflito)
+ */
+export async function atualizarUsuario(idUrl, corpo, solicitante, { db = prisma } = {}) {
+  const id = validarIdUsuario(idUrl);
+  const dados = validarEdicaoUsuario(corpo);
+
+  // RN11: a Gestão não bloqueia/desativa a si mesma nem muda o próprio
+  // perfil. Editar o próprio nome/e-mail é permitido, e reenviar o valor
+  // atual (perfil GESTAO, status ATIVO) não muda nada e é aceito.
+  if (solicitante?.id === id) {
+    const mudaPerfil = dados.perfil !== undefined && dados.perfil !== solicitante.perfil;
+    const perdeAcesso = dados.status !== undefined && dados.status !== StatusUsuario.ATIVO;
+    if (mudaPerfil || perdeAcesso) {
+      throw new ErroHttp(409, MENSAGEM_ALTERAR_PROPRIO_ACESSO);
+    }
+  }
+
+  for (let tentativa = 1; ; tentativa += 1) {
+    try {
+      return await db.$transaction((tx) => verificarEAtualizar(tx, id, dados), {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (erro) {
+      if (erro instanceof ErroHttp) throw erro;
+      // Corrida com outro cadastro/edição usando o mesmo e-mail.
+      if (ehViolacaoDeUnicidade(erro)) throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO);
+      // Registro inexistente no update (ex.: removido direto no banco).
+      if (erro?.code === 'P2025') throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
+      // Conflito de serialização/escrita: repete a transação.
+      if (erro?.code === 'P2034') {
+        if (tentativa < TENTATIVAS_TRANSACAO) continue;
+        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE);
+      }
+      throw erro;
+    }
+  }
 }

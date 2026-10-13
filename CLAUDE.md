@@ -37,7 +37,7 @@ src/
 │   │   ├── routes/      # endpoints (Seção 12 do SSD)
 │   │   ├── middlewares/ # auth JWT, permissão por perfil (RN01/RF14), erros
 │   │   ├── controllers/ # entrada/saída HTTP, sem regra de negócio
-│   │   ├── services/    # regras de negócio (RN01–RN10), histórico, auditoria
+│   │   ├── services/    # regras de negócio (RN01–RN11), histórico, auditoria
 │   │   └── app.js
 │   └── tests/
 └── frontend/
