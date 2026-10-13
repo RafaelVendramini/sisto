@@ -1,0 +1,250 @@
+import { useRef, useState } from 'react';
+import { ROTULOS_PERFIL } from '../services/perfis.js';
+import { cadastrarUsuario } from '../services/usuarios.js';
+import CampoSenha from './CampoSenha.jsx';
+
+export const TAMANHO_MAXIMO_NOME = 150;
+export const TAMANHO_MINIMO_SENHA = 8; // RN10
+export const TAMANHO_MAXIMO_SENHA_BYTES = 72; // limite do bcrypt no back-end
+export const TAMANHO_MAXIMO_EMAIL = 254;
+
+const MENSAGEM_EMAIL_DUPLICADO = 'Já existe um usuário cadastrado com este e-mail.';
+const MENSAGEM_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
+const MENSAGEM_SEM_CONEXAO =
+  'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
+const MENSAGEM_GENERICA = 'Não foi possível cadastrar o usuário agora. Tente novamente em instantes.';
+
+// Mesmo formato aceito pelo back-end (algo@dominio.ext, sem pontos seguidos no
+// domínio); a validação definitiva continua sendo a do back-end.
+const FORMATO_EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+
+const VAZIO = { nome: '', email: '', perfil: '', senha: '' };
+const ORDEM_CAMPOS = ['nome', 'email', 'perfil', 'senha'];
+
+function tamanhoEmBytes(texto) {
+  return new TextEncoder().encode(texto).length;
+}
+
+/** Valida os dados na tela antes do envio (RN10). Retorna { campo: mensagem }. */
+export function validarCadastro({ nome, email, perfil, senha }) {
+  const erros = {};
+  const nomeLimpo = nome.trim();
+  const emailLimpo = email.trim();
+
+  if (!nomeLimpo) erros.nome = 'Informe o nome.';
+  else if (nomeLimpo.length > TAMANHO_MAXIMO_NOME) {
+    erros.nome = `O nome deve ter no máximo ${TAMANHO_MAXIMO_NOME} caracteres.`;
+  }
+
+  if (!emailLimpo) erros.email = 'Informe o e-mail.';
+  else if (emailLimpo.length > TAMANHO_MAXIMO_EMAIL) {
+    erros.email = `O e-mail deve ter no máximo ${TAMANHO_MAXIMO_EMAIL} caracteres.`;
+  } else if (!FORMATO_EMAIL.test(emailLimpo)) {
+    erros.email = 'Informe um e-mail em formato válido (ex.: nome@escola.com).';
+  }
+
+  if (!perfil) erros.perfil = 'Selecione o perfil.';
+  else if (!Object.hasOwn(ROTULOS_PERFIL, perfil)) erros.perfil = 'Selecione um perfil da lista.';
+
+  if (!senha) erros.senha = 'Informe a senha temporária.';
+  else if (senha.length < TAMANHO_MINIMO_SENHA) {
+    erros.senha = `A senha deve ter no mínimo ${TAMANHO_MINIMO_SENHA} caracteres.`;
+  } else if (tamanhoEmBytes(senha) > TAMANHO_MAXIMO_SENHA_BYTES) {
+    erros.senha =
+      'A senha está muito longa. Use no máximo 72 caracteres (letras acentuadas contam como 2).';
+  }
+
+  return erros;
+}
+
+/**
+ * Formulário "Cadastrar usuário" (RF01, RN10). Envia POST /usuarios e avisa
+ * a página pelo `aoCadastrar` com o usuário criado (sem a senha).
+ * A senha temporária fica apenas no estado do campo e é apagada após o sucesso.
+ */
+export default function FormularioUsuario({ aoCadastrar }) {
+  const [dados, setDados] = useState(VAZIO);
+  const [errosCampos, setErrosCampos] = useState({});
+  const [erro, setErro] = useState('');
+  const [sucesso, setSucesso] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+
+  const refs = {
+    nome: useRef(null),
+    email: useRef(null),
+    perfil: useRef(null),
+    senha: useRef(null),
+  };
+
+  function alterar(campo) {
+    return (evento) => setDados((atual) => ({ ...atual, [campo]: evento.target.value }));
+  }
+
+  function focarPrimeiroInvalido(erros) {
+    const campo = ORDEM_CAMPOS.find((nome) => erros[nome]);
+    if (campo) refs[campo].current?.focus();
+  }
+
+  async function aoEnviar(evento) {
+    evento.preventDefault();
+    if (enviando) return;
+
+    setErro('');
+    setSucesso('');
+    const novosErros = validarCadastro(dados);
+    setErrosCampos(novosErros);
+    if (Object.keys(novosErros).length > 0) {
+      focarPrimeiroInvalido(novosErros);
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      const criado = await cadastrarUsuario({
+        nome: dados.nome.trim(),
+        email: dados.email.trim(),
+        perfil: dados.perfil,
+        senha: dados.senha,
+      });
+      setDados(VAZIO);
+      setMostrarSenha(false);
+      setSucesso(`Usuário ${criado?.nome ?? dados.nome.trim()} cadastrado com sucesso.`);
+      aoCadastrar?.(criado);
+      refs.nome.current?.focus();
+    } catch (falha) {
+      const status = falha?.status;
+      if (status === 401) return; // tratamento central: volta ao login com aviso
+      if (status === 409) {
+        const errosApi = { email: MENSAGEM_EMAIL_DUPLICADO };
+        setErrosCampos(errosApi);
+        focarPrimeiroInvalido(errosApi);
+      } else if (status === 400 && falha?.doServidor && falha?.message) {
+        setErro(falha.message);
+      } else if (status === 403) {
+        setErro(MENSAGEM_SEM_PERMISSAO);
+      } else if (status === 0) {
+        setErro(MENSAGEM_SEM_CONEXAO);
+      } else {
+        setErro(MENSAGEM_GENERICA);
+      }
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  function propsAcessibilidade(campo, ajuda) {
+    const descricoes = [ajuda, errosCampos[campo] ? `usuario-${campo}-erro` : null].filter(Boolean);
+    return {
+      'aria-invalid': Boolean(errosCampos[campo]),
+      'aria-describedby': descricoes.length > 0 ? descricoes.join(' ') : undefined,
+    };
+  }
+
+  function mensagemCampo(campo) {
+    return (
+      errosCampos[campo] && (
+        <span id={`usuario-${campo}-erro`} className="campo__erro">
+          {errosCampos[campo]}
+        </span>
+      )
+    );
+  }
+
+  return (
+    <>
+      <div role="status" aria-live="polite">
+        {sucesso && <p className="mensagem mensagem--sucesso">{sucesso}</p>}
+      </div>
+
+      {erro && (
+        <p className="mensagem mensagem--erro" role="alert">
+          {erro}
+        </p>
+      )}
+
+      <form
+        className="formulario formulario--usuario"
+        onSubmit={aoEnviar}
+        noValidate
+        aria-busy={enviando}
+        aria-labelledby="titulo-cadastrar-usuario"
+      >
+        <div className="campo">
+          <label htmlFor="usuario-nome">Nome completo</label>
+          <input
+            ref={refs.nome}
+            id="usuario-nome"
+            name="nome"
+            type="text"
+            autoComplete="off"
+            value={dados.nome}
+            onChange={alterar('nome')}
+            {...propsAcessibilidade('nome')}
+          />
+          {mensagemCampo('nome')}
+        </div>
+
+        <div className="campo">
+          <label htmlFor="usuario-email">E-mail</label>
+          <input
+            ref={refs.email}
+            id="usuario-email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="off"
+            value={dados.email}
+            onChange={alterar('email')}
+            {...propsAcessibilidade('email')}
+          />
+          {mensagemCampo('email')}
+        </div>
+
+        <div className="campo">
+          <label htmlFor="usuario-perfil">Perfil</label>
+          <select
+            ref={refs.perfil}
+            id="usuario-perfil"
+            name="perfil"
+            value={dados.perfil}
+            onChange={alterar('perfil')}
+            {...propsAcessibilidade('perfil')}
+          >
+            <option value="">Selecione o perfil</option>
+            {Object.entries(ROTULOS_PERFIL).map(([valor, rotulo]) => (
+              <option key={valor} value={valor}>
+                {rotulo}
+              </option>
+            ))}
+          </select>
+          {mensagemCampo('perfil')}
+        </div>
+
+        <div className="campo">
+          <label htmlFor="usuario-senha">Senha temporária</label>
+          <CampoSenha
+            inputRef={refs.senha}
+            id="usuario-senha"
+            name="senha"
+            autoComplete="off"
+            value={dados.senha}
+            onChange={alterar('senha')}
+            mostrar={mostrarSenha}
+            aoAlternar={() => setMostrarSenha((atual) => !atual)}
+            {...propsAcessibilidade('senha', 'usuario-senha-ajuda')}
+          />
+          <span id="usuario-senha-ajuda" className="campo__ajuda">
+            De {TAMANHO_MINIMO_SENHA} a {TAMANHO_MAXIMO_SENHA_BYTES} caracteres (letras acentuadas
+            contam como 2). Informe essa senha ao novo usuário.
+          </span>
+          {mensagemCampo('senha')}
+        </div>
+
+        <button type="submit" className="botao botao--primario" disabled={enviando}>
+          {enviando ? 'Cadastrando...' : 'Cadastrar usuário'}
+        </button>
+      </form>
+    </>
+  );
+}

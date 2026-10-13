@@ -68,6 +68,7 @@ describe('services/api', () => {
     await expect(promessa).rejects.toMatchObject({
       message: 'E-mail ou senha inválidos.',
       status: 401,
+      doServidor: true,
     });
   });
 
@@ -77,6 +78,7 @@ describe('services/api', () => {
     await expect(api.get('/qualquer')).rejects.toMatchObject({
       message: 'Não foi possível concluir a ação. Tente novamente.',
       status: 500,
+      doServidor: false,
     });
   });
 

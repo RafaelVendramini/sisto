@@ -21,9 +21,10 @@ export function tokenFicticio({ expiraEmSegundos = 8 * 60 * 60 } = {}) {
   return `${base64url({ alg: 'HS256', typ: 'JWT' })}.${base64url({ sub: 1, exp })}.assinatura-ficticia`;
 }
 
-export function gravarSessaoFicticia(opcoes) {
+/** Grava uma sessão fictícia; `usuario` permite simular outros perfis. */
+export function gravarSessaoFicticia({ usuario = USUARIO_FICTICIO, ...opcoes } = {}) {
   const token = tokenFicticio(opcoes);
-  sessionStorage.setItem(CHAVE_SESSAO, JSON.stringify({ token, usuario: USUARIO_FICTICIO }));
+  sessionStorage.setItem(CHAVE_SESSAO, JSON.stringify({ token, usuario }));
   return token;
 }
 

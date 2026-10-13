@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import CampoSenha from '../components/CampoSenha.jsx';
 import { useSessao } from '../components/Sessao.jsx';
 import { estaAutenticado } from '../services/auth.js';
 
@@ -35,6 +36,7 @@ export default function Login() {
   const [errosCampos, setErrosCampos] = useState({});
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   const emailRef = useRef(null);
   const senhaRef = useRef(null);
@@ -78,7 +80,9 @@ export default function Login() {
       navigate(destino, { replace: true });
     } catch (falha) {
       setErro(mensagemDeErro(falha));
+      // Após erro, a senha é apagada e o campo volta a ficar mascarado.
       setSenha('');
+      setMostrarSenha(false);
       setEnviando(false);
       senhaRef.current?.focus();
     }
@@ -123,14 +127,15 @@ export default function Login() {
 
         <div className="campo">
           <label htmlFor="login-senha">Senha</label>
-          <input
-            ref={senhaRef}
+          <CampoSenha
+            inputRef={senhaRef}
             id="login-senha"
             name="senha"
-            type="password"
             autoComplete="current-password"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
+            mostrar={mostrarSenha}
+            aoAlternar={() => setMostrarSenha((atual) => !atual)}
             aria-invalid={Boolean(errosCampos.senha)}
             aria-describedby={errosCampos.senha ? 'login-senha-erro' : undefined}
           />
