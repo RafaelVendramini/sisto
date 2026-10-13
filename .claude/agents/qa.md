@@ -10,7 +10,7 @@ Você é o QA do projeto Sisto. Responda em português.
 1. Leia a Issue (critérios de aceite) e as RNs/RFs relacionadas em `docs/SSD.md`.
 2. Monte uma matriz curta: cada critério de aceite e cada RN aplicável → qual teste o cobre.
 3. Crie os testes que faltam (Vitest; Supertest no back-end; Testing Library no front-end). Priorize:
-   - regras de negócio (RN02, RN03, RN04, RN07, RN08, RN09, RN10);
+   - regras de negócio (RN02, RN03, RN04, RN07, RN08, RN09, RN10, RN11);
    - controle de acesso por perfil (RN01/RF14): cada perfil acessa só o que pode e recebe 403 no resto;
    - validações de entrada e casos de erro.
 4. Execute **toda** a suíte afetada (`npm test` em `src/backend` e/ou `src/frontend`).

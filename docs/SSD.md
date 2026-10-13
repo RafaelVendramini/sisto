@@ -122,6 +122,7 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | RN08   | Toda alteração em uma ocorrência (status, providências, encaminhamentos, comunicações) deve gerar um registro no histórico, com usuário, data/hora e descrição da alteração. |
 | RN09   | Somente usuários com status **ativo** podem autenticar-se e acessar o sistema. O bloqueio ou a desativação corta o acesso imediatamente, inclusive de sessões já abertas (o status é verificado a cada requisição autenticada). |
 | RN10   | Senhas devem ter no mínimo 8 caracteres. No cadastro, a Gestão define uma senha temporária para o novo usuário; não há troca obrigatória no primeiro acesso. |
+| RN11   | O sistema deve manter sempre ao menos um usuário com perfil Gestão e status **ativo**. A Gestão não pode bloquear, desativar ou alterar o próprio perfil, e nenhuma edição pode deixar o sistema sem um usuário Gestão ativo; nesses casos a operação é recusada (HTTP 409). |
 
 ---
 
@@ -180,7 +181,7 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | RF01   | O sistema deve permitir o cadastro de usuários autorizados, com definição de perfil (Professor, Tutor, Gestão, Pedagógico, Técnico-administrativo) e de senha temporária inicial (RN10). |
 | RF02   | O sistema deve permitir autenticação individual por usuário e senha, sendo o e-mail (único) o identificador de login, e o encerramento da sessão (logout). |
 | RF03   | O sistema deve permitir a recuperação de acesso (redefinição de senha). |
-| RF04   | O sistema deve permitir o bloqueio, a desativação e a reativação de usuários (RN07, RN09). |
+| RF04   | O sistema deve permitir o bloqueio, a desativação e a reativação de usuários (RN07, RN09, RN11). |
 | RF05   | O sistema deve permitir o registro de ocorrências com os campos: profissional responsável, data e horário, local, turma, estudante(s) envolvido(s), categoria, descrição, demais envolvidos, testemunhas, providências imediatas, encaminhamentos e observações. |
 | RF06   | O sistema deve permitir o registro de mais de um estudante envolvido em uma mesma ocorrência. |
 | RF07   | O sistema deve permitir a criação e a edição de categorias de ocorrência. |
@@ -232,7 +233,7 @@ O back-end segue arquitetura em camadas:
 * **Routes** — definição dos endpoints
 * **Middlewares** — autenticação (incluindo a verificação, a cada requisição, de que o usuário está ativo — RN09) e verificação de permissão por perfil (RN01, RF14)
 * **Controllers** — recebem as requisições e devolvem as respostas
-* **Services** — regras de negócio (RN01–RN10), histórico e auditoria
+* **Services** — regras de negócio (RN01–RN11), histórico e auditoria
 * **Prisma (camada de dados)** — acesso ao banco de dados
 
 ---
@@ -251,6 +252,8 @@ O back-end segue arquitetura em camadas:
 | senha_hash | String | Sim       |
 | perfil   | String | Sim (Professor, Tutor, Gestão, Pedagógico, Técnico-administrativo) |
 | status   | String | Sim (ativo, bloqueado, desativado) |
+
+> Valores técnicos armazenados e trafegados na API: `perfil` ∈ `PROFESSOR`, `TUTOR`, `GESTAO`, `PEDAGOGICO`, `TECNICO_ADMINISTRATIVO`; `status` ∈ `ATIVO`, `BLOQUEADO`, `DESATIVADO`. O front-end exibe os rótulos amigáveis correspondentes (ex.: "Gestão", "Bloqueado").
 
 ## Entidade: Turma
 
@@ -406,7 +409,8 @@ Observações sobre autenticação:
 * `POST /auth/login` recebe e-mail e senha e devolve um token JWT com validade de 8 horas, sem refresh (RNF03). Somente usuários com status **ativo** autenticam (RN09).
 * O logout (RF02) é feito no front-end, descartando o token; não há endpoint de logout no MVP.
 * O middleware de autenticação consulta o status do usuário no banco a cada requisição; usuário bloqueado ou desativado tem o acesso negado imediatamente (RN09).
-* `POST /usuarios` recebe a senha temporária definida pela Gestão (mínimo de 8 caracteres — RN10). `PUT /usuarios/{id}` permite alterar o status entre ativo, bloqueado e desativado (RF04, RN07).
+* `POST /usuarios` recebe a senha temporária definida pela Gestão (mínimo de 8 caracteres — RN10). `PUT /usuarios/{id}` permite alterar o status entre `ATIVO`, `BLOQUEADO` e `DESATIVADO` (RF04, RN07), usando os valores técnicos da Seção 11.
+* `PUT /usuarios/{id}` responde **409** quando a Gestão tenta bloquear, desativar ou alterar o próprio perfil, ou quando a edição deixaria o sistema sem um usuário Gestão ativo (RN11).
 
 ---
 
@@ -430,6 +434,7 @@ Uma implementação somente poderá ser considerada concluída quando atender ao
 | 1.0    | 17/09/2026 | Criação do SSD com base na proposta de solicitação da EE José Carlos Nogueira Reverendo – Professor |
 | 1.1    | 30/09/2026 | Ajuste do contato; matriz de permissões; cadastro de turmas/estudantes e tutoria (RF15, RF16); RN04 revisada e RN08; modelo de dados completado (campos do RF05, associativa, providências, comunicações, histórico, auditoria); endpoints da API ampliados; arquitetura definida (React + Node.js/Express + PostgreSQL/Prisma) |
 | 1.2    | 30/09/2026 | Decisões do planejamento da Sprint 1: e-mail único como identificador de login e logout no front-end (RF02); senha temporária definida pela Gestão no cadastro (RF01, RN10); bloqueio, desativação e reativação (RF04, RN07); status do usuário ativo/bloqueado/desativado (RN07, Seção 11); bloqueio com corte imediato de acesso (nova RN09); senha com mínimo de 8 caracteres (nova RN10); JWT com expiração de 8h sem refresh (RNF03); ids do tipo Int autoincremento (Seção 11); observações de autenticação na Seção 12 |
+| 1.3    | 12/10/2026 | Decisão da Issue #13: garantia de ao menos um usuário Gestão ativo, com recusa (HTTP 409) de autobloqueio, autodesativação, alteração do próprio perfil e de edições que deixem o sistema sem Gestão ativa (nova RN11; RF04 e Seção 10 atualizados); valores técnicos de `perfil` e `status` do usuário com rótulos amigáveis no front-end (Seção 11); observações do `PUT /usuarios/{id}` na Seção 12 |
 
 ---
 
