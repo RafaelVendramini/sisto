@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { api, requisicao, obterUrlBase, ErroApi } from '../src/services/api.js';
+import {
+  api,
+  requisicao,
+  obterUrlBase,
+  ErroApi,
+  definirAoNaoAutenticado,
+} from '../src/services/api.js';
 
 function respostaFalsa(status, corpo) {
   return {
@@ -81,5 +87,62 @@ describe('services/api', () => {
       message: expect.stringMatching(/não foi possível conectar ao servidor/i),
       status: 0,
     });
+  });
+});
+
+describe('services/api — tratamento central de 401', () => {
+  let remover;
+
+  beforeEach(() => {
+    vi.stubEnv('VITE_API_URL', 'http://api.exemplo.test');
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    remover?.();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('avisa o app quando uma chamada com token recebe 401', async () => {
+    const aoNaoAutenticado = vi.fn();
+    remover = definirAoNaoAutenticado(aoNaoAutenticado);
+    fetch.mockResolvedValue(respostaFalsa(401, { erro: 'Não autenticado. Faça login novamente.' }));
+
+    await expect(api.get('/usuarios', { token: 'token-ficticio' })).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(aoNaoAutenticado).toHaveBeenCalledTimes(1);
+  });
+
+  it('não avisa em 401 sem token (ex.: credenciais inválidas no login)', async () => {
+    const aoNaoAutenticado = vi.fn();
+    remover = definirAoNaoAutenticado(aoNaoAutenticado);
+    fetch.mockResolvedValue(respostaFalsa(401, { erro: 'E-mail ou senha inválidos.' }));
+
+    await expect(api.post('/auth/login', {})).rejects.toMatchObject({ status: 401 });
+    expect(aoNaoAutenticado).not.toHaveBeenCalled();
+  });
+
+  it('não avisa em 403 (perfil sem permissão)', async () => {
+    const aoNaoAutenticado = vi.fn();
+    remover = definirAoNaoAutenticado(aoNaoAutenticado);
+    fetch.mockResolvedValue(respostaFalsa(403, { erro: 'Acesso negado.' }));
+
+    await expect(api.get('/usuarios', { token: 'token-ficticio' })).rejects.toMatchObject({
+      status: 403,
+    });
+    expect(aoNaoAutenticado).not.toHaveBeenCalled();
+  });
+
+  it('rota autenticada sem token: aciona o aviso e não chama a API', async () => {
+    const aoNaoAutenticado = vi.fn();
+    remover = definirAoNaoAutenticado(aoNaoAutenticado);
+
+    await expect(api.get('/usuarios', { autenticada: true })).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(aoNaoAutenticado).toHaveBeenCalledTimes(1);
   });
 });
