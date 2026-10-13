@@ -147,6 +147,55 @@ describe('Tela de login e logout (#14)', () => {
     expect(screen.queryByText(AVISO_SESSAO)).not.toBeInTheDocument();
   });
 
+  it('"Mostrar senha" alterna a senha entre mascarada e visível, sem enviar o formulário', async () => {
+    renderizarApp('/login');
+
+    const { senha } = campos();
+    expect(senha).toHaveAttribute('autocomplete', 'current-password');
+    await usuario.type(senha, SENHA_FICTICIA);
+
+    const mostrar = screen.getByRole('button', { name: 'Mostrar senha' });
+    expect(mostrar).toHaveAttribute('type', 'button');
+    expect(mostrar).toHaveAttribute('aria-controls', 'login-senha');
+    expect(mostrar).toHaveAttribute('aria-pressed', 'false');
+
+    await usuario.click(mostrar);
+    expect(senha).toHaveAttribute('type', 'text');
+    expect(senha).toHaveValue(SENHA_FICTICIA);
+    const ocultar = screen.getByRole('button', { name: 'Ocultar senha' });
+    expect(ocultar).toHaveAttribute('aria-pressed', 'true');
+
+    await usuario.click(ocultar);
+    expect(senha).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('button', { name: 'Mostrar senha' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    // Alternar não envia o formulário nem mostra erros de validação.
+    expect(fetch).not.toHaveBeenCalled();
+    expect(screen.queryByText('Informe o seu e-mail.')).not.toBeInTheDocument();
+  });
+
+  it('após erro de login com a senha visível, apaga a senha e volta a mascarar', async () => {
+    fetch.mockResolvedValue(respostaFalsa(401, { erro: 'E-mail ou senha inválidos.' }));
+    renderizarApp('/login');
+
+    const { email, senha, entrar } = campos();
+    await usuario.type(email, EMAIL_FICTICIO);
+    await usuario.type(senha, SENHA_FICTICIA);
+    await usuario.click(screen.getByRole('button', { name: 'Mostrar senha' }));
+    expect(senha).toHaveAttribute('type', 'text');
+    await usuario.click(entrar);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('E-mail ou senha inválidos.');
+    expect(senha).toHaveValue('');
+    expect(senha).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('button', { name: 'Mostrar senha' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
   it('com falha de rede, mostra mensagem amigável', async () => {
     const consoleErro = vi.spyOn(console, 'error').mockImplementation(() => {});
     fetch.mockRejectedValue(new TypeError('Failed to fetch'));

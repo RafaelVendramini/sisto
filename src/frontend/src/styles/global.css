@@ -235,8 +235,236 @@ p {
   color: var(--cor-texto);
 }
 
+/* Menu principal (cabeçalho) */
+.layout__menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  order: 3;
+  width: 100%;
+}
+
+.layout__menu-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--raio);
+  color: var(--cor-primaria);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.layout__menu-item:hover {
+  background-color: var(--cor-fundo);
+}
+
+.layout__menu-item:focus-visible {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+.layout__menu-item.active {
+  background-color: #f8e9f2;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Utilitário de acessibilidade: visível só para leitores de tela */
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  color: var(--cor-primaria);
+}
+
+/* Campos de seleção e senha com botão mostrar/ocultar */
+.campo select {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--cor-texto);
+  background-color: var(--cor-superficie);
+  border: 1px solid #b9a7b2;
+  border-radius: var(--raio);
+}
+
+.campo select:focus {
+  outline: 3px solid rgba(136, 24, 93, 0.35);
+  border-color: var(--cor-primaria);
+}
+
+.campo select[aria-invalid='true'] {
+  border-color: var(--cor-destaque);
+}
+
+.campo__senha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.campo__senha input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.campo__ajuda {
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+}
+
+.mensagem--sucesso {
+  background-color: #e8f5ec;
+  border-color: #1e7a3c;
+  color: #14532a;
+}
+
+.mensagem .botao {
+  margin-top: 0.5rem;
+}
+
+/* Página de usuários */
+.pagina-usuarios__grade {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.pagina-usuarios__grade > .cartao {
+  min-width: 0;
+}
+
+/* Selo de status (destaque discreto) */
+.selo {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.selo--ativo {
+  background-color: #e8f5ec;
+  border-color: #9fd3ae;
+  color: #14532a;
+}
+
+.selo--bloqueado {
+  background-color: #fdecea;
+  border-color: #f2b2a8;
+  color: #8a1c0c;
+}
+
+.selo--desativado {
+  background-color: #eeeff2;
+  border-color: #c9ccd3;
+  color: #3f4652;
+}
+
+/* Tabela de usuários: no celular, cada linha vira um cartão (RNF01) */
+.tabela-usuarios {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela-usuarios thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.tabela-usuarios tbody,
+.tabela-usuarios tr,
+.tabela-usuarios td {
+  display: block;
+}
+
+.tabela-usuarios tr {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela-usuarios td {
+  padding: 0.125rem 0;
+  overflow-wrap: anywhere;
+}
+
+.tabela-usuarios td::before {
+  content: attr(data-rotulo) ': ';
+  font-weight: 600;
+  color: var(--cor-texto-secundario);
+}
+
+.tabela-usuarios td.tabela-usuarios__nome {
+  font-weight: 600;
+}
+
+.tabela-usuarios td.tabela-usuarios__nome::before {
+  content: none;
+}
+
 /* Tablet */
 @media (min-width: 600px) {
+  .layout__menu {
+    order: 0;
+    width: auto;
+    flex: 1;
+  }
+
+  .tabela-usuarios thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+  }
+
+  .tabela-usuarios {
+    display: table;
+  }
+
+  .tabela-usuarios tbody {
+    display: table-row-group;
+  }
+
+  .tabela-usuarios tr {
+    display: table-row;
+    padding: 0;
+  }
+
+  .tabela-usuarios th,
+  .tabela-usuarios td {
+    display: table-cell;
+    padding: 0.625rem 0.5rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--cor-borda);
+  }
+
+  .tabela-usuarios th {
+    font-size: 0.875rem;
+    color: var(--cor-texto-secundario);
+    border-bottom-width: 2px;
+  }
+
+  .tabela-usuarios td::before {
+    content: none;
+  }
   .layout__container {
     padding: 0 1.5rem;
   }
@@ -270,5 +498,10 @@ p {
 
   h1 {
     font-size: 2rem;
+  }
+
+  .pagina-usuarios__grade {
+    grid-template-columns: minmax(300px, 380px) 1fr;
+    align-items: start;
   }
 }

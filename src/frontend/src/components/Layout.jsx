@@ -1,10 +1,13 @@
-import { rotuloPerfil } from '../services/perfis.js';
+import { NavLink } from 'react-router-dom';
+import { podeGerenciarUsuarios, rotuloPerfil } from '../services/perfis.js';
 import { useSessao } from './Sessao.jsx';
 
 // Layout base responsivo (RNF01): cabeçalho com a marca, área de conteúdo e rodapé.
-// Com usuário logado, o cabeçalho mostra quem está usando e a opção "Sair" (RF02).
+// Com usuário logado, o cabeçalho mostra quem está usando, o menu e a opção "Sair" (RF02).
+// O menu só mostra o que o perfil pode usar (RN01); a proteção real é do back-end.
 export default function Layout({ children }) {
   const { usuario, sair } = useSessao();
+  const veUsuarios = podeGerenciarUsuarios(usuario?.perfil);
 
   return (
     <div className="layout">
@@ -15,6 +18,18 @@ export default function Layout({ children }) {
             src="/logo-sisto.svg"
             alt="Sisto — Gestão de ocorrências escolares"
           />
+          {usuario && (
+            <nav className="layout__menu" aria-label="Menu principal">
+              <NavLink to="/" end className="layout__menu-item">
+                Início
+              </NavLink>
+              {veUsuarios && (
+                <NavLink to="/usuarios" className="layout__menu-item">
+                  Usuários
+                </NavLink>
+              )}
+            </nav>
+          )}
           {usuario && (
             <div className="layout__usuario">
               <span className="layout__usuario-nome">

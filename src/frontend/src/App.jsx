@@ -1,9 +1,12 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
+import RotaPorPerfil from './components/RotaPorPerfil.jsx';
 import RotaProtegida from './components/RotaProtegida.jsx';
 import { SessaoProvider } from './components/Sessao.jsx';
 import Inicio from './pages/Inicio.jsx';
 import Login from './pages/Login.jsx';
+import Usuarios from './pages/Usuarios.jsx';
+import { PERFIS_GESTAO_USUARIOS } from './services/perfis.js';
 
 function LayoutComConteudo() {
   return (
@@ -23,6 +26,9 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<RotaProtegida />}>
             <Route path="/" element={<Inicio />} />
+            <Route element={<RotaPorPerfil perfis={PERFIS_GESTAO_USUARIOS} />}>
+              <Route path="/usuarios" element={<Usuarios />} />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

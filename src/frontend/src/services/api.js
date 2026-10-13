@@ -7,10 +7,16 @@ const MENSAGEM_SEM_CONEXAO =
   'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 
 export class ErroApi extends Error {
-  constructor(mensagem, status) {
+  /**
+   * @param {string} mensagem
+   * @param {number} status - 0 quando não houve resposta (sem conexão)
+   * @param {boolean} [doServidor=false] - true se a mensagem veio do campo `erro` da API
+   */
+  constructor(mensagem, status, doServidor = false) {
     super(mensagem);
     this.name = 'ErroApi';
     this.status = status;
+    this.doServidor = doServidor;
   }
 }
 
@@ -99,11 +105,9 @@ export async function requisicao(
     if (resposta.status === 401 && exigeSessao && aoNaoAutenticado) {
       aoNaoAutenticado();
     }
-    const mensagem =
-      dados && typeof dados.erro === 'string' && dados.erro
-        ? dados.erro
-        : MENSAGEM_PADRAO;
-    throw new ErroApi(mensagem, resposta.status);
+    const doServidor = Boolean(dados && typeof dados.erro === 'string' && dados.erro);
+    const mensagem = doServidor ? dados.erro : MENSAGEM_PADRAO;
+    throw new ErroApi(mensagem, resposta.status, doServidor);
   }
 
   return dados;
