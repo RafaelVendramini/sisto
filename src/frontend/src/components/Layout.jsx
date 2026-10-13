@@ -1,5 +1,11 @@
+import { rotuloPerfil } from '../services/perfis.js';
+import { useSessao } from './Sessao.jsx';
+
 // Layout base responsivo (RNF01): cabeçalho com a marca, área de conteúdo e rodapé.
+// Com usuário logado, o cabeçalho mostra quem está usando e a opção "Sair" (RF02).
 export default function Layout({ children }) {
+  const { usuario, sair } = useSessao();
+
   return (
     <div className="layout">
       <header className="layout__cabecalho">
@@ -9,6 +15,17 @@ export default function Layout({ children }) {
             src="/logo-sisto.svg"
             alt="Sisto — Gestão de ocorrências escolares"
           />
+          {usuario && (
+            <div className="layout__usuario">
+              <span className="layout__usuario-nome">
+                {usuario.nome}
+                <span className="layout__usuario-perfil"> · {rotuloPerfil(usuario.perfil)}</span>
+              </span>
+              <button type="button" className="botao botao--secundario" onClick={sair}>
+                Sair
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
