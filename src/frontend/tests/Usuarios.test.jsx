@@ -147,12 +147,15 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
 
       const tabela = screen.getByRole('table');
       const cabecalhos = within(tabela).getAllByRole('columnheader').map((th) => th.textContent);
-      expect(cabecalhos).toEqual(['Nome', 'E-mail', 'Perfil', 'Status']);
+      expect(cabecalhos).toEqual(['Nome', 'E-mail', 'Perfil', 'Status', 'Ações']);
 
       const linhas = within(tabela).getAllByRole('row').slice(1);
       expect(linhas).toHaveLength(3);
       const celulas = linhas.map((linha) =>
-        within(linha).getAllByRole('cell').map((td) => td.textContent),
+        within(linha)
+          .getAllByRole('cell')
+          .slice(0, 4)
+          .map((td) => td.textContent),
       );
       expect(celulas).toEqual([
         ['Maria Fictícia', 'maria@sisto.exemplo', 'Gestão', 'Ativo'],
@@ -290,12 +293,13 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
       const mostrar = screen.getByRole('button', { name: 'Mostrar senha' });
       expect(mostrar).toHaveAttribute('type', 'button');
       expect(mostrar).toHaveAttribute('aria-controls', 'usuario-senha');
-      expect(mostrar).toHaveAttribute('aria-pressed', 'false');
+      expect(mostrar).not.toHaveAttribute('aria-pressed');
+      expect(mostrar).toHaveAttribute('title', 'Mostrar senha');
       await usuario.click(mostrar);
       expect(senha).toHaveAttribute('type', 'text');
       expect(screen.getByRole('button', { name: 'Ocultar senha' })).toHaveAttribute(
-        'aria-pressed',
-        'true',
+        'title',
+        'Ocultar senha',
       );
       await usuario.click(screen.getByRole('button', { name: 'Ocultar senha' }));
       expect(senha).toHaveAttribute('type', 'password');
@@ -446,7 +450,12 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
         'Paulo Exemplo',
         'Rita Teste',
       ]);
-      expect(within(linhas[0]).getAllByRole('cell').map((td) => td.textContent)).toEqual([
+      expect(
+        within(linhas[0])
+          .getAllByRole('cell')
+          .slice(0, 4)
+          .map((td) => td.textContent),
+      ).toEqual([
         'Bruno Ficcional',
         'bruno@sisto.exemplo',
         'Professor',

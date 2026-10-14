@@ -1,10 +1,10 @@
 // Módulo base para chamadas à API do Sisto.
 // A URL vem da variável de ambiente VITE_API_URL (ver .env.example); nunca fica fixa no código.
 
+import { MENSAGEM_SEM_CONEXAO } from './mensagens.js';
+
 const MENSAGEM_PADRAO = 'Não foi possível concluir a ação. Tente novamente.';
 const MENSAGEM_SESSAO_INVALIDA = 'Não autenticado. Faça login novamente.';
-const MENSAGEM_SEM_CONEXAO =
-  'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 
 export class ErroApi extends Error {
   /**

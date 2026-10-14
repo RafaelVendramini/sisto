@@ -95,6 +95,21 @@ export async function login(email, senha) {
   return usuario;
 }
 
+/**
+ * Atualiza o nome do usuário logado guardado na sessão (ex.: a Gestão editou
+ * o próprio nome — RF04). Mantém o mesmo token; nenhum outro dado é guardado.
+ * @param {string} nome
+ * @returns {{ id: number, nome: string, perfil: string } | null} usuário atualizado
+ */
+export function atualizarNomeNaSessao(nome) {
+  const sessao = obterSessao();
+  if (!sessao || typeof nome !== 'string' || !nome) return null;
+  const { id, perfil } = sessao.usuario;
+  const usuario = { id, nome, perfil };
+  gravarArmazenamento({ token: sessao.token, usuario });
+  return usuario;
+}
+
 /** Logout no front-end (não há endpoint de logout — SSD, Seção 12). */
 export function logout() {
   limparArmazenamento();

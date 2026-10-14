@@ -34,6 +34,12 @@ export function SessaoProvider({ children }) {
     setAviso(avisar ? AVISO_SESSAO_ENCERRADA : '');
   }, []);
 
+  // Reflete na hora (ex.: cabeçalho) a edição do próprio nome pela Gestão.
+  const atualizarNomeUsuario = useCallback((nome) => {
+    const atualizado = auth.atualizarNomeNaSessao(nome);
+    if (atualizado) setUsuario(atualizado);
+  }, []);
+
   const sair = useCallback(() => {
     limparSessao(false);
     navigate('/login', { replace: true });
@@ -47,8 +53,8 @@ export function SessaoProvider({ children }) {
   }, [limparSessao, navigate]);
 
   const valor = useMemo(
-    () => ({ usuario, aviso, entrar, sair, limparSessao }),
-    [usuario, aviso, entrar, sair, limparSessao],
+    () => ({ usuario, aviso, entrar, sair, limparSessao, atualizarNomeUsuario }),
+    [usuario, aviso, entrar, sair, limparSessao, atualizarNomeUsuario],
   );
 
   return <SessaoContexto.Provider value={valor}>{children}</SessaoContexto.Provider>;
