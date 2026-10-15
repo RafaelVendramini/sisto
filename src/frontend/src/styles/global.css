@@ -309,15 +309,44 @@ h2 {
   border-color: var(--cor-destaque);
 }
 
+/* Botão de olho dentro do campo, à direita (área de toque de 44x44px). */
 .campo__senha {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 
 .campo__senha input {
-  flex: 1 1 12rem;
+  flex: 1;
   min-width: 0;
+  padding-right: 3rem; /* o texto não fica sob o ícone */
+}
+
+.campo__senha-botao {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--raio);
+  background: transparent;
+  color: var(--cor-texto-secundario);
+  cursor: pointer;
+}
+
+.campo__senha-botao:hover {
+  color: var(--cor-primaria);
+}
+
+.campo__senha-botao:focus-visible {
+  color: var(--cor-primaria);
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: -3px;
 }
 
 .campo__ajuda {
@@ -354,6 +383,7 @@ h2 {
   font-size: 0.875rem;
   font-weight: 600;
   border: 1px solid;
+  white-space: nowrap;
 }
 
 .selo--ativo {
@@ -418,6 +448,97 @@ h2 {
   content: none;
 }
 
+/* Botões das ações de usuários (RF04) */
+.botao[aria-disabled='true'] {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.botao--compacto {
+  padding: 0.5rem 0.875rem; /* altura mínima de 44px vem de .botao */
+}
+
+/* Bloquear/desativar na lista: contorno no tom de destaque */
+.botao--alerta {
+  background-color: var(--cor-superficie);
+  border-color: #b3240f;
+  color: #8a1c0c;
+}
+
+.botao--alerta:hover:not(:disabled) {
+  background-color: #fdecea;
+}
+
+/* Confirmação de bloquear/desativar no diálogo */
+.botao--perigo {
+  background-color: #b3240f;
+  border-color: #b3240f;
+  color: #ffffff;
+}
+
+.botao--perigo:hover:not(:disabled) {
+  background-color: #8a1c0c;
+  border-color: #8a1c0c;
+}
+
+.tabela-usuarios__botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tabela-usuarios td.tabela-usuarios__acoes::before {
+  content: none;
+}
+
+.tabela-usuarios__voce {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+}
+
+/* Diálogo modal (edição e confirmações) */
+.dialogo__fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.75rem;
+  background-color: rgba(31, 36, 48, 0.55);
+}
+
+.dialogo {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 1.5rem);
+  overflow-y: auto;
+  padding: 1.25rem;
+  background-color: var(--cor-superficie);
+  border-top: 4px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.dialogo:focus-visible {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+.dialogo__pergunta {
+  font-weight: 600;
+  font-size: 1.0625rem;
+}
+
+.dialogo__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
 /* Tablet */
 @media (min-width: 600px) {
   .layout__menu {
@@ -465,6 +586,25 @@ h2 {
   .tabela-usuarios td::before {
     content: none;
   }
+
+  .tabela-usuarios__botoes {
+    margin-top: 0;
+  }
+
+  .dialogo__fundo {
+    align-items: center;
+    padding: 1.5rem;
+  }
+
+  .dialogo {
+    padding: 1.75rem;
+  }
+
+  .dialogo__acoes {
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+  }
+
   .layout__container {
     padding: 0 1.5rem;
   }

@@ -1,11 +1,44 @@
 import { rotuloPerfil, rotuloStatus } from '../services/perfis.js';
 
 /**
- * Lista de usuários cadastrados (RF01): nome, e-mail, perfil e status.
+ * Mudanças de status oferecidas para cada status atual (RF04, RN07).
+ * Não existe ação de excluir: usuários nunca são excluídos.
+ */
+export const ACOES_POR_STATUS = Object.freeze({
+  ATIVO: [
+    { status: 'BLOQUEADO', rotulo: 'Bloquear' },
+    { status: 'DESATIVADO', rotulo: 'Desativar' },
+  ],
+  BLOQUEADO: [
+    { status: 'ATIVO', rotulo: 'Reativar' },
+    { status: 'DESATIVADO', rotulo: 'Desativar' },
+  ],
+  DESATIVADO: [
+    { status: 'ATIVO', rotulo: 'Reativar' },
+    { status: 'BLOQUEADO', rotulo: 'Bloquear' },
+  ],
+});
+
+/** id do botão "Editar" da linha (usado para devolver o foco após um diálogo). */
+export function idBotaoEditar(id) {
+  return `editar-usuario-${id}`;
+}
+
+/**
+ * Lista de usuários cadastrados (RF01, RF04): nome, e-mail, perfil, status e ações.
  * No computador e no tablet aparece como tabela; no celular cada linha vira
  * um cartão empilhado (RNF01) — só CSS, a marcação continua sendo uma tabela.
+ * RN11: no próprio usuário logado não há bloquear/desativar (só editar).
  */
-export default function ListaUsuarios({ usuarios, carregando, erro, aoTentarNovamente }) {
+export default function ListaUsuarios({
+  usuarios,
+  carregando,
+  erro,
+  aoTentarNovamente,
+  idUsuarioLogado,
+  aoEditar,
+  aoAlterarStatus,
+}) {
   if (carregando) {
     return (
       <p className="texto-secundario" role="status">
@@ -40,27 +73,64 @@ export default function ListaUsuarios({ usuarios, carregando, erro, aoTentarNova
           <th scope="col" role="columnheader">E-mail</th>
           <th scope="col" role="columnheader">Perfil</th>
           <th scope="col" role="columnheader">Status</th>
+          <th scope="col" role="columnheader">Ações</th>
         </tr>
       </thead>
       <tbody role="rowgroup">
-        {usuarios.map((item) => (
-          <tr key={item.id} role="row">
-            <td role="cell" data-rotulo="Nome" className="tabela-usuarios__nome">
-              {item.nome}
-            </td>
-            <td role="cell" data-rotulo="E-mail" className="tabela-usuarios__email">
-              {item.email}
-            </td>
-            <td role="cell" data-rotulo="Perfil">
-              {rotuloPerfil(item.perfil) || '—'}
-            </td>
-            <td role="cell" data-rotulo="Status">
-              <span className={`selo selo--${String(item.status).toLowerCase()}`}>
-                {rotuloStatus(item.status) || '—'}
-              </span>
-            </td>
-          </tr>
-        ))}
+        {usuarios.map((item) => {
+          const ehVoce = idUsuarioLogado !== undefined && item.id === idUsuarioLogado;
+          const acoesStatus = ehVoce ? [] : (ACOES_POR_STATUS[item.status] ?? []);
+          return (
+            <tr key={item.id} role="row">
+              <td role="cell" data-rotulo="Nome" className="tabela-usuarios__nome">
+                {item.nome}
+              </td>
+              <td role="cell" data-rotulo="E-mail" className="tabela-usuarios__email">
+                {item.email}
+              </td>
+              <td role="cell" data-rotulo="Perfil">
+                {rotuloPerfil(item.perfil) || '—'}
+              </td>
+              <td role="cell" data-rotulo="Status">
+                <span className={`selo selo--${String(item.status).toLowerCase()}`}>
+                  {rotuloStatus(item.status) || '—'}
+                </span>
+              </td>
+              <td role="cell" data-rotulo="Ações" className="tabela-usuarios__acoes">
+                <div className="tabela-usuarios__botoes">
+                  <button
+                    type="button"
+                    id={idBotaoEditar(item.id)}
+                    className="botao botao--secundario botao--compacto"
+                    aria-label={`Editar ${item.nome}`}
+                    onClick={(evento) => aoEditar?.(item, evento)}
+                  >
+                    Editar
+                  </button>
+                  {acoesStatus.map((acao) => (
+                    <button
+                      key={acao.status}
+                      type="button"
+                      className={`botao botao--compacto ${
+                        acao.status === 'ATIVO' ? 'botao--secundario' : 'botao--alerta'
+                      }`}
+                      aria-label={`${acao.rotulo} ${item.nome}`}
+                      onClick={(evento) => aoAlterarStatus?.(item, acao.status, evento)}
+                    >
+                      {acao.rotulo}
+                    </button>
+                  ))}
+                </div>
+                {ehVoce && (
+                  <p className="tabela-usuarios__voce">
+                    Este é você. Não é possível bloquear, desativar nem alterar o perfil do seu
+                    próprio usuário.
+                  </p>
+                )}
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
+import { MENSAGEM_EMAIL_DUPLICADO } from '../services/mensagensUsuarios.js';
 import { ROTULOS_PERFIL } from '../services/perfis.js';
 import { cadastrarUsuario } from '../services/usuarios.js';
 import CampoSenha from './CampoSenha.jsx';
@@ -8,10 +10,6 @@ export const TAMANHO_MINIMO_SENHA = 8; // RN10
 export const TAMANHO_MAXIMO_SENHA_BYTES = 72; // limite do bcrypt no back-end
 export const TAMANHO_MAXIMO_EMAIL = 254;
 
-const MENSAGEM_EMAIL_DUPLICADO = 'Já existe um usuário cadastrado com este e-mail.';
-const MENSAGEM_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
-const MENSAGEM_SEM_CONEXAO =
-  'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 const MENSAGEM_GENERICA = 'Não foi possível cadastrar o usuário agora. Tente novamente em instantes.';
 
 // Mesmo formato aceito pelo back-end (algo@dominio.ext, sem pontos seguidos no
@@ -25,11 +23,14 @@ function tamanhoEmBytes(texto) {
   return new TextEncoder().encode(texto).length;
 }
 
-/** Valida os dados na tela antes do envio (RN10). Retorna { campo: mensagem }. */
-export function validarCadastro({ nome, email, perfil, senha }) {
+/**
+ * Valida nome, e-mail e perfil (usada no cadastro e na edição — RF01, RF04).
+ * Retorna { campo: mensagem }.
+ */
+export function validarDadosUsuario({ nome, email, perfil }) {
   const erros = {};
-  const nomeLimpo = nome.trim();
-  const emailLimpo = email.trim();
+  const nomeLimpo = String(nome ?? '').trim();
+  const emailLimpo = String(email ?? '').trim();
 
   if (!nomeLimpo) erros.nome = 'Informe o nome.';
   else if (nomeLimpo.length > TAMANHO_MAXIMO_NOME) {
@@ -45,6 +46,13 @@ export function validarCadastro({ nome, email, perfil, senha }) {
 
   if (!perfil) erros.perfil = 'Selecione o perfil.';
   else if (!Object.hasOwn(ROTULOS_PERFIL, perfil)) erros.perfil = 'Selecione um perfil da lista.';
+
+  return erros;
+}
+
+/** Valida os dados do cadastro antes do envio (RN10). Retorna { campo: mensagem }. */
+export function validarCadastro({ nome, email, perfil, senha }) {
+  const erros = validarDadosUsuario({ nome, email, perfil });
 
   if (!senha) erros.senha = 'Informe a senha temporária.';
   else if (senha.length < TAMANHO_MINIMO_SENHA) {

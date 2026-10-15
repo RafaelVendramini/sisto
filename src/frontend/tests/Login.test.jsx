@@ -157,19 +157,27 @@ describe('Tela de login e logout (#14)', () => {
     const mostrar = screen.getByRole('button', { name: 'Mostrar senha' });
     expect(mostrar).toHaveAttribute('type', 'button');
     expect(mostrar).toHaveAttribute('aria-controls', 'login-senha');
-    expect(mostrar).toHaveAttribute('aria-pressed', 'false');
+    expect(mostrar).not.toHaveAttribute('aria-pressed');
+    expect(mostrar).toHaveAttribute('title', 'Mostrar senha');
+    // Botão de ícone: sem texto visível, nome acessível pelo aria-label, ícone decorativo.
+    expect(mostrar).toHaveAttribute('aria-label', 'Mostrar senha');
+    expect(mostrar).toHaveTextContent('');
+    expect(mostrar.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(mostrar.querySelector('svg')).toHaveAttribute('data-icone', 'olho');
 
     await usuario.click(mostrar);
     expect(senha).toHaveAttribute('type', 'text');
     expect(senha).toHaveValue(SENHA_FICTICIA);
     const ocultar = screen.getByRole('button', { name: 'Ocultar senha' });
-    expect(ocultar).toHaveAttribute('aria-pressed', 'true');
+    expect(ocultar).toHaveAttribute('title', 'Ocultar senha');
+    expect(ocultar).not.toHaveAttribute('aria-pressed');
+    expect(ocultar.querySelector('svg')).toHaveAttribute('data-icone', 'olho-cortado');
 
     await usuario.click(ocultar);
     expect(senha).toHaveAttribute('type', 'password');
     expect(screen.getByRole('button', { name: 'Mostrar senha' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
+      'title',
+      'Mostrar senha',
     );
     // Alternar não envia o formulário nem mostra erros de validação.
     expect(fetch).not.toHaveBeenCalled();
@@ -190,10 +198,9 @@ describe('Tela de login e logout (#14)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('E-mail ou senha inválidos.');
     expect(senha).toHaveValue('');
     expect(senha).toHaveAttribute('type', 'password');
-    expect(screen.getByRole('button', { name: 'Mostrar senha' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    // Voltou a mascarar: o botão volta a oferecer "Mostrar senha" (olho aberto).
+    const mostrarDeNovo = screen.getByRole('button', { name: 'Mostrar senha' });
+    expect(mostrarDeNovo.querySelector('svg')).toHaveAttribute('data-icone', 'olho');
   });
 
   it('com falha de rede, mostra mensagem amigável', async () => {
