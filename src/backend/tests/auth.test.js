@@ -85,6 +85,7 @@ describe('POST /auth/login — sucesso', () => {
     expect(res.body).toEqual({
       token: expect.any(String),
       usuario: { id: 2, nome: 'Professor Exemplo', perfil: 'PROFESSOR' },
+      trocaSenhaObrigatoria: false,
     });
 
     const payload = jwt.verify(res.body.token, SEGREDO_TESTE, { algorithms: ['HS256'] });

@@ -48,3 +48,26 @@ export function listaPodeEstarDesatualizada(falha) {
   if (falha?.status === 404) return true;
   return falha?.status === 409 && falha?.message === MENSAGEM_ALTERACAO_SIMULTANEA;
 }
+
+const MENSAGEM_PROPRIA_SENHA =
+  'Você não pode redefinir a sua própria senha por aqui. Use a opção "Alterar minha senha".';
+const MENSAGEM_GENERICA_SENHA =
+  'Não foi possível redefinir a senha agora. Tente novamente em instantes.';
+
+/**
+ * Converte a falha do PUT /usuarios/{id}/senha em mensagem para a tela (RF03).
+ * Para 400/404/409 o texto vem do back-end; os demais têm texto fixo.
+ * @param {{ status?: number, message?: string, doServidor?: boolean }} falha
+ * @returns {string}
+ */
+export function mensagemErroRedefinicaoSenha(falha) {
+  const status = falha?.status;
+  if (status === 403) return MENSAGEM_SEM_PERMISSAO;
+  if (status === 0) return MENSAGEM_SEM_CONEXAO;
+  if ([400, 404, 409].includes(status) && falha?.doServidor && falha?.message) {
+    return falha.message;
+  }
+  if (status === 404) return MENSAGEM_NAO_ENCONTRADO;
+  if (status === 409) return MENSAGEM_PROPRIA_SENHA;
+  return MENSAGEM_GENERICA_SENHA;
+}

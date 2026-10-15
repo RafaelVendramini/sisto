@@ -1,12 +1,15 @@
 import { NavLink } from 'react-router-dom';
+import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
 import { podeGerenciarUsuarios, rotuloPerfil } from '../services/perfis.js';
 import { useSessao } from './Sessao.jsx';
 
 // Layout base responsivo (RNF01): cabeçalho com a marca, área de conteúdo e rodapé.
 // Com usuário logado, o cabeçalho mostra quem está usando, o menu e a opção "Sair" (RF02).
 // O menu só mostra o que o perfil pode usar (RN01); a proteção real é do back-end.
+// Com a troca de senha obrigatória pendente (RN10), o menu e o link da conta
+// ficam ocultos: só é possível trocar a senha ou sair.
 export default function Layout({ children }) {
-  const { usuario, sair } = useSessao();
+  const { usuario, trocaSenhaPendente, sair } = useSessao();
   const veUsuarios = podeGerenciarUsuarios(usuario?.perfil);
 
   return (
@@ -18,7 +21,7 @@ export default function Layout({ children }) {
             src="/logo-sisto.svg"
             alt="Sisto — Gestão de ocorrências escolares"
           />
-          {usuario && (
+          {usuario && !trocaSenhaPendente && (
             <nav className="layout__menu" aria-label="Menu principal">
               <NavLink to="/" end className="layout__menu-item">
                 Início
@@ -36,6 +39,11 @@ export default function Layout({ children }) {
                 {usuario.nome}
                 <span className="layout__usuario-perfil"> · {rotuloPerfil(usuario.perfil)}</span>
               </span>
+              {!trocaSenhaPendente && (
+                <NavLink to={ROTA_ALTERAR_SENHA} className="layout__menu-item layout__conta">
+                  Alterar minha senha
+                </NavLink>
+              )}
               <button type="button" className="botao botao--secundario" onClick={sair}>
                 Sair
               </button>

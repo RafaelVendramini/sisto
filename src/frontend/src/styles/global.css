@@ -539,6 +539,26 @@ h2 {
   margin-top: 1.25rem;
 }
 
+/* Cabeçalho: no celular, nome, "Alterar minha senha" e "Sair" quebram linha
+   sem estourar a largura (RNF01). */
+.layout__usuario {
+  flex-wrap: wrap;
+}
+
+.layout__conta {
+  white-space: nowrap;
+}
+
+/* Orientação de recuperação de acesso no login (RF03) */
+.login__ajuda {
+  margin: 1.25rem 0 0;
+  text-align: center;
+}
+
+.mensagem p:last-child {
+  margin-bottom: 0;
+}
+
 /* Tablet */
 @media (min-width: 600px) {
   .layout__menu {

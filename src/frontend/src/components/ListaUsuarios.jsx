@@ -29,6 +29,8 @@ export function idBotaoEditar(id) {
  * No computador e no tablet aparece como tabela; no celular cada linha vira
  * um cartão empilhado (RNF01) — só CSS, a marcação continua sendo uma tabela.
  * RN11: no próprio usuário logado não há bloquear/desativar (só editar).
+ * RF03: "Redefinir senha" aparece só para os outros usuários; a própria senha
+ * é trocada em "Alterar minha senha".
  */
 export default function ListaUsuarios({
   usuarios,
@@ -38,6 +40,7 @@ export default function ListaUsuarios({
   idUsuarioLogado,
   aoEditar,
   aoAlterarStatus,
+  aoRedefinirSenha,
 }) {
   if (carregando) {
     return (
@@ -120,11 +123,22 @@ export default function ListaUsuarios({
                       {acao.rotulo}
                     </button>
                   ))}
+                  {!ehVoce && aoRedefinirSenha && (
+                    <button
+                      type="button"
+                      className="botao botao--secundario botao--compacto"
+                      aria-label={`Redefinir senha de ${item.nome}`}
+                      onClick={(evento) => aoRedefinirSenha(item, evento)}
+                    >
+                      Redefinir senha
+                    </button>
+                  )}
                 </div>
                 {ehVoce && (
                   <p className="tabela-usuarios__voce">
                     Este é você. Não é possível bloquear, desativar nem alterar o perfil do seu
-                    próprio usuário.
+                    próprio usuário. Para trocar a sua senha, use &quot;Alterar minha senha&quot;
+                    no topo da página.
                   </p>
                 )}
               </td>

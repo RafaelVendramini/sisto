@@ -3,6 +3,8 @@
 // Armazenamento: sessionStorage (a sessão termina ao fechar a aba/navegador),
 // nunca localStorage. Guardamos apenas o token JWT e os dados mínimos para
 // exibição do usuário logado ({ id, nome, perfil }). A senha nunca é guardada.
+// Se a troca de senha for obrigatória (RN10), guarda também o indicador
+// `trocaSenhaObrigatoria: true` (só quando verdadeiro).
 // O token expira em 8h (RNF03); a expiração lida do próprio token é
 // respeitada aqui, e o back-end continua sendo a proteção real (401).
 import { ErroApi, api, requisicao } from './api.js';
@@ -91,8 +93,27 @@ export async function login(email, senha) {
   }
   const { id, nome, perfil } = dados?.usuario ?? {};
   const usuario = { id, nome, perfil };
-  gravarArmazenamento({ token: dados?.token, usuario });
+  const sessao = { token: dados?.token, usuario };
+  if (dados.trocaSenhaObrigatoria === true) sessao.trocaSenhaObrigatoria = true;
+  gravarArmazenamento(sessao);
   return usuario;
+}
+
+/** Indica se a sessão atual está com a troca de senha obrigatória pendente (RN10). */
+export function trocaSenhaPendente() {
+  return obterSessao()?.trocaSenhaObrigatoria === true;
+}
+
+/**
+ * Marca a sessão atual com a troca de senha obrigatória pendente (ex.: a API
+ * respondeu o 403 de troca pendente — RN10). Mantém o mesmo token.
+ * @returns {boolean} true se havia sessão para marcar
+ */
+export function marcarTrocaSenhaPendente() {
+  const sessao = obterSessao();
+  if (!sessao) return false;
+  gravarArmazenamento({ ...sessao, trocaSenhaObrigatoria: true });
+  return true;
 }
 
 /**
@@ -106,7 +127,7 @@ export function atualizarNomeNaSessao(nome) {
   if (!sessao || typeof nome !== 'string' || !nome) return null;
   const { id, perfil } = sessao.usuario;
   const usuario = { id, nome, perfil };
-  gravarArmazenamento({ token: sessao.token, usuario });
+  gravarArmazenamento({ ...sessao, usuario });
   return usuario;
 }
 
