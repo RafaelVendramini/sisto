@@ -239,6 +239,19 @@ O back-end segue arquitetura em camadas:
 * **Services** — regras de negócio (RN01–RN12), histórico e auditoria
 * **Prisma (camada de dados)** — acesso ao banco de dados
 
+## Hospedagem (homologação)
+
+Definida no Spike #19 para a homologação com a escola, com custo zero:
+
+* **Front-end:** site estático no **Render** (build do Vite), com HTTPS automático.
+* **API:** serviço web no **Render**, com HTTPS automático. No plano gratuito, a API é suspensa após 15 minutos sem acesso, e o primeiro acesso seguinte leva cerca de 1 minuto.
+* **Banco de dados:** PostgreSQL no **Neon**, preferencialmente na região São Paulo (`aws-sa-east-1`) (RNF06).
+* **Deploy:** automático a partir da branch `main`, sem alterações em `.github/`. As migrations rodam com `prisma migrate deploy`, e o seed cria apenas o usuário Gestão inicial (`NODE_ENV=production`).
+* **Segredos:** `DATABASE_URL`, `JWT_SECRET` e credenciais do seed ficam somente nas variáveis de ambiente dos serviços, nunca no repositório.
+* **Backup (RNF05):** além da restauração do Neon (até 6 horas), a equipe faz uma cópia semanal com `pg_dump`, criptografada e guardada fora do repositório, com acesso restrito.
+* **Dados (RN05):** o ambiente hospedado usa somente dados fictícios até a autorização formal da escola. O acesso às contas do Render e do Neon é restrito à equipe, com verificação em duas etapas.
+* **Uso real:** a contratação de um plano pago (API sem suspensão e backup automático) é decisão a ser levada ao orientador e à escola.
+
 ---
 
 # 11. Modelo de Dados
@@ -450,6 +463,7 @@ Uma implementação somente poderá ser considerada concluída quando atender ao
 | 1.2    | 30/09/2026 | Decisões do planejamento da Sprint 1: e-mail único como identificador de login e logout no front-end (RF02); senha temporária definida pela Gestão no cadastro (RF01, RN10); bloqueio, desativação e reativação (RF04, RN07); status do usuário ativo/bloqueado/desativado (RN07, Seção 11); bloqueio com corte imediato de acesso (nova RN09); senha com mínimo de 8 caracteres (nova RN10); JWT com expiração de 8h sem refresh (RNF03); ids do tipo Int autoincremento (Seção 11); observações de autenticação na Seção 12 |
 | 1.3    | 12/10/2026 | Decisão da Issue #13: garantia de ao menos um usuário Gestão ativo, com recusa (HTTP 409) de autobloqueio, autodesativação, alteração do próprio perfil e de edições que deixem o sistema sem Gestão ativa (nova RN11; RF04 e Seção 10 atualizados); valores técnicos de `perfil` e `status` do usuário com rótulos amigáveis no front-end (Seção 11); observações do `PUT /usuarios/{id}` na Seção 12 |
 | 1.4    | 15/10/2026 | Decisão do Spike #17 (recuperação de acesso, Etapa 1): RF03 reescrito — redefinição da senha de outro usuário pela Gestão e troca da própria senha pelo usuário logado, com auditoria sem a senha; RN10 ampliada com troca obrigatória no próximo login após redefinição pela Gestão (cadastro segue sem troca obrigatória); nova RN12 (troca de senha encerra as sessões abertas); campos `troca_senha_obrigatoria` e `senha_alterada_em` em `Usuario` (Seção 11); novos endpoints `PUT /usuarios/{id}/senha` e `PUT /conta/senha`, observações de autenticação e `POST /auth/recuperar-senha` reservado para etapa futura dependente do Spike #19 (Seção 12); referência às RNs na Seção 10. Respostas aos pontos em aberto do Spike #17: após trocar a senha o usuário faz login novamente, sem token novo, e o token usado na troca também deixa de valer (RN12); campo `trocaSenhaObrigatoria` na resposta do login; HTTP 403 nas rotas protegidas enquanto a troca está pendente e HTTP 409 quando a Gestão tenta redefinir a própria senha por `PUT /usuarios/{id}/senha`; token só vale se emitido depois de `senha_alterada_em`; nova senha diferente da atual; redefinição permitida para usuário bloqueado ou desativado, sem liberar o acesso (RN09); linhas "Redefinir senha de usuário" e "Trocar a própria senha" na matriz de permissões (Seção 4); senha atual incorreta ou nova senha igual à atual em `PUT /conta/senha` respondem 400, e a regra de senha diferente não vale para a redefinição pela Gestão |
+| 1.5    | 15/10/2026 | Decisão do Spike #19: hospedagem da homologação no Render (front-end estático e API) e no Neon (PostgreSQL, região São Paulo), com deploy a partir da `main`, segredos em variáveis de ambiente, backup semanal com `pg_dump` (RNF05) e somente dados fictícios até autorização da escola (RN05, RNF06) — Seção 10 |
 
 ---
 
