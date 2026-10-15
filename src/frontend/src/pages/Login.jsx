@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import CampoSenha from '../components/CampoSenha.jsx';
 import { useSessao } from '../components/Sessao.jsx';
 import { estaAutenticado } from '../services/auth.js';
+import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
 
 const MENSAGEM_CREDENCIAIS = 'E-mail ou senha inválidos.';
 const MENSAGEM_GENERICA = 'Não foi possível entrar agora. Tente novamente em instantes.';
@@ -24,10 +25,11 @@ function mensagemDeErro(erro) {
 
 // Tela de login (RF02): e-mail e senha, validação antes do envio e mensagens claras.
 export default function Login() {
-  const { entrar, aviso } = useSessao();
+  const { entrar, aviso, sucesso } = useSessao();
   // O texto do aviso entra na região viva só depois da montagem, para que
   // leitores de tela o anunciem (a região já existe antes do texto).
   const [avisoExibido, setAvisoExibido] = useState('');
+  const [sucessoExibido, setSucessoExibido] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -48,6 +50,10 @@ export default function Login() {
   useEffect(() => {
     setAvisoExibido(aviso);
   }, [aviso]);
+
+  useEffect(() => {
+    setSucessoExibido(sucesso);
+  }, [sucesso]);
 
   if (estaAutenticado()) {
     return <Navigate to="/" replace />;
@@ -75,7 +81,12 @@ export default function Login() {
 
     setEnviando(true);
     try {
-      await entrar(emailLimpo, senha);
+      const { trocaSenhaObrigatoria } = await entrar(emailLimpo, senha);
+      // RN10: senha redefinida pela Gestão — vai direto para a troca.
+      if (trocaSenhaObrigatoria) {
+        navigate(ROTA_ALTERAR_SENHA, { replace: true });
+        return;
+      }
       const destino = location.state?.de && location.state.de !== '/login' ? location.state.de : '/';
       navigate(destino, { replace: true });
     } catch (falha) {
@@ -95,6 +106,9 @@ export default function Login() {
 
       <div role="status" aria-live="polite">
         {avisoExibido && !erro && <p className="mensagem mensagem--aviso">{avisoExibido}</p>}
+        {sucessoExibido && !avisoExibido && !erro && (
+          <p className="mensagem mensagem--sucesso">{sucessoExibido}</p>
+        )}
       </div>
 
       {erro && (
@@ -150,6 +164,9 @@ export default function Login() {
           {enviando ? 'Entrando...' : 'Entrar'}
         </button>
       </form>
+
+      {/* RF03: não há recuperação por e-mail (etapa futura, fora do escopo). */}
+      <p className="login__ajuda texto-secundario">Esqueceu a senha? Procure a Gestão da escola.</p>
     </section>
   );
 }

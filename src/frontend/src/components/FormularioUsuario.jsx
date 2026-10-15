@@ -3,11 +3,15 @@ import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensag
 import { MENSAGEM_EMAIL_DUPLICADO } from '../services/mensagensUsuarios.js';
 import { ROTULOS_PERFIL } from '../services/perfis.js';
 import { cadastrarUsuario } from '../services/usuarios.js';
+import {
+  TAMANHO_MAXIMO_SENHA_BYTES,
+  TAMANHO_MINIMO_SENHA,
+  problemaNaSenha,
+} from '../services/senha.js';
 import CampoSenha from './CampoSenha.jsx';
 
+export { TAMANHO_MAXIMO_SENHA_BYTES, TAMANHO_MINIMO_SENHA };
 export const TAMANHO_MAXIMO_NOME = 150;
-export const TAMANHO_MINIMO_SENHA = 8; // RN10
-export const TAMANHO_MAXIMO_SENHA_BYTES = 72; // limite do bcrypt no back-end
 export const TAMANHO_MAXIMO_EMAIL = 254;
 
 const MENSAGEM_GENERICA = 'Não foi possível cadastrar o usuário agora. Tente novamente em instantes.';
@@ -18,10 +22,6 @@ const FORMATO_EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
 const VAZIO = { nome: '', email: '', perfil: '', senha: '' };
 const ORDEM_CAMPOS = ['nome', 'email', 'perfil', 'senha'];
-
-function tamanhoEmBytes(texto) {
-  return new TextEncoder().encode(texto).length;
-}
 
 /**
  * Valida nome, e-mail e perfil (usada no cadastro e na edição — RF01, RF04).
@@ -55,12 +55,7 @@ export function validarCadastro({ nome, email, perfil, senha }) {
   const erros = validarDadosUsuario({ nome, email, perfil });
 
   if (!senha) erros.senha = 'Informe a senha temporária.';
-  else if (senha.length < TAMANHO_MINIMO_SENHA) {
-    erros.senha = `A senha deve ter no mínimo ${TAMANHO_MINIMO_SENHA} caracteres.`;
-  } else if (tamanhoEmBytes(senha) > TAMANHO_MAXIMO_SENHA_BYTES) {
-    erros.senha =
-      'A senha está muito longa. Use no máximo 72 caracteres (letras acentuadas contam como 2).';
-  }
+  else if (problemaNaSenha(senha)) erros.senha = problemaNaSenha(senha);
 
   return erros;
 }

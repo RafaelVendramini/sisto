@@ -5,6 +5,10 @@ import { Perfil } from '@prisma/client';
 import { ErroHttp } from '../lib/erros.js';
 import { erroNaoAutenticado, verificarSessao } from '../services/sessao.js';
 
+/** Mensagem do 403 enquanto a troca de senha obrigatória estiver pendente (RN10). */
+export const MENSAGEM_TROCA_SENHA_OBRIGATORIA =
+  'Sua senha foi redefinida pela Gestão. Troque a senha para continuar usando o sistema.';
+
 /** Mensagem do 403 quando o perfil não tem acesso à rota (RN01 / RF14). */
 export const MENSAGEM_PERFIL_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
 
@@ -26,13 +30,31 @@ export function extrairTokenBearer(cabecalho) {
 }
 
 /**
- * Exige um JWT válido de usuário ATIVO (RN09, RNF03). Em caso de sucesso,
- * define req.usuario = { id, perfil } (perfil lido do banco).
+ * Exige um JWT válido de usuário ATIVO, emitido depois da última troca de
+ * senha (RN09, RN12, RNF03). Em caso de sucesso, define
+ * req.usuario = { id, perfil, trocaSenhaObrigatoria } (lidos do banco).
  * Aplicado globalmente em routes/index.js a tudo que não é /auth/*.
  */
 export async function exigirAutenticacao(req, res, next) {
   const token = extrairTokenBearer(req.get('authorization'));
   req.usuario = await verificarSessao(token);
+  next();
+}
+
+/**
+ * RN10: enquanto a troca de senha obrigatória estiver pendente, nega (403)
+ * qualquer rota. Em routes/index.js fica DEPOIS de exigirAutenticacao e das
+ * rotas de /conta (PUT /conta/senha, a única liberada) e ANTES de todas as
+ * demais — a exceção é estrutural, sem comparar caminhos de URL.
+ */
+export function bloquearComTrocaDeSenhaPendente(req, res, next) {
+  if (!req.usuario) {
+    // Usado sem exigirAutenticacao antes: falha fechada.
+    throw erroNaoAutenticado();
+  }
+  if (req.usuario.trocaSenhaObrigatoria) {
+    throw new ErroHttp(403, MENSAGEM_TROCA_SENHA_OBRIGATORIA);
+  }
   next();
 }
 

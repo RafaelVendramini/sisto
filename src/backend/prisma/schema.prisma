@@ -96,6 +96,14 @@ model Usuario {
   perfil     Perfil
   status     StatusUsuario @default(ATIVO)
 
+  // Recuperação de acesso (RF03, Issue #18 — SSD 1.4).
+  // true após redefinição pela Gestão: o usuário precisa trocar a senha no
+  // próximo login; até lá a API nega as demais rotas com 403 (RN10).
+  troca_senha_obrigatoria Boolean   @default(false)
+  // Data/hora da última troca de senha; tokens emitidos antes (ou no mesmo
+  // segundo) deixam de valer (RN12). Nulo = senha nunca trocada.
+  senha_alterada_em       DateTime?
+
   // Estudantes dos quais este usuário é o professor tutor (RF16)
   tutorados Estudante[] @relation("TutorEstudante")
 

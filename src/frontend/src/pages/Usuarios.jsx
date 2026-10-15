@@ -3,6 +3,7 @@ import ConfirmarStatusUsuario, { ACOES_STATUS } from '../components/ConfirmarSta
 import FormularioEdicaoUsuario from '../components/FormularioEdicaoUsuario.jsx';
 import FormularioUsuario from '../components/FormularioUsuario.jsx';
 import ListaUsuarios, { idBotaoEditar } from '../components/ListaUsuarios.jsx';
+import RedefinirSenhaUsuario from '../components/RedefinirSenhaUsuario.jsx';
 import { useSessao } from '../components/Sessao.jsx';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
 import { listarUsuarios } from '../services/usuarios.js';
@@ -24,13 +25,13 @@ function camposExibidos({ id, nome, email, perfil, status }) {
   return { id, nome, email, perfil, status };
 }
 
-// Gestão de usuários (RF01, RF04, RN01, RN07, RN10, RN11): listagem, cadastro,
-// edição e mudança de status. Só para a Gestão (a rota é filtrada em App.jsx;
+// Gestão de usuários (RF01, RF03, RF04, RN01, RN07, RN10, RN11): listagem,
+// cadastro, edição, mudança de status e redefinição de senha. Só para a Gestão (a rota é filtrada em App.jsx;
 // a proteção real é do back-end — 403). Não existe exclusão de usuário (RN07).
 export default function Usuarios() {
   const { usuario: usuarioLogado, atualizarNomeUsuario } = useSessao();
   const [usuarios, setUsuarios] = useState([]);
-  // Diálogo aberto: { tipo: 'editar' | 'status', usuario, novoStatus? } ou null.
+  // Diálogo aberto: { tipo: 'editar' | 'status' | 'senha', usuario, novoStatus? } ou null.
   const [dialogo, setDialogo] = useState(null);
   const [confirmacao, setConfirmacao] = useState('');
   const [carregando, setCarregando] = useState(true);
@@ -99,6 +100,11 @@ export default function Usuarios() {
     setDialogo({ tipo: 'status', usuario: item, novoStatus });
   }
 
+  function abrirRedefinicaoSenha(item) {
+    setConfirmacao('');
+    setDialogo({ tipo: 'senha', usuario: item });
+  }
+
   function fecharDialogo() {
     setDialogo(null);
   }
@@ -129,12 +135,20 @@ export default function Usuarios() {
     );
   }
 
+  // Confirma sem exibir a senha (ela nunca sai do campo do diálogo).
+  function aoConcluirRedefinicao(item) {
+    setDialogo(null);
+    setConfirmacao(
+      `Senha de ${item.nome} redefinida. Entregue a nova senha pessoalmente: no próximo acesso, será obrigatório trocá-la.`,
+    );
+  }
+
   return (
     <div className="pagina-usuarios">
       <h1>Usuários</h1>
       <p className="texto-secundario">
-        Veja quem tem acesso ao Sisto, cadastre novos profissionais da escola e altere dados ou
-        acesso de quem já está cadastrado.
+        Veja quem tem acesso ao Sisto, cadastre novos profissionais da escola e altere dados,
+        acesso ou senha de quem já está cadastrado.
       </p>
 
       <div className="pagina-usuarios__grade">
@@ -161,6 +175,7 @@ export default function Usuarios() {
             idUsuarioLogado={usuarioLogado?.id}
             aoEditar={abrirEdicao}
             aoAlterarStatus={abrirMudancaStatus}
+            aoRedefinirSenha={abrirRedefinicaoSenha}
           />
         </section>
       </div>
@@ -181,6 +196,16 @@ export default function Usuarios() {
           usuario={dialogo.usuario}
           novoStatus={dialogo.novoStatus}
           aoConcluir={aoConcluirStatus}
+          aoCancelar={fecharDialogo}
+          aoRestaurarFoco={restaurarFoco}
+          aoListaDesatualizada={recarregarEmSegundoPlano}
+        />
+      )}
+
+      {dialogo?.tipo === 'senha' && (
+        <RedefinirSenhaUsuario
+          usuario={dialogo.usuario}
+          aoConcluir={aoConcluirRedefinicao}
           aoCancelar={fecharDialogo}
           aoRestaurarFoco={restaurarFoco}
           aoListaDesatualizada={recarregarEmSegundoPlano}

@@ -77,9 +77,29 @@ describe('Schema de cadastros — models, campos e relações (DMMF)', () => {
 
   it('Usuario tem somente os campos da Seção 11 (sem campo de senha em texto puro)', () => {
     expect(Object.keys(Prisma.UsuarioScalarFieldEnum).sort()).toEqual(
-      ['email', 'id', 'nome', 'perfil', 'senha_hash', 'status'].sort(),
+      [
+        'email',
+        'id',
+        'nome',
+        'perfil',
+        'senha_alterada_em',
+        'senha_hash',
+        'status',
+        'troca_senha_obrigatoria',
+      ].sort(),
     );
     expect(Prisma.UsuarioScalarFieldEnum).not.toHaveProperty('senha');
+  });
+
+  it('Usuario: campos de troca de senha (RN10, RN12 — Issue #18)', () => {
+    expect(campoDmmf('Usuario', 'troca_senha_obrigatoria')).toMatchObject({
+      kind: 'scalar',
+      type: 'Boolean',
+    });
+    expect(campoDmmf('Usuario', 'senha_alterada_em')).toMatchObject({
+      kind: 'scalar',
+      type: 'DateTime',
+    });
   });
 
   it('Turma, Estudante e Categoria têm somente os campos da Seção 11', () => {
@@ -149,6 +169,13 @@ describe('Schema de cadastros — modificadores (não expostos pelo DMMF de runt
   it('Usuario: email único e status com padrão ATIVO', () => {
     expect(linhaDoCampo('Usuario', 'email').atributos).toContain('@unique');
     expect(linhaDoCampo('Usuario', 'status').atributos).toContain('@default(ATIVO)');
+  });
+
+  it('Usuario: troca_senha_obrigatoria obrigatório com padrão false; senha_alterada_em opcional', () => {
+    const troca = linhaDoCampo('Usuario', 'troca_senha_obrigatoria');
+    expect(troca.opcional).toBe(false);
+    expect(troca.atributos).toContain('@default(false)');
+    expect(linhaDoCampo('Usuario', 'senha_alterada_em').opcional).toBe(true);
   });
 
   it('obrigatoriedade conforme a Seção 11', () => {

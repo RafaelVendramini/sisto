@@ -1,7 +1,7 @@
 // Módulo base para chamadas à API do Sisto.
 // A URL vem da variável de ambiente VITE_API_URL (ver .env.example); nunca fica fixa no código.
 
-import { MENSAGEM_SEM_CONEXAO } from './mensagens.js';
+import { MENSAGEM_SEM_CONEXAO, MENSAGEM_TROCA_SENHA_PENDENTE } from './mensagens.js';
 
 const MENSAGEM_PADRAO = 'Não foi possível concluir a ação. Tente novamente.';
 const MENSAGEM_SESSAO_INVALIDA = 'Não autenticado. Faça login novamente.';
@@ -35,6 +35,24 @@ export function definirAoNaoAutenticado(callback) {
   aoNaoAutenticado = callback;
   return () => {
     if (aoNaoAutenticado === callback) aoNaoAutenticado = null;
+  };
+}
+
+// Troca de senha obrigatória pendente (RN10): quando uma chamada autenticada
+// recebe o 403 específico desse caso, o app é avisado para levar o usuário à
+// tela de troca. Os demais 403 (perfil sem permissão) seguem para a tela.
+let aoTrocaSenhaPendente = null;
+
+/**
+ * Registra a função chamada quando uma requisição autenticada recebe o 403
+ * de troca de senha pendente.
+ * @param {(() => void) | null} callback
+ * @returns {() => void} função que remove o registro
+ */
+export function definirAoTrocaSenhaPendente(callback) {
+  aoTrocaSenhaPendente = callback;
+  return () => {
+    if (aoTrocaSenhaPendente === callback) aoTrocaSenhaPendente = null;
   };
 }
 
@@ -106,6 +124,15 @@ export async function requisicao(
       aoNaoAutenticado();
     }
     const doServidor = Boolean(dados && typeof dados.erro === 'string' && dados.erro);
+    if (
+      resposta.status === 403 &&
+      exigeSessao &&
+      doServidor &&
+      dados.erro === MENSAGEM_TROCA_SENHA_PENDENTE &&
+      aoTrocaSenhaPendente
+    ) {
+      aoTrocaSenhaPendente();
+    }
     const mensagem = doServidor ? dados.erro : MENSAGEM_PADRAO;
     throw new ErroApi(mensagem, resposta.status, doServidor);
   }

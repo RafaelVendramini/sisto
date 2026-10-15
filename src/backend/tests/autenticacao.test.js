@@ -217,7 +217,13 @@ describe('Autenticação — status do usuário no banco (RN09)', () => {
     esperar401(res);
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: 999 },
-      select: { id: true, perfil: true, status: true },
+      select: {
+        id: true,
+        perfil: true,
+        status: true,
+        troca_senha_obrigatoria: true,
+        senha_alterada_em: true,
+      },
     });
   });
 
@@ -269,11 +275,13 @@ describe('Autenticação — status do usuário no banco (RN09)', () => {
 });
 
 describe('Autenticação — sucesso', () => {
-  it('usuário ATIVO passa e req.usuario tem só id e perfil (do banco)', async () => {
+  it('usuário ATIVO passa e req.usuario tem só id, perfil e trocaSenhaObrigatoria (do banco)', async () => {
     const res = await get('/teste/protegida', `Bearer ${tokenDe(2)}`);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ usuario: { id: 2, perfil: 'PROFESSOR' } });
+    expect(res.body).toEqual({
+      usuario: { id: 2, perfil: 'PROFESSOR', trocaSenhaObrigatoria: false },
+    });
     expect(res.text).not.toMatch(/status|senha_hash/);
   });
 
@@ -282,7 +290,9 @@ describe('Autenticação — sucesso', () => {
     const tokenAntigo = gerarToken({ id: 2, perfil: 'GESTAO' });
 
     const protegida = await get('/teste/protegida', `Bearer ${tokenAntigo}`);
-    expect(protegida.body).toEqual({ usuario: { id: 2, perfil: 'PROFESSOR' } });
+    expect(protegida.body).toEqual({
+      usuario: { id: 2, perfil: 'PROFESSOR', trocaSenhaObrigatoria: false },
+    });
 
     const soGestao = await get('/teste/so-gestao', `Bearer ${tokenAntigo}`);
     expect(soGestao.status).toBe(403);
@@ -465,7 +475,7 @@ describe('Escopo da autenticação global (Seção 12)', () => {
 
     const res = await get('/extra/eco', `Bearer ${tokenDe(6)}`, outro);
 
-    expect(res.body).toEqual({ id: 6, perfil: 'PEDAGOGICO' });
+    expect(res.body).toEqual({ id: 6, perfil: 'PEDAGOGICO', trocaSenhaObrigatoria: false });
     // Autenticação global + a do sub-roteador: 2 consultas (aceitável; o
     // normal é usar só a global).
     expect(findUnique).toHaveBeenCalledTimes(2);
@@ -489,7 +499,9 @@ describe('Sub-roteador protegidas (proteção estrutural)', () => {
     const res = await get('/teste-protegidas/eco', `Bearer ${tokenDe(5)}`, app);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ usuario: { id: 5, perfil: 'TUTOR' } });
+    expect(res.body).toEqual({
+      usuario: { id: 5, perfil: 'TUTOR', trocaSenhaObrigatoria: false },
+    });
     expect(findUnique).toHaveBeenCalledTimes(1);
   });
 });
@@ -566,6 +578,7 @@ describe('Unidades', () => {
     await expect(verificarSessao(token, { db, env })).resolves.toEqual({
       id: 7,
       perfil: 'TECNICO_ADMINISTRATIVO',
+      trocaSenhaObrigatoria: false,
     });
   });
 });

@@ -46,3 +46,18 @@ export function atualizarUsuario(id, alteracoes) {
     corpo,
   });
 }
+
+/**
+ * Redefine a senha de OUTRO usuário (PUT /usuarios/{id}/senha — RF03, RN10).
+ * Responde 204 sem corpo. A nova senha é temporária: o usuário será obrigado a
+ * trocá-la no próximo login. A senha não é guardada nem registrada em log.
+ * @param {number} id
+ * @param {string} novaSenha
+ * @returns {Promise<void>}
+ */
+export async function redefinirSenhaUsuario(id, novaSenha) {
+  await requisicaoAutenticada(`/usuarios/${encodeURIComponent(id)}/senha`, {
+    metodo: 'PUT',
+    corpo: { novaSenha },
+  });
+}

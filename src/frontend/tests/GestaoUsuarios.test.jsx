@@ -117,11 +117,26 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
       expect(cabecalhos).toEqual(['Nome', 'E-mail', 'Perfil', 'Status', 'Ações']);
 
       // Ativo → Bloquear e Desativar.
-      expect(botoesDaLinha('Bruno Ficcional')).toEqual(['Editar', 'Bloquear', 'Desativar']);
+      expect(botoesDaLinha('Bruno Ficcional')).toEqual([
+        'Editar',
+        'Bloquear',
+        'Desativar',
+        'Redefinir senha',
+      ]);
       // Bloqueado → Reativar (ou Desativar).
-      expect(botoesDaLinha('Paulo Exemplo')).toEqual(['Editar', 'Reativar', 'Desativar']);
+      expect(botoesDaLinha('Paulo Exemplo')).toEqual([
+        'Editar',
+        'Reativar',
+        'Desativar',
+        'Redefinir senha',
+      ]);
       // Desativado → Reativar (ou Bloquear).
-      expect(botoesDaLinha('Rita Teste')).toEqual(['Editar', 'Reativar', 'Bloquear']);
+      expect(botoesDaLinha('Rita Teste')).toEqual([
+        'Editar',
+        'Reativar',
+        'Bloquear',
+        'Redefinir senha',
+      ]);
 
       expect(screen.getByRole('button', { name: 'Editar Bruno Ficcional' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Bloquear Bruno Ficcional' })).toBeInTheDocument();
@@ -400,7 +415,12 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
         'selo',
         'selo--bloqueado',
       );
-      expect(botoesDaLinha('Bruno Ficcional')).toEqual(['Editar', 'Reativar', 'Desativar']);
+      expect(botoesDaLinha('Bruno Ficcional')).toEqual([
+        'Editar',
+        'Reativar',
+        'Desativar',
+        'Redefinir senha',
+      ]);
       // O botão "Bloquear" sumiu: o foco vai para "Editar" da mesma linha.
       expect(screen.getByRole('button', { name: 'Editar Bruno Ficcional' })).toHaveFocus();
     });
@@ -427,7 +447,12 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
       expect(await screen.findByText('Usuário Bruno Ficcional desativado.')).toBeInTheDocument();
       expect(JSON.parse(chamadasPut()[0][1].body)).toEqual({ status: 'DESATIVADO' });
       expect(celulas('Bruno Ficcional')[3]).toBe('Desativado');
-      expect(botoesDaLinha('Bruno Ficcional')).toEqual(['Editar', 'Reativar', 'Bloquear']);
+      expect(botoesDaLinha('Bruno Ficcional')).toEqual([
+        'Editar',
+        'Reativar',
+        'Bloquear',
+        'Redefinir senha',
+      ]);
     });
 
     it('reativar um usuário bloqueado envia ATIVO e o status volta para Ativo', async () => {
@@ -445,7 +470,12 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
       expect(url).toBe(`${URL_API}/usuarios/3`);
       expect(JSON.parse(opcoes.body)).toEqual({ status: 'ATIVO' });
       expect(within(linhaDe('Paulo Exemplo')).getByText('Ativo')).toHaveClass('selo--ativo');
-      expect(botoesDaLinha('Paulo Exemplo')).toEqual(['Editar', 'Bloquear', 'Desativar']);
+      expect(botoesDaLinha('Paulo Exemplo')).toEqual([
+        'Editar',
+        'Bloquear',
+        'Desativar',
+        'Redefinir senha',
+      ]);
     });
 
     it('reativar um usuário desativado envia ATIVO', async () => {
