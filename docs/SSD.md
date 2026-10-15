@@ -73,6 +73,8 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | Gerar relatórios                       | — | — | ✔ | ✔ | — |
 | Gerenciar categorias                   | — | — | ✔ | ✔ | — |
 | Gerenciar usuários, turmas e estudantes| — | — | ✔ | — | — |
+| Redefinir senha de usuário             | — | — | ✔ | — | — |
+| Trocar a própria senha                 | ✔ | ✔ | ✔ | ✔ | ✔ |
 
 ---
 
@@ -121,8 +123,9 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | RN07   | Um usuário que deixa de pertencer à unidade escolar deve ser bloqueado/desativado, mantendo-se o histórico dos registros que criou. O status do usuário assume os valores **ativo**, **bloqueado** ou **desativado**; usuários nunca são excluídos, e a Gestão pode reativá-los (voltar para **ativo**). |
 | RN08   | Toda alteração em uma ocorrência (status, providências, encaminhamentos, comunicações) deve gerar um registro no histórico, com usuário, data/hora e descrição da alteração. |
 | RN09   | Somente usuários com status **ativo** podem autenticar-se e acessar o sistema. O bloqueio ou a desativação corta o acesso imediatamente, inclusive de sessões já abertas (o status é verificado a cada requisição autenticada). |
-| RN10   | Senhas devem ter no mínimo 8 caracteres. No cadastro, a Gestão define uma senha temporária para o novo usuário; não há troca obrigatória no primeiro acesso. |
+| RN10   | Senhas devem ter no mínimo 8 caracteres. No cadastro, a Gestão define uma senha temporária para o novo usuário; não há troca obrigatória no primeiro acesso. Quando a Gestão redefine a senha de um usuário (RF03), a nova senha também é temporária e o usuário é obrigado a trocá-la no próximo login; enquanto não troca, a API nega o acesso às demais rotas (HTTP 403). Na troca da própria senha, a nova senha não pode ser igual à senha atual. A Gestão pode redefinir a senha de um usuário bloqueado ou desativado, que continua sem acesso até ser reativado (RN09). |
 | RN11   | O sistema deve manter sempre ao menos um usuário com perfil Gestão e status **ativo**. A Gestão não pode bloquear, desativar ou alterar o próprio perfil, e nenhuma edição pode deixar o sistema sem um usuário Gestão ativo; nesses casos a operação é recusada (HTTP 409). |
+| RN12   | Qualquer troca de senha (redefinição pela Gestão ou troca pelo próprio usuário) encerra as sessões abertas do usuário: os tokens emitidos antes da troca deixam de valer, inclusive o token usado na própria troca. Um token só vale se tiver sido emitido depois da última troca de senha; após trocar a senha, o usuário precisa fazer login novamente. |
 
 ---
 
@@ -180,7 +183,7 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | ------ | --------- |
 | RF01   | O sistema deve permitir o cadastro de usuários autorizados, com definição de perfil (Professor, Tutor, Gestão, Pedagógico, Técnico-administrativo) e de senha temporária inicial (RN10). |
 | RF02   | O sistema deve permitir autenticação individual por usuário e senha, sendo o e-mail (único) o identificador de login, e o encerramento da sessão (logout). |
-| RF03   | O sistema deve permitir a recuperação de acesso (redefinição de senha). |
+| RF03   | O sistema deve permitir a recuperação de acesso: a Gestão redefine a senha de outro usuário, definindo uma nova senha temporária (RN10), e não redefine a própria senha por esse caminho; o usuário logado troca a própria senha, informando a senha atual e a nova. Após redefinição pela Gestão, a troca é obrigatória no próximo login (RN10). Toda troca encerra as sessões abertas (RN12) e é registrada no log de auditoria, sem a senha (RNF04). |
 | RF04   | O sistema deve permitir o bloqueio, a desativação e a reativação de usuários (RN07, RN09, RN11). |
 | RF05   | O sistema deve permitir o registro de ocorrências com os campos: profissional responsável, data e horário, local, turma, estudante(s) envolvido(s), categoria, descrição, demais envolvidos, testemunhas, providências imediatas, encaminhamentos e observações. |
 | RF06   | O sistema deve permitir o registro de mais de um estudante envolvido em uma mesma ocorrência. |
@@ -233,7 +236,7 @@ O back-end segue arquitetura em camadas:
 * **Routes** — definição dos endpoints
 * **Middlewares** — autenticação (incluindo a verificação, a cada requisição, de que o usuário está ativo — RN09) e verificação de permissão por perfil (RN01, RF14)
 * **Controllers** — recebem as requisições e devolvem as respostas
-* **Services** — regras de negócio (RN01–RN11), histórico e auditoria
+* **Services** — regras de negócio (RN01–RN12), histórico e auditoria
 * **Prisma (camada de dados)** — acesso ao banco de dados
 
 ---
@@ -252,6 +255,8 @@ O back-end segue arquitetura em camadas:
 | senha_hash | String | Sim       |
 | perfil   | String | Sim (Professor, Tutor, Gestão, Pedagógico, Técnico-administrativo) |
 | status   | String | Sim (ativo, bloqueado, desativado) |
+| troca_senha_obrigatoria | Boolean | Sim (padrão `false`; `true` após redefinição pela Gestão — RN10) |
+| senha_alterada_em | DateTime | Não (data/hora da última troca de senha; tokens emitidos antes deixam de valer — RN12) |
 
 > Valores técnicos armazenados e trafegados na API: `perfil` ∈ `PROFESSOR`, `TUTOR`, `GESTAO`, `PEDAGOGICO`, `TECNICO_ADMINISTRATIVO`; `status` ∈ `ATIVO`, `BLOQUEADO`, `DESATIVADO`. O front-end exibe os rótulos amigáveis correspondentes (ex.: "Gestão", "Bloqueado").
 
@@ -380,10 +385,12 @@ API REST (JSON) implementada em Node.js + Express. Endpoints previstos para o MV
 | Método | Endpoint                             | Descrição |
 | ------ | ------------------------------------ | --------- |
 | POST   | /auth/login                          | Autenticar usuário |
-| POST   | /auth/recuperar-senha                | Solicitar redefinição de senha |
+| POST   | /auth/recuperar-senha                | *Reservado para etapa futura* (redefinição por link enviado ao e-mail; depende do Spike #19 e de nova decisão; não implementado no MVP atual) |
 | GET    | /usuarios                            | Listar usuários |
 | POST   | /usuarios                            | Cadastrar usuário |
 | PUT    | /usuarios/{id}                       | Editar usuário (inclui bloqueio/desativação) |
+| PUT    | /usuarios/{id}/senha                 | Redefinir a senha de outro usuário (somente Gestão — RF03, RN10) |
+| PUT    | /conta/senha                         | Trocar a própria senha, informando a senha atual (RF03) |
 | GET    | /turmas                              | Listar turmas |
 | POST   | /turmas                              | Cadastrar turma |
 | PUT    | /turmas/{id}                         | Editar turma |
@@ -411,6 +418,13 @@ Observações sobre autenticação:
 * O middleware de autenticação consulta o status do usuário no banco a cada requisição; usuário bloqueado ou desativado tem o acesso negado imediatamente (RN09).
 * `POST /usuarios` recebe a senha temporária definida pela Gestão (mínimo de 8 caracteres — RN10). `PUT /usuarios/{id}` permite alterar o status entre `ATIVO`, `BLOQUEADO` e `DESATIVADO` (RF04, RN07), usando os valores técnicos da Seção 11.
 * `PUT /usuarios/{id}` responde **409** quando a Gestão tenta bloquear, desativar ou alterar o próprio perfil, ou quando a edição deixaria o sistema sem um usuário Gestão ativo (RN11).
+* A resposta do `POST /auth/login` inclui o campo `trocaSenhaObrigatoria` (boolean). Quando for `true`, o front-end leva o usuário direto para a tela de troca de senha (RN10).
+* `PUT /usuarios/{id}/senha` é restrito à Gestão e recebe a nova senha temporária (mínimo de 8 caracteres — RN10). Responde **409** quando a Gestão tenta redefinir a própria senha por esse caminho, no mesmo padrão da RN11; para isso ela usa `PUT /conta/senha`. Após a redefinição, `troca_senha_obrigatoria` passa a `true`. A regra de nova senha diferente da atual não se aplica a esta redefinição. A redefinição é permitida para usuário bloqueado ou desativado, que continua sem acesso até ser reativado (RN09).
+* `PUT /conta/senha` recebe a senha atual e a nova (mínimo de 8 caracteres — RN10); senha atual incorreta ou nova senha igual à atual são rejeitadas com **400** e mensagem clara (não 401, que o front-end trata como sessão expirada). Após a troca, `troca_senha_obrigatoria` volta a `false`. O endpoint não devolve token novo: o token usado na troca também deixa de valer, e o usuário precisa fazer login novamente (RN12).
+* Enquanto `troca_senha_obrigatoria` for `true`, as rotas protegidas respondem **403** com mensagem clara, exceto `PUT /conta/senha` (RN10).
+* Toda troca de senha atualiza `senha_alterada_em`. Um token só vale se tiver sido emitido depois de `senha_alterada_em`; o middleware de autenticação rejeita os demais (RN12). O tratamento de tokens emitidos no mesmo segundo da troca fica a cargo da implementação.
+* As trocas de senha ("senha redefinida pela Gestão" e "senha alterada pelo usuário") são registradas no `LogAuditoria` (RNF04), nunca com a senha.
+* `POST /auth/recuperar-senha` permanece reservado para uma etapa futura (redefinição por link enviado ao e-mail), dependente do Spike #19 e de nova decisão; não é requisito no momento.
 
 ---
 
@@ -435,6 +449,7 @@ Uma implementação somente poderá ser considerada concluída quando atender ao
 | 1.1    | 30/09/2026 | Ajuste do contato; matriz de permissões; cadastro de turmas/estudantes e tutoria (RF15, RF16); RN04 revisada e RN08; modelo de dados completado (campos do RF05, associativa, providências, comunicações, histórico, auditoria); endpoints da API ampliados; arquitetura definida (React + Node.js/Express + PostgreSQL/Prisma) |
 | 1.2    | 30/09/2026 | Decisões do planejamento da Sprint 1: e-mail único como identificador de login e logout no front-end (RF02); senha temporária definida pela Gestão no cadastro (RF01, RN10); bloqueio, desativação e reativação (RF04, RN07); status do usuário ativo/bloqueado/desativado (RN07, Seção 11); bloqueio com corte imediato de acesso (nova RN09); senha com mínimo de 8 caracteres (nova RN10); JWT com expiração de 8h sem refresh (RNF03); ids do tipo Int autoincremento (Seção 11); observações de autenticação na Seção 12 |
 | 1.3    | 12/10/2026 | Decisão da Issue #13: garantia de ao menos um usuário Gestão ativo, com recusa (HTTP 409) de autobloqueio, autodesativação, alteração do próprio perfil e de edições que deixem o sistema sem Gestão ativa (nova RN11; RF04 e Seção 10 atualizados); valores técnicos de `perfil` e `status` do usuário com rótulos amigáveis no front-end (Seção 11); observações do `PUT /usuarios/{id}` na Seção 12 |
+| 1.4    | 15/10/2026 | Decisão do Spike #17 (recuperação de acesso, Etapa 1): RF03 reescrito — redefinição da senha de outro usuário pela Gestão e troca da própria senha pelo usuário logado, com auditoria sem a senha; RN10 ampliada com troca obrigatória no próximo login após redefinição pela Gestão (cadastro segue sem troca obrigatória); nova RN12 (troca de senha encerra as sessões abertas); campos `troca_senha_obrigatoria` e `senha_alterada_em` em `Usuario` (Seção 11); novos endpoints `PUT /usuarios/{id}/senha` e `PUT /conta/senha`, observações de autenticação e `POST /auth/recuperar-senha` reservado para etapa futura dependente do Spike #19 (Seção 12); referência às RNs na Seção 10. Respostas aos pontos em aberto do Spike #17: após trocar a senha o usuário faz login novamente, sem token novo, e o token usado na troca também deixa de valer (RN12); campo `trocaSenhaObrigatoria` na resposta do login; HTTP 403 nas rotas protegidas enquanto a troca está pendente e HTTP 409 quando a Gestão tenta redefinir a própria senha por `PUT /usuarios/{id}/senha`; token só vale se emitido depois de `senha_alterada_em`; nova senha diferente da atual; redefinição permitida para usuário bloqueado ou desativado, sem liberar o acesso (RN09); linhas "Redefinir senha de usuário" e "Trocar a própria senha" na matriz de permissões (Seção 4); senha atual incorreta ou nova senha igual à atual em `PUT /conta/senha` respondem 400, e a regra de senha diferente não vale para a redefinição pela Gestão |
 
 ---
 
