@@ -122,9 +122,13 @@ model Usuario {
 
 // Entidade: Turma
 model Turma {
-  id    Int    @id @default(autoincrement())
-  nome  String
-  etapa String
+  id         Int    @id @default(autoincrement())
+  nome       String
+  etapa      String
+  // Ano letivo com 4 dígitos (ex.: 2026). O trio (nome, etapa, ano_letivo) é
+  // único sem diferenciar maiúsculas/minúsculas e ignorando espaços nas pontas
+  // (RN18); a checagem fica no service (services/turmas.js), sem índice no banco.
+  ano_letivo Int
 
   estudantes  Estudante[]
   ocorrencias Ocorrencia[]

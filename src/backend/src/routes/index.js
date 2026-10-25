@@ -3,6 +3,7 @@ import rotasAuth from './auth.js';
 import rotasUsuarios from './usuarios.js';
 import rotasConta from './conta.js';
 import rotasCategorias from './categorias.js';
+import rotasTurmas from './turmas.js';
 import {
   bloquearComTrocaDeSenhaPendente,
   exigirAutenticacao,
@@ -55,6 +56,7 @@ protegidas.use(bloquearComTrocaDeSenhaPendente);
 // Rotas de negócio (Seção 12) — registre as novas rotas a partir daqui.
 protegidas.use('/usuarios', rotasUsuarios);
 protegidas.use('/categorias', rotasCategorias);
+protegidas.use('/turmas', rotasTurmas);
 
 rotas.use(protegidas);
 

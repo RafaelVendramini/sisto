@@ -17,6 +17,8 @@ export const ACOES_AUDITORIA = Object.freeze({
   SENHA_ALTERADA_PELO_USUARIO: 'senha alterada pelo usuário',
   CATEGORIA_CRIADA: 'categoria criada',
   CATEGORIA_EDITADA: 'categoria editada',
+  TURMA_CRIADA: 'turma criada',
+  TURMA_EDITADA: 'turma editada',
 });
 
 /**
