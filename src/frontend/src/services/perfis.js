@@ -41,3 +41,12 @@ export const PERFIS_GESTAO_USUARIOS = Object.freeze(['GESTAO']);
 export function podeGerenciarUsuarios(perfil) {
   return PERFIS_GESTAO_USUARIOS.includes(perfil);
 }
+
+// Perfis que criam e editam categorias de ocorrência (RF07, matriz da Seção 4).
+// Usado no menu e na rota; a proteção real é do back-end (403).
+export const PERFIS_GESTAO_CATEGORIAS = Object.freeze(['GESTAO', 'PEDAGOGICO']);
+
+/** Indica se o perfil pode ver a página de categorias. */
+export function podeGerenciarCategorias(perfil) {
+  return PERFIS_GESTAO_CATEGORIAS.includes(perfil);
+}
