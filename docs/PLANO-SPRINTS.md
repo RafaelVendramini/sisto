@@ -19,4 +19,6 @@
 
 - **Prazo apertado** (3 sprints para 16 RFs): manter as Issues pequenas e não aceitar nada "Fora do escopo".
 - **Matriz de permissões** ainda a validar com a escola: precisa ser confirmada até a Sprint 3.
-- **Hospedagem/deploy** não definida: Spike na Sprint 1 (#19).
+- **Hospedagem/deploy:** definida no Spike #19 (Render + Neon, SSD 1.5). O deploy, com o script de recuperação da Gestão (RN11), entra na Sprint 3.
+- **Sem limite de tentativas** no login (`POST /auth/login`) e na troca de senha (`PUT /conta/senha`): permite tentar senhas sem parar. Issue na Sprint 3; a solução (dependência `express-rate-limit` ou implementação própria) será decidida nela.
+- **Data final do MVP:** vale este plano (Sprint 3 até 16/11/2026) até a confirmação com o orientador. A Issue #19 citava 31/10/2026.
