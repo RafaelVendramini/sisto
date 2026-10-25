@@ -364,6 +364,38 @@ h2 {
   margin-top: 0.5rem;
 }
 
+/* Campo de texto longo (ex.: descrição da categoria) */
+.campo textarea {
+  min-height: 6rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--cor-texto);
+  background-color: var(--cor-superficie);
+  border: 1px solid #b9a7b2;
+  border-radius: var(--raio);
+  resize: vertical;
+}
+
+.campo textarea:focus {
+  outline: 3px solid rgba(136, 24, 93, 0.35);
+  border-color: var(--cor-primaria);
+}
+
+.campo textarea[aria-invalid='true'] {
+  border-color: var(--cor-destaque);
+}
+
+/* Lista de categorias: reaproveita a tabela de usuários (cartões no celular);
+   a descrição mantém as quebras de linha digitadas. */
+.tabela-categorias__descricao {
+  white-space: pre-line;
+}
+
+/* Sem isso, o overflow-wrap das células espreme a coluna Ações e quebra "Editar" no meio. */
+.tabela-categorias .botao {
+  white-space: nowrap;
+}
+
 /* Página de usuários */
 .pagina-usuarios__grade {
   display: grid;
