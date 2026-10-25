@@ -29,7 +29,7 @@ const {
   MENSAGEM_ID_INVALIDO,
   MENSAGEM_USUARIO_NAO_ENCONTRADO,
   MENSAGEM_ALTERAR_PROPRIO_ACESSO,
-  MENSAGEM_ULTIMA_GESTAO_ATIVA,
+  MENSAGEM_MINIMO_GESTOES_ATIVAS,
   MENSAGEM_CONFLITO_CONCORRENTE,
   TAMANHO_MAXIMO_NOME,
   atualizarUsuario,
@@ -511,17 +511,34 @@ describe('PUT /usuarios/{id} — e-mail duplicado (409)', () => {
   });
 });
 
-describe('PUT /usuarios/{id} — ao menos uma Gestão ativa (RN11, 409)', () => {
+describe('PUT /usuarios/{id} — ao menos duas Gestões ativas (RN11, 409)', () => {
   it.each([
     ['bloquear a si mesma', { status: 'BLOQUEADO' }],
     ['desativar a si mesma', { status: 'DESATIVADO' }],
     ['rebaixar o próprio perfil', { perfil: 'PROFESSOR' }],
     ['rebaixar e bloquear a si mesma', { perfil: 'TUTOR', status: 'BLOQUEADO' }],
-  ])('Gestão tentando %s: 409, mesmo havendo outra Gestão ativa', async (_caso, corpo) => {
+  ])('Gestão tentando %s: 409, mesmo havendo outras duas Gestões ativas', async (_caso, corpo) => {
     adicionarGestao(7);
+    adicionarGestao(8);
     const res = await put(ID_GESTAO, corpo);
 
     esperarErro(res, 409, MENSAGEM_ALTERAR_PROPRIO_ACESSO);
+    expect(update).not.toHaveBeenCalled();
+    expect(buscar(ID_GESTAO)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
+  });
+
+  // QA #37: a recusa da própria alteração vale também com exatamente duas
+  // Gestões ativas e com uma só (estado logo após a instalação), sempre com a
+  // mensagem do próprio acesso — não a do mínimo de duas Gestões.
+  it.each([
+    ['uma só Gestão ativa (a própria)', []],
+    ['exatamente duas Gestões ativas', [7]],
+  ])('com %s, a Gestão tentando bloquear/desativar/rebaixar a si mesma: 409', async (_caso, extras) => {
+    extras.forEach((id) => adicionarGestao(id));
+    for (const corpo of [{ status: 'BLOQUEADO' }, { status: 'DESATIVADO' }, { perfil: 'PEDAGOGICO' }]) {
+      const res = await put(ID_GESTAO, corpo);
+      esperarErro(res, 409, MENSAGEM_ALTERAR_PROPRIO_ACESSO);
+    }
     expect(update).not.toHaveBeenCalled();
     expect(buscar(ID_GESTAO)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
   });
@@ -548,35 +565,84 @@ describe('PUT /usuarios/{id} — ao menos uma Gestão ativa (RN11, 409)', () => 
     expect(res.status).toBe(200);
   });
 
-  it.each([
+  const ACOES_QUE_TIRAM_GESTAO_ATIVA = [
     ['bloquear', { status: 'BLOQUEADO' }],
     ['desativar', { status: 'DESATIVADO' }],
     ['rebaixar', { perfil: 'PEDAGOGICO' }],
-  ])('%s a última OUTRA Gestão ativa: 409', async (_caso, corpo) => {
-    // Como o solicitante é sempre uma Gestão ativa (middleware), este cenário
-    // só ocorre quando, entre a verificação da sessão e a transação, outra
-    // operação tira a Gestão solicitante (3) do ar. Simulado aqui: a Gestão 3
-    // passa na autenticação e é bloqueada logo antes da transação começar.
-    adicionarGestao(7);
-    $transaction.mockImplementationOnce(async (fn) => {
-      buscar(ID_GESTAO).status = 'BLOQUEADO';
-      return fn({ usuario: { findUnique, findMany, create, update, count } });
-    });
-    const res = await put(7, corpo);
+    ['rebaixar e bloquear', { perfil: 'PROFESSOR', status: 'BLOQUEADO' }],
+  ];
 
-    esperarErro(res, 409, MENSAGEM_ULTIMA_GESTAO_ATIVA);
-    expect(update).not.toHaveBeenCalled();
-    expect(count).toHaveBeenCalledWith({
-      where: { perfil: 'GESTAO', status: 'ATIVO', id: { not: 7 } },
-    });
+  it.each(ACOES_QUE_TIRAM_GESTAO_ATIVA)(
+    'com exatamente duas Gestões ativas, %s a outra: 409 e nada é gravado',
+    async (_caso, corpo) => {
+      adicionarGestao(7); // Gestões ativas: 3 (solicitante) e 7
+      const res = await put(7, corpo);
+
+      esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS);
+      expect(update).not.toHaveBeenCalled();
+      expect(buscar(7)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
+      expect(count).toHaveBeenCalledWith({
+        where: { perfil: 'GESTAO', status: 'ATIVO', id: { not: 7 } },
+      });
+    },
+  );
+
+  it.each(ACOES_QUE_TIRAM_GESTAO_ATIVA)(
+    'com três Gestões ativas, %s uma delas: 200',
+    async (_caso, corpo) => {
+      adicionarGestao(7);
+      adicionarGestao(8); // Gestões ativas: 3, 7 e 8
+      const res = await put(7, corpo);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: 7, ...corpo });
+      expect(buscar(7)).toMatchObject(corpo);
+    },
+  );
+
+  it.each(['BLOQUEADO', 'DESATIVADO'])(
+    'Gestão com status %s não conta: duas ativas + uma inativa, bloquear uma ativa: 409',
+    async (statusInativo) => {
+      adicionarGestao(7);
+      adicionarGestao(8, statusInativo);
+      const res = await put(7, { status: 'BLOQUEADO' });
+
+      esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS);
+      expect(update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('com três Gestões ativas: a primeira retirada passa (200) e a segunda é recusada (409)', async () => {
+    adicionarGestao(7);
+    adicionarGestao(8);
+
+    expect((await put(7, { status: 'BLOQUEADO' })).status).toBe(200);
+    const res = await put(8, { status: 'DESATIVADO' });
+
+    esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS);
+    expect(buscar(8)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
   });
 
-  it('com duas Gestões ativas, bloquear a outra: 200', async () => {
+  it('reativar uma Gestão volta a permitir a retirada de outra', async () => {
     adicionarGestao(7);
-    const res = await put(7, { status: 'BLOQUEADO' });
+    adicionarGestao(8, 'BLOQUEADO');
+    expect((await put(7, { status: 'BLOQUEADO' })).status).toBe(409);
+
+    expect((await put(8, { status: 'ATIVO' })).status).toBe(200);
+    expect((await put(7, { status: 'BLOQUEADO' })).status).toBe(200);
+  });
+
+  it('a mensagem do 409 explica a regra dos dois usuários Gestão e pede o cadastro de outro', () => {
+    expect(MENSAGEM_MINIMO_GESTOES_ATIVAS).toMatch(/ao menos dois usuários Gestão ativos/);
+    expect(MENSAGEM_MINIMO_GESTOES_ATIVAS).toMatch(/Cadastre ou reative outro usuário Gestão/);
+  });
+
+  it('editar só o nome de uma Gestão, com duas Gestões ativas: 200 (não reduz Gestões ativas)', async () => {
+    adicionarGestao(7);
+    const res = await put(7, { nome: 'Gestora Renomeada Ficticia' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ id: 7, perfil: 'GESTAO', status: 'BLOQUEADO' });
+    expect(count).not.toHaveBeenCalled();
   });
 
   it('depois disso, rebaixar a outra Gestão já bloqueada não consulta a regra: 200', async () => {
@@ -606,18 +672,18 @@ describe('PUT /usuarios/{id} — ao menos uma Gestão ativa (RN11, 409)', () => 
 describe('PUT /usuarios/{id} — concorrência (transação serializável)', () => {
   it('conflito de serialização (P2034) é repetido e depois respeita a regra', async () => {
     adicionarGestao(7);
+    adicionarGestao(8); // Gestões ativas: 3, 7 e 8
     // 1ª tentativa: o PostgreSQL aborta a transação (outra edição concorrente
-    // bloqueou a Gestão 3 nesse meio-tempo).
+    // bloqueou a Gestão 8 nesse meio-tempo). Na repetição, além da 7 só resta
+    // a Gestão 3 ativa: menos de duas outras, 409.
     $transaction.mockImplementationOnce(async () => {
-      buscar(ID_GESTAO).status = 'BLOQUEADO';
+      buscar(8).status = 'BLOQUEADO';
       throw erroPrisma('P2034', 'Transaction failed due to a write conflict or a deadlock.');
     });
 
-    // A Gestão 3 já não está ativa; usamos o service direto com o solicitante
-    // da requisição original (autenticado antes do bloqueio concorrente).
     await expect(
       atualizarUsuario('7', { status: 'BLOQUEADO' }, { id: ID_GESTAO, perfil: 'GESTAO' }),
-    ).rejects.toMatchObject({ status: 409, message: MENSAGEM_ULTIMA_GESTAO_ATIVA });
+    ).rejects.toMatchObject({ status: 409, message: MENSAGEM_MINIMO_GESTOES_ATIVAS });
     expect($transaction).toHaveBeenCalledTimes(2);
     expect(buscar(7).status).toBe('ATIVO');
   });
@@ -674,6 +740,7 @@ describe('PUT /usuarios/{id} — permissões (RN01, Seção 4)', () => {
 
   it('Gestão bloqueada (por outra Gestão) perde o acesso ao PUT na hora: 401', async () => {
     adicionarGestao(7);
+    adicionarGestao(8); // três Gestões ativas: o bloqueio da 7 é permitido (RN11)
     const tokenGestao7 = tokenDe(7);
     expect((await put(7, { status: 'BLOQUEADO' })).status).toBe(200);
 

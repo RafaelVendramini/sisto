@@ -455,6 +455,84 @@ describe('Depois da redefinição pela Gestão (RN10)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Cadastro com troca obrigatória no primeiro login (RN10 — SSD 1.6, Issue #37)
+// ---------------------------------------------------------------------------
+
+describe('Usuário recém-cadastrado (RN10, #37)', () => {
+  const SENHA_CADASTRO = 'CadastroFicticio#1';
+
+  beforeEach(() => {
+    // O create grava no mesmo "banco" em memória lido pelo login e pela sessão.
+    create.mockImplementation(async ({ data, select }) => {
+      const registro = {
+        id: Math.max(...banco.map((u) => u.id)) + 1,
+        senha_alterada_em: null,
+        ...data,
+      };
+      banco.push(registro);
+      return selecionar(registro, select);
+    });
+  });
+
+  async function cadastrar(perfil, email) {
+    const tokenGestao = await tokenPorLogin(ID_GESTAO);
+    const res = await request(app)
+      .post('/usuarios')
+      .set('Authorization', `Bearer ${tokenGestao}`)
+      .send({ nome: 'Pessoa Recem Cadastrada', email, perfil, senha: SENHA_CADASTRO });
+    expect(res.status).toBe(201);
+    // Sem mudança de contrato: a resposta do POST não expõe a flag.
+    expect(Object.keys(res.body).sort()).toEqual(['email', 'id', 'nome', 'perfil', 'status']);
+    return res.body.id;
+  }
+
+  it.each([
+    ['PROFESSOR', 'professor.novo@sisto.exemplo', '/rota-protegida-ficticia', 404],
+    ['GESTAO', 'gestao.nova@sisto.exemplo', '/usuarios', 200],
+  ])(
+    '%s: 1º login com trocaSenhaObrigatoria true → 403 → PUT /conta/senha → novo login acessa normalmente',
+    async (perfil, email, rota, statusLiberado) => {
+      const id = await cadastrar(perfil, email);
+      expect(buscar(id).troca_senha_obrigatoria).toBe(true);
+
+      // 1. Primeiro login com a senha temporária.
+      const primeiro = await login(email, SENHA_CADASTRO);
+      expect(primeiro.status).toBe(200);
+      expect(primeiro.body.trocaSenhaObrigatoria).toBe(true);
+      const tokenPendente = primeiro.body.token;
+
+      // 2. Rotas protegidas bloqueadas (403) até a troca.
+      const bloqueada = await get(rota, tokenPendente);
+      expect(bloqueada.status).toBe(403);
+      expect(bloqueada.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+
+      // 3. Troca da senha pelo próprio usuário (fluxo da #18).
+      const troca = await trocar({ senhaAtual: SENHA_CADASTRO, novaSenha: SENHA_NOVA }, tokenPendente);
+      expect(troca.status).toBe(204);
+      expect(buscar(id).troca_senha_obrigatoria).toBe(false);
+
+      // 4. O token usado na troca deixa de valer (RN12); a senha temporária falha.
+      expect((await get(rota, tokenPendente)).status).toBe(401);
+      expect((await login(email, SENHA_CADASTRO)).status).toBe(401);
+
+      // 5. Login com a nova senha e acesso normal.
+      const novoLogin = await login(email, SENHA_NOVA);
+      expect(novoLogin.status).toBe(200);
+      expect(novoLogin.body.trocaSenhaObrigatoria).toBe(false);
+      expect((await get(rota, novoLogin.body.token)).status).toBe(statusLiberado);
+    },
+  );
+
+  it('usuários já cadastrados não são afetados: login segue com trocaSenhaObrigatoria false', async () => {
+    await cadastrar('TUTOR', 'tutor.novo@sisto.exemplo');
+
+    const res = await login('docente.alvo@sisto.exemplo', SENHA_INICIAL);
+    expect(res.status).toBe(200);
+    expect(res.body.trocaSenhaObrigatoria).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // PUT /conta/senha — troca pelo próprio usuário
 // ---------------------------------------------------------------------------
 

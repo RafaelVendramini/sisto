@@ -23,7 +23,9 @@ vi.mock('../src/lib/prisma.js', () => ({
 // service, via injeção de dependência (deps.gerarHash).
 
 const { default: app } = await import('../src/app.js');
-const { MENSAGEM_PERFIL_SEM_PERMISSAO } = await import('../src/middlewares/autenticacao.js');
+const { MENSAGEM_PERFIL_SEM_PERMISSAO, MENSAGEM_TROCA_SENHA_OBRIGATORIA } = await import(
+  '../src/middlewares/autenticacao.js'
+);
 const { MENSAGEM_NAO_AUTENTICADO } = await import('../src/services/sessao.js');
 const { MENSAGEM_EMAIL_DUPLICADO, TAMANHO_MAXIMO_NOME, cadastrarUsuario } = await import(
   '../src/services/usuarios.js'
@@ -171,7 +173,9 @@ describe('POST /usuarios — cadastro pela Gestão (201)', () => {
     expect(JSON.stringify(data)).not.toContain(SENHA_TEMPORARIA);
     expect(await bcrypt.compare(SENHA_TEMPORARIA, data.senha_hash)).toBe(true);
     expect(data.status).toBe('ATIVO');
-    // select explícito sem senha_hash
+    // RN10 (SSD 1.6, #37): a senha do cadastro é temporária.
+    expect(data.troca_senha_obrigatoria).toBe(true);
+    // select explícito sem senha_hash (nem troca_senha_obrigatoria)
     expect(select).toEqual({ id: true, nome: true, email: true, perfil: true, status: true });
   });
 
@@ -196,7 +200,7 @@ describe('POST /usuarios — cadastro pela Gestão (201)', () => {
     expect(r2.status).toBe(201);
   });
 
-  it('usuário cadastrado autentica em POST /auth/login com a senha temporária', async () => {
+  it('usuário cadastrado autentica com a senha temporária, com troca obrigatória (RN10)', async () => {
     const cadastro = await postUsuarios(
       corpoValido({ email: 'tutor.novo@sisto.exemplo', perfil: 'TUTOR' }),
     );
@@ -214,13 +218,20 @@ describe('POST /usuarios — cadastro pela Gestão (201)', () => {
     });
     const payload = jwt.verify(login.body.token, SEGREDO_TESTE);
     expect(payload).toMatchObject({ id: cadastro.body.id, perfil: 'TUTOR' });
+    // RN10 (SSD 1.6, #37): o primeiro login exige a troca da senha temporária.
+    expect(login.body.trocaSenhaObrigatoria).toBe(true);
 
-    // Com o token recebido, o novo usuário (TUTOR) acessa rotas protegidas,
-    // mas não /usuarios (403).
-    const lista = await request(app)
-      .get('/usuarios')
-      .set('Authorization', `Bearer ${login.body.token}`);
-    expect(lista.status).toBe(403);
+    // Com a troca pendente, o token é válido (não 401), mas as rotas
+    // protegidas respondem 403 com a mensagem da troca obrigatória — antes
+    // mesmo da checagem de perfil. O fluxo completo da troca está em
+    // tests/troca-senha.test.js.
+    for (const caminho of ['/usuarios', '/rota-protegida-ficticia']) {
+      const res = await request(app)
+        .get(caminho)
+        .set('Authorization', `Bearer ${login.body.token}`);
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    }
   });
 
   it('senha errada para o usuário cadastrado: 401 no login', async () => {
@@ -324,7 +335,7 @@ describe('POST /usuarios — validações (400)', () => {
     esperar400(await postUsuarios(corpoValido({ nome: 'N'.repeat(TAMANHO_MAXIMO_NOME + 1) })));
   });
 
-  it('campos extras (status, id, senha_hash, confirmarSenha) são ignorados: 201 ATIVO', async () => {
+  it('campos extras (status, id, senha_hash, confirmarSenha, troca_senha_obrigatoria) são ignorados: 201 ATIVO', async () => {
     const hashInjetado = '$2b$04$hashqualquerinventadoparatesteaaaaaaaaaaaaaaaaaaaaaa';
     const res = await postUsuarios(
       corpoValido({
@@ -332,6 +343,8 @@ describe('POST /usuarios — validações (400)', () => {
         id: 999,
         senha_hash: hashInjetado,
         confirmarSenha: SENHA_TEMPORARIA,
+        troca_senha_obrigatoria: false,
+        trocaSenhaObrigatoria: false,
       }),
     );
 
@@ -342,10 +355,20 @@ describe('POST /usuarios — validações (400)', () => {
     esperarSemHash(res);
 
     const { data } = create.mock.calls[0][0];
-    expect(Object.keys(data).sort()).toEqual(['email', 'nome', 'perfil', 'senha_hash', 'status']);
+    expect(Object.keys(data).sort()).toEqual([
+      'email',
+      'nome',
+      'perfil',
+      'senha_hash',
+      'status',
+      'troca_senha_obrigatoria',
+    ]);
     expect(data).not.toHaveProperty('id');
     expect(data).not.toHaveProperty('confirmarSenha');
+    expect(data).not.toHaveProperty('trocaSenhaObrigatoria');
     expect(data.status).toBe('ATIVO');
+    // RN10: o cliente não consegue dispensar a troca obrigatória.
+    expect(data.troca_senha_obrigatoria).toBe(true);
     expect(data.senha_hash).not.toBe(hashInjetado);
     expect(await bcrypt.compare(SENHA_TEMPORARIA, data.senha_hash)).toBe(true);
   });
@@ -516,6 +539,8 @@ describe('cadastrarUsuario — injeção de dependência (service)', () => {
     });
     const { data } = create.mock.calls[0][0];
     expect(data.senha_hash).toMatch(/^\$2b\$04\$/);
+    expect(data.troca_senha_obrigatoria).toBe(true);
+    expect(usuario).not.toHaveProperty('troca_senha_obrigatoria');
     expect(await bcrypt.compare(SENHA_TEMPORARIA, data.senha_hash)).toBe(true);
   });
 
