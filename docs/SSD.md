@@ -11,7 +11,7 @@
 | Nome do Sistema | Sistema de gestão de ocorrências de alunos |
 | Nome Curto      | Sisto |
 | Equipe          | LTD.2026.2-006 |
-| Versão          | MVP 1.0        |
+| Versão do produto | MVP 1.0 (a versão deste documento está na Seção 14) |
 | Semestre        | 2026.2         |
 
 ## Cliente
@@ -76,6 +76,15 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | Redefinir senha de usuário             | — | — | ✔ | — | — |
 | Trocar a própria senha                 | ✔ | ✔ | ✔ | ✔ | ✔ |
 
+Observações sobre a matriz (v1.6):
+
+* A visibilidade das ocorrências por perfil está detalhada na RN19.
+* O Tutor registra comunicação apenas nas ocorrências que pode visualizar (RN16).
+* Todos os perfis consultam turmas, estudantes, categorias e os destinatários possíveis, porque todos registram ocorrências, mas com dados reduzidos para quem não é Gestão (RN20).
+* Turmas, estudantes e categorias não são excluídos (RN21).
+
+> **Ponto a validar com a escola:** a linha "Ver ocorrências encaminhadas a si" está marcada para Professor e Técnico-administrativo, mas o destinatário de um encaminhamento só pode ser tutor, equipe pedagógica ou gestão (RN03). Assim, no MVP esses dois perfis não recebem encaminhamentos. A matriz foi mantida como está até a validação.
+
 ---
 
 # 5. Escopo do MVP
@@ -115,17 +124,26 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | Código | Regra |
 | ------ | ----- |
 | RN01   | Cada usuário só visualiza as informações pertinentes às suas funções e responsabilidades (princípio da necessidade), conforme a matriz de permissões da Seção 4. |
-| RN02   | Toda ocorrência deve ter, no mínimo, um estudante envolvido e um profissional responsável pelo registro identificado. |
-| RN03   | Toda ocorrência registrada deve ser encaminhada a pelo menos um responsável interno (tutor, equipe pedagógica ou gestão). |
+| RN02   | Toda ocorrência deve ter, no mínimo, um estudante envolvido e um profissional responsável pelo registro identificado. O profissional responsável é sempre o usuário logado que registra a ocorrência; não é possível registrar em nome de outro usuário. |
+| RN03   | Toda ocorrência registrada deve ser encaminhada a pelo menos um responsável interno (tutor, equipe pedagógica ou gestão). O encaminhamento inicial é informado no próprio registro e gravado na mesma operação (tudo ou nada); sem ele, o registro é recusado (HTTP 400). Um encaminhamento para tutor exige um usuário com perfil Tutor e status **ativo**. Para equipe pedagógica ou gestão, o usuário destinatário é opcional (o encaminhamento vai para a equipe); se for informado, precisa ter o perfil correspondente (Pedagógico ou Gestão) e status **ativo**. O encaminhamento inicial não altera o status: a ocorrência nasce "aberto". |
 | RN04   | O status de uma ocorrência segue o fluxo aberto → em acompanhamento → encerrado, sem retorno a status anterior e sem pular etapas. Uma ocorrência só pode ser encerrada se houver ao menos uma providência adotada registrada durante o acompanhamento. |
 | RN05   | Dados de estudantes utilizados em ambiente de desenvolvimento e testes devem ser fictícios ou anonimizados. |
-| RN06   | Os registros devem ser redigidos de forma objetiva e descritiva, sem linguagem ofensiva ou classificações que estigmatizem os estudantes. |
+| RN06   | Os registros devem ser redigidos de forma objetiva e descritiva, sem linguagem ofensiva ou classificações que estigmatizem os estudantes. O sistema não filtra o texto automaticamente; o formulário de registro mostra uma orientação sobre redação objetiva. |
 | RN07   | Um usuário que deixa de pertencer à unidade escolar deve ser bloqueado/desativado, mantendo-se o histórico dos registros que criou. O status do usuário assume os valores **ativo**, **bloqueado** ou **desativado**; usuários nunca são excluídos, e a Gestão pode reativá-los (voltar para **ativo**). |
-| RN08   | Toda alteração em uma ocorrência (status, providências, encaminhamentos, comunicações) deve gerar um registro no histórico, com usuário, data/hora e descrição da alteração. |
+| RN08   | O registro da ocorrência e toda alteração nela (status, responsável pelo acompanhamento, providências, encaminhamentos, comunicações) devem gerar um registro no histórico, com usuário, data/hora e descrição da alteração. A ação do histórico é um texto fixo, sem dados pessoais nem o conteúdo das comunicações. |
 | RN09   | Somente usuários com status **ativo** podem autenticar-se e acessar o sistema. O bloqueio ou a desativação corta o acesso imediatamente, inclusive de sessões já abertas (o status é verificado a cada requisição autenticada). |
-| RN10   | Senhas devem ter no mínimo 8 caracteres. No cadastro, a Gestão define uma senha temporária para o novo usuário; não há troca obrigatória no primeiro acesso. Quando a Gestão redefine a senha de um usuário (RF03), a nova senha também é temporária e o usuário é obrigado a trocá-la no próximo login; enquanto não troca, a API nega o acesso às demais rotas (HTTP 403). Na troca da própria senha, a nova senha não pode ser igual à senha atual. A Gestão pode redefinir a senha de um usuário bloqueado ou desativado, que continua sem acesso até ser reativado (RN09). |
-| RN11   | O sistema deve manter sempre ao menos um usuário com perfil Gestão e status **ativo**. A Gestão não pode bloquear, desativar ou alterar o próprio perfil, e nenhuma edição pode deixar o sistema sem um usuário Gestão ativo; nesses casos a operação é recusada (HTTP 409). |
+| RN10   | Senhas devem ter no mínimo 8 caracteres. No cadastro (RF01), a Gestão define uma senha temporária para o novo usuário, que é obrigado a trocá-la no primeiro login. Quando a Gestão redefine a senha de um usuário (RF03), a nova senha também é temporária e o usuário é obrigado a trocá-la no próximo login. Assim, a Gestão nunca conhece a senha definitiva de outro usuário. Enquanto a troca estiver pendente, a API nega o acesso às demais rotas (HTTP 403). Na troca da própria senha, a nova senha não pode ser igual à senha atual. A Gestão pode redefinir a senha de um usuário bloqueado ou desativado, que continua sem acesso até ser reativado (RN09). |
+| RN11   | O sistema deve manter ao menos **dois** usuários com perfil Gestão e status **ativo**, para que um possa redefinir a senha do outro (RF03). A Gestão não pode bloquear, desativar ou alterar o próprio perfil, e nenhuma edição pode reduzir a menos de dois o número de usuários Gestão ativos; nesses casos a operação é recusada (HTTP 409). Enquanto houver um único usuário Gestão ativo (por exemplo, logo após a instalação), ele não pode deixar de ser Gestão ativa, e a escola deve cadastrar o segundo. Se nenhum usuário Gestão conseguir entrar, a equipe técnica usa o script de recuperação, executado fora da API (Seção 10). |
 | RN12   | Qualquer troca de senha (redefinição pela Gestão ou troca pelo próprio usuário) encerra as sessões abertas do usuário: os tokens emitidos antes da troca deixam de valer, inclusive o token usado na própria troca. Um token só vale se tiver sido emitido depois da última troca de senha; após trocar a senha, o usuário precisa fazer login novamente. |
+| RN13   | Só pode ser vinculado como tutor de um estudante um usuário com perfil Tutor e status **ativo** no momento do vínculo; caso contrário, a operação é recusada (HTTP 400). Se o tutor for bloqueado ou desativado depois, o vínculo é mantido (RN07) e o status do tutor é exibido à Gestão, que pode trocar o tutor ou desvincular o estudante. A alteração do perfil de um usuário Tutor que tenha estudantes vinculados é recusada (HTTP 409) até que os estudantes sejam desvinculados. |
+| RN14   | A turma da ocorrência é a turma de referência escolhida no registro e fica gravada como foto do momento: não muda quando um estudante troca de turma. A ocorrência pode envolver estudantes de outras turmas (por exemplo, um conflito entre turmas); o sistema valida apenas que a turma e os estudantes existem. |
+| RN15   | Somente a Gestão e a Equipe Pedagógica encaminham ocorrências já registradas (UC02). Em uma ocorrência "aberto", o encaminhamento exige a definição do responsável pelo acompanhamento (usuário **ativo** com perfil Tutor, Pedagógico ou Gestão) e muda o status para "em acompanhamento" (RN04). Em uma ocorrência "em acompanhamento", um novo encaminhamento não altera o status, e a troca do responsável é opcional. Uma ocorrência "encerrado" não recebe encaminhamentos (HTTP 409). |
+| RN16   | A comunicação (RF09) registra um contato feito fora do sistema; o sistema não envia notificações. A Gestão e a Equipe Pedagógica registram comunicações em qualquer ocorrência; o Tutor, apenas nas ocorrências que pode visualizar (RN19). Uma ocorrência "encerrado" não recebe comunicações (HTTP 409). Destinatário e meio da comunicação são texto livre. |
+| RN17   | A data/hora da ocorrência e a da comunicação são informadas pelo usuário (momento do fato ou do contato) e não podem ser futuras (HTTP 400). Para absorver diferenças entre o relógio do aparelho e o do servidor, a API aceita uma data até **5 minutos** à frente do horário do servidor; acima disso, recusa. A data/hora do encaminhamento e a da providência são o momento do registro, preenchido pelo sistema. As datas são gravadas em UTC e exibidas no horário de São Paulo (`America/Sao_Paulo`). |
+| RN18   | Não pode haver duas categorias com o mesmo nome nem duas turmas com o mesmo trio (nome, etapa, ano letivo); a comparação de textos ignora maiúsculas/minúsculas e espaços nas pontas. O código escolar do estudante, quando informado, é único; vários estudantes podem ficar sem código (texto vazio equivale a não informado). Nomes de estudantes podem se repetir. A duplicidade é recusada com HTTP 409. |
+| RN19   | Visibilidade das ocorrências (RN01): a Gestão e a Equipe Pedagógica visualizam todas. Professor e Técnico-administrativo visualizam as que registraram e as encaminhadas a eles como usuário destinatário (esta segunda condição hoje não ocorre, porque eles não podem ser destinatários pela RN03; ver o ponto a validar na Seção 4). O Tutor visualiza as que registrou, as encaminhadas a ele, as que acompanha como responsável e as que envolvem estudantes sob sua tutoria. Uma ocorrência fora da visibilidade do usuário é tratada como inexistente (HTTP 404). |
+| RN20   | Todos os perfis autenticados consultam turmas, categorias e estudantes, necessários para registrar ocorrências. Para quem não é Gestão, os dados de estudantes se limitam a identificador, nome completo, turma e tutor (só identificador e nome do tutor, sem e-mail e sem status), sem código escolar, e a lista de usuários se limita a identificador, nome e perfil dos usuários **ativos** que podem ser destinatários de encaminhamento ou responsáveis pelo acompanhamento (Tutor, Pedagógico, Gestão), sem e-mail e sem status. |
+| RN21   | Turmas, estudantes e categorias não são excluídos nem inativados no MVP: são apenas cadastrados e editados. A troca de turma de um estudante não altera as ocorrências já registradas (RN14). |
 
 ---
 
@@ -185,18 +203,18 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | RF02   | O sistema deve permitir autenticação individual por usuário e senha, sendo o e-mail (único) o identificador de login, e o encerramento da sessão (logout). |
 | RF03   | O sistema deve permitir a recuperação de acesso: a Gestão redefine a senha de outro usuário, definindo uma nova senha temporária (RN10), e não redefine a própria senha por esse caminho; o usuário logado troca a própria senha, informando a senha atual e a nova. Após redefinição pela Gestão, a troca é obrigatória no próximo login (RN10). Toda troca encerra as sessões abertas (RN12) e é registrada no log de auditoria, sem a senha (RNF04). |
 | RF04   | O sistema deve permitir o bloqueio, a desativação e a reativação de usuários (RN07, RN09, RN11). |
-| RF05   | O sistema deve permitir o registro de ocorrências com os campos: profissional responsável, data e horário, local, turma, estudante(s) envolvido(s), categoria, descrição, demais envolvidos, testemunhas, providências imediatas, encaminhamentos e observações. |
+| RF05   | O sistema deve permitir o registro de ocorrências com os campos: profissional responsável, data e horário, local, turma, estudante(s) envolvido(s), categoria, descrição, demais envolvidos, testemunhas, providências imediatas, encaminhamentos e observações (RN02, RN03, RN14, RN17). |
 | RF06   | O sistema deve permitir o registro de mais de um estudante envolvido em uma mesma ocorrência. |
-| RF07   | O sistema deve permitir a criação e a edição de categorias de ocorrência. |
-| RF08   | O sistema deve permitir o encaminhamento de uma ocorrência para tutor, equipe pedagógica ou gestão. |
-| RF09   | O sistema deve permitir o registro de comunicações realizadas (ex.: contato com a família, rede de proteção) associadas a uma ocorrência. |
+| RF07   | O sistema deve permitir a criação e a edição de categorias de ocorrência (RN18, RN21). |
+| RF08   | O sistema deve permitir o encaminhamento de uma ocorrência para tutor, equipe pedagógica ou gestão (RN03, RN15). |
+| RF09   | O sistema deve permitir o registro de comunicações realizadas (ex.: contato com a família, rede de proteção) associadas a uma ocorrência (RN16, RN17). |
 | RF10   | O sistema deve permitir a atualização do status de uma ocorrência (aberto, em acompanhamento, encerrado). |
 | RF11   | O sistema deve permitir a consulta de ocorrências por estudante, turma, período, categoria e profissional responsável. |
 | RF12   | O sistema deve exibir o histórico de alterações de uma ocorrência. |
 | RF13   | O sistema deve permitir a geração de relatórios de quantidade de ocorrências por período, turma e categoria. |
 | RF14   | O sistema deve respeitar os níveis de acesso definidos por perfil na exibição de registros e relatórios. |
-| RF15   | O sistema deve permitir o cadastro e a edição de turmas e estudantes. |
-| RF16   | O sistema deve permitir vincular cada estudante a um professor tutor. |
+| RF15   | O sistema deve permitir o cadastro e a edição de turmas e estudantes (RN18, RN21). |
+| RF16   | O sistema deve permitir vincular cada estudante a um professor tutor (RN13). |
 
 > Cada **Story** deverá atender um ou mais requisitos funcionais.
 
@@ -208,7 +226,7 @@ O acesso deve observar o princípio da necessidade: cada usuário visualiza apen
 | ------ | -------------------------- |
 | RNF01  | Interface responsiva, utilizável em computadores, tablets e celulares. |
 | RNF02  | Navegação simples e linguagem clara, adequada a usuários com diferentes níveis de familiaridade tecnológica. |
-| RNF03  | Controle de acesso por usuário e senha, com perfis de permissão; senhas armazenadas com hash. A sessão (token JWT) expira em 8 horas, sem renovação automática (refresh). |
+| RNF03  | Controle de acesso por usuário e senha, com perfis de permissão; senhas armazenadas com hash. A sessão (token JWT) expira em até 8 horas, com tolerância técnica de alguns segundos, sem renovação automática (refresh). |
 | RNF04  | Registro de atividades realizadas no sistema (log/auditoria básica). |
 | RNF05  | Cópias de segurança e proteção dos dados armazenados. |
 | RNF06  | Tratamento de dados pessoais em conformidade com a LGPD (finalidade definida, acesso restrito, prevenção de exposição indevida). |
@@ -236,7 +254,7 @@ O back-end segue arquitetura em camadas:
 * **Routes** — definição dos endpoints
 * **Middlewares** — autenticação (incluindo a verificação, a cada requisição, de que o usuário está ativo — RN09) e verificação de permissão por perfil (RN01, RF14)
 * **Controllers** — recebem as requisições e devolvem as respostas
-* **Services** — regras de negócio (RN01–RN12), histórico e auditoria
+* **Services** — regras de negócio (RN01–RN21), histórico e auditoria
 * **Prisma (camada de dados)** — acesso ao banco de dados
 
 ## Hospedagem (homologação)
@@ -247,7 +265,9 @@ Definida no Spike #19 para a homologação com a escola, com custo zero:
 * **API:** serviço web no **Render**, com HTTPS automático. No plano gratuito, a API é suspensa após 15 minutos sem acesso, e o primeiro acesso seguinte leva cerca de 1 minuto.
 * **Banco de dados:** PostgreSQL no **Neon**, preferencialmente na região São Paulo (`aws-sa-east-1`) (RNF06).
 * **Deploy:** automático a partir da branch `main`, sem alterações em `.github/`. As migrations rodam com `prisma migrate deploy`, e o seed cria apenas o usuário Gestão inicial (`NODE_ENV=production`).
-* **Segredos:** `DATABASE_URL`, `JWT_SECRET` e credenciais do seed ficam somente nas variáveis de ambiente dos serviços, nunca no repositório.
+* **Variáveis de ambiente:** a API usa `DATABASE_URL` (conexão com o Neon), `JWT_SECRET` (assinatura dos tokens), `CORS_ORIGIN` (endereço do front-end autorizado), `NODE_ENV=production` e, no seed, `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA`. O front-end usa `VITE_API_URL` (endereço da API), definida no build e visível no navegador, por isso nunca contém segredo.
+* **Segredos:** `DATABASE_URL`, `JWT_SECRET` e as credenciais do seed ficam somente nas variáveis de ambiente dos serviços, nunca no repositório.
+* **Recuperação da Gestão (RN11):** um script de linha de comando, executado pela equipe técnica fora da API e com acesso ao banco, redefine a senha de um usuário Gestão com troca obrigatória no próximo login (RN10) e registra a ação no `LogAuditoria`, sem a senha. É o último recurso, para quando nenhum usuário Gestão consegue entrar; entra na Issue de deploy.
 * **Backup (RNF05):** além da restauração do Neon (até 6 horas), a equipe faz uma cópia semanal com `pg_dump`, criptografada e guardada fora do repositório, com acesso restrito.
 * **Dados (RN05):** o ambiente hospedado usa somente dados fictícios até a autorização formal da escola. O acesso às contas do Render e do Neon é restrito à equipe, com verificação em duas etapas.
 * **Uso real:** a contratação de um plano pago (API sem suspensão e backup automático) é decisão a ser levada ao orientador e à escola.
@@ -268,7 +288,7 @@ Definida no Spike #19 para a homologação com a escola, com custo zero:
 | senha_hash | String | Sim       |
 | perfil   | String | Sim (Professor, Tutor, Gestão, Pedagógico, Técnico-administrativo) |
 | status   | String | Sim (ativo, bloqueado, desativado) |
-| troca_senha_obrigatoria | Boolean | Sim (padrão `false`; `true` após redefinição pela Gestão — RN10) |
+| troca_senha_obrigatoria | Boolean | Sim (`true` no cadastro e após redefinição pela Gestão; volta a `false` quando o usuário troca a senha — RN10) |
 | senha_alterada_em | DateTime | Não (data/hora da última troca de senha; tokens emitidos antes deixam de valer — RN12) |
 
 > Valores técnicos armazenados e trafegados na API: `perfil` ∈ `PROFESSOR`, `TUTOR`, `GESTAO`, `PEDAGOGICO`, `TECNICO_ADMINISTRATIVO`; `status` ∈ `ATIVO`, `BLOQUEADO`, `DESATIVADO`. O front-end exibe os rótulos amigáveis correspondentes (ex.: "Gestão", "Bloqueado").
@@ -278,25 +298,28 @@ Definida no Spike #19 para a homologação com a escola, com custo zero:
 | Campo  | Tipo   | Obrigatório |
 | ------ | ------ | ----------- |
 | id     | Int   | Sim         |
-| nome   | String | Sim         |
-| etapa  | String | Sim         |
+| nome   | String | Sim (único em conjunto com `etapa` e `ano_letivo` — RN18) |
+| etapa  | String | Sim (texto livre) |
+| ano_letivo | Int | Sim (ano com 4 dígitos, ex.: 2026) |
+
+> O ano letivo permite que a escola cadastre de novo, a cada ano, turmas com o mesmo nome e a mesma etapa (ex.: "1º A" do Ensino Médio em 2026 e em 2027), já que turmas não são excluídas (RN21).
 
 ## Entidade: Estudante
 
 | Campo          | Tipo   | Obrigatório |
 | -------------- | ------ | ----------- |
 | id             | Int   | Sim         |
-| nome_completo  | String | Sim         |
-| codigo_escolar | String | Não         |
-| turma_id       | Int   | Sim         |
-| tutor_id       | Int   | Não         |
+| nome_completo  | String | Sim (pode se repetir — RN18) |
+| codigo_escolar | String | Não (único quando informado; texto vazio é gravado como nulo — RN18) |
+| turma_id       | Int   | Sim (turma atual do estudante) |
+| tutor_id       | Int   | Não (usuário com perfil Tutor e status ativo no momento do vínculo — RN13) |
 
 ## Entidade: Categoria
 
 | Campo     | Tipo   | Obrigatório |
 | --------- | ------ | ----------- |
 | id        | Int   | Sim         |
-| nome      | String | Sim         |
+| nome      | String | Sim (único — RN18) |
 | descricao | String | Não         |
 
 ## Entidade: Ocorrência
@@ -304,18 +327,18 @@ Definida no Spike #19 para a homologação com a escola, com custo zero:
 | Campo                       | Tipo     | Obrigatório |
 | --------------------------- | -------- | ----------- |
 | id                          | Int     | Sim         |
-| data_hora                   | DateTime | Sim         |
+| data_hora                   | DateTime | Sim (momento do fato, informado; não pode ser futuro — RN17) |
 | local                       | String   | Sim         |
-| turma_id                    | Int     | Sim         |
+| turma_id                    | Int     | Sim (turma de referência escolhida no registro; não muda depois — RN14) |
 | categoria_id                | Int     | Sim         |
 | descricao                   | String   | Sim         |
 | demais_envolvidos           | String   | Não         |
 | testemunhas                 | String   | Não         |
 | providencias_imediatas      | String   | Não         |
 | observacoes                 | String   | Não         |
-| profissional_responsavel_id | Int     | Sim         |
-| responsavel_acompanhamento_id | Int   | Não         |
-| status                      | String   | Sim         |
+| profissional_responsavel_id | Int     | Sim (usuário logado que registrou — RN02) |
+| responsavel_acompanhamento_id | Int   | Não (definido no primeiro encaminhamento pela Gestão ou pela Equipe Pedagógica — RN15) |
+| status                      | String   | Sim (`ABERTO` no registro — RN03, RN04) |
 | data_encerramento           | DateTime | Não         |
 
 ## Entidade: OcorrenciaEstudante (associativa)
@@ -332,9 +355,9 @@ Definida no Spike #19 para a homologação com a escola, com custo zero:
 | id                     | Int     | Sim         |
 | ocorrencia_id          | Int     | Sim         |
 | destinatario_perfil    | String   | Sim         |
-| destinatario_usuario_id| Int     | Não         |
-| registrado_por_id      | Int     | Sim         |
-| data_hora              | DateTime | Sim         |
+| destinatario_usuario_id| Int     | Não (obrigatório quando o destinatário é tutor — RN03) |
+| registrado_por_id      | Int     | Sim (usuário logado) |
+| data_hora              | DateTime | Sim (momento do registro, preenchido pelo sistema — RN17) |
 | observacao             | String   | Não         |
 
 ## Entidade: Providência
@@ -344,8 +367,8 @@ Definida no Spike #19 para a homologação com a escola, com custo zero:
 | id                | Int     | Sim         |
 | ocorrencia_id     | Int     | Sim         |
 | descricao         | String   | Sim         |
-| registrado_por_id | Int     | Sim         |
-| data_hora         | DateTime | Sim         |
+| registrado_por_id | Int     | Sim (usuário logado) |
+| data_hora         | DateTime | Sim (momento do registro, preenchido pelo sistema — RN17) |
 
 ## Entidade: Comunicação
 
@@ -353,11 +376,11 @@ Definida no Spike #19 para a homologação com a escola, com custo zero:
 | ----------------- | -------- | ----------- |
 | id                | Int     | Sim         |
 | ocorrencia_id     | Int     | Sim         |
-| destinatario      | String   | Sim         |
-| meio              | String   | Sim         |
+| destinatario      | String   | Sim (texto livre — RN16) |
+| meio              | String   | Sim (texto livre — RN16) |
 | descricao         | String   | Sim         |
-| registrado_por_id | Int     | Sim         |
-| data_hora         | DateTime | Sim         |
+| registrado_por_id | Int     | Sim (usuário logado) |
+| data_hora         | DateTime | Sim (momento do contato, informado; não pode ser futuro — RN17) |
 
 ## Entidade: HistóricoOcorrência
 
@@ -383,11 +406,16 @@ Definida no Spike #19 para a homologação com a escola, com custo zero:
 ### Relacionamentos
 
 * Uma Turma possui vários Estudantes.
-* Um Estudante pode ter um Usuário com perfil Tutor como tutor.
-* Uma Ocorrência envolve um ou mais Estudantes (relação N:N, via OcorrenciaEstudante).
+* Um Estudante pode ter um Usuário com perfil Tutor como tutor (RN13).
+* Uma Ocorrência envolve um ou mais Estudantes (relação N:N, via OcorrenciaEstudante), que podem ser de turmas diferentes da turma de referência (RN14). O mesmo estudante não se repete na mesma ocorrência.
 * Uma Ocorrência pertence a uma Categoria.
 * Uma Ocorrência é registrada por um Usuário (profissional responsável).
 * Uma Ocorrência pode possuir vários Encaminhamentos, Providências, Comunicações e registros de Histórico.
+* Turmas, Estudantes e Categorias não são excluídos (RN21).
+
+> Valores técnicos (v1.6): o `status` da ocorrência assume `ABERTO`, `EM_ACOMPANHAMENTO` ou `ENCERRADO`, e o `destinatario_perfil` do encaminhamento assume `TUTOR`, `EQUIPE_PEDAGOGICA` ou `GESTAO`. O front-end exibe os rótulos amigáveis ("Aberto", "Equipe pedagógica").
+>
+> Seeds (RN05): o seed de desenvolvimento cria apenas turmas, estudantes e tutores **fictícios** e categorias de exemplo (indisciplina, conflitos, bullying, agressões, evasão, sofrimento emocional — Seção 2). O seed de produção cria apenas o usuário Gestão inicial (Seção 10); essa Gestão cadastra o segundo usuário Gestão (RN11) e as categorias, turmas e estudantes reais.
 
 ---
 
@@ -399,28 +427,28 @@ API REST (JSON) implementada em Node.js + Express. Endpoints previstos para o MV
 | ------ | ------------------------------------ | --------- |
 | POST   | /auth/login                          | Autenticar usuário |
 | POST   | /auth/recuperar-senha                | *Reservado para etapa futura* (redefinição por link enviado ao e-mail; depende do Spike #19 e de nova decisão; não implementado no MVP atual) |
-| GET    | /usuarios                            | Listar usuários |
+| GET    | /usuarios                            | Listar usuários (lista completa para a Gestão; reduzida para os demais perfis — RN20) |
 | POST   | /usuarios                            | Cadastrar usuário |
 | PUT    | /usuarios/{id}                       | Editar usuário (inclui bloqueio/desativação) |
 | PUT    | /usuarios/{id}/senha                 | Redefinir a senha de outro usuário (somente Gestão — RF03, RN10) |
 | PUT    | /conta/senha                         | Trocar a própria senha, informando a senha atual (RF03) |
-| GET    | /turmas                              | Listar turmas |
-| POST   | /turmas                              | Cadastrar turma |
-| PUT    | /turmas/{id}                         | Editar turma |
-| GET    | /estudantes                          | Listar estudantes (filtro por turma) |
-| POST   | /estudantes                          | Cadastrar estudante |
-| PUT    | /estudantes/{id}                     | Editar estudante (inclui vínculo com tutor) |
-| GET    | /categorias                          | Listar categorias |
-| POST   | /categorias                          | Criar categoria |
-| PUT    | /categorias/{id}                     | Editar categoria |
-| POST   | /ocorrencias                         | Registrar nova ocorrência |
-| GET    | /ocorrencias                         | Consultar ocorrências (com filtros) |
-| GET    | /ocorrencias/{id}                    | Consultar detalhe de uma ocorrência |
+| GET    | /turmas                              | Listar turmas (todos os perfis — RN20) |
+| POST   | /turmas                              | Cadastrar turma (somente Gestão) |
+| PUT    | /turmas/{id}                         | Editar turma (somente Gestão) |
+| GET    | /estudantes                          | Listar estudantes, com filtro por turma (todos os perfis, dados reduzidos para quem não é Gestão — RN20) |
+| POST   | /estudantes                          | Cadastrar estudante (somente Gestão) |
+| PUT    | /estudantes/{id}                     | Editar estudante, inclusive o vínculo com o tutor (somente Gestão — RN13) |
+| GET    | /categorias                          | Listar categorias (todos os perfis — RN20) |
+| POST   | /categorias                          | Criar categoria (Gestão e Pedagógico) |
+| PUT    | /categorias/{id}                     | Editar categoria (Gestão e Pedagógico) |
+| POST   | /ocorrencias                         | Registrar nova ocorrência, com o encaminhamento inicial (todos os perfis — RN03) |
+| GET    | /ocorrencias                         | Consultar ocorrências (com filtros), limitadas à visibilidade do perfil (RN19) |
+| GET    | /ocorrencias/{id}                    | Consultar detalhe de uma ocorrência (RN19) |
 | PUT    | /ocorrencias/{id}                    | Atualizar ocorrência |
 | PATCH  | /ocorrencias/{id}/status             | Alterar status (inclui encerramento) |
-| POST   | /ocorrencias/{id}/encaminhamentos    | Registrar encaminhamento |
+| POST   | /ocorrencias/{id}/encaminhamentos    | Registrar encaminhamento (Gestão e Pedagógico — RN15) |
 | POST   | /ocorrencias/{id}/providencias       | Registrar providência adotada |
-| POST   | /ocorrencias/{id}/comunicacoes       | Registrar comunicação |
+| POST   | /ocorrencias/{id}/comunicacoes       | Registrar comunicação (Tutor, Gestão e Pedagógico — RN16) |
 | GET    | /ocorrencias/{id}/historico          | Consultar histórico da ocorrência |
 | GET    | /relatorios                          | Gerar relatórios (por período, turma, categoria) |
 
@@ -429,8 +457,8 @@ Observações sobre autenticação:
 * `POST /auth/login` recebe e-mail e senha e devolve um token JWT com validade de 8 horas, sem refresh (RNF03). Somente usuários com status **ativo** autenticam (RN09).
 * O logout (RF02) é feito no front-end, descartando o token; não há endpoint de logout no MVP.
 * O middleware de autenticação consulta o status do usuário no banco a cada requisição; usuário bloqueado ou desativado tem o acesso negado imediatamente (RN09).
-* `POST /usuarios` recebe a senha temporária definida pela Gestão (mínimo de 8 caracteres — RN10). `PUT /usuarios/{id}` permite alterar o status entre `ATIVO`, `BLOQUEADO` e `DESATIVADO` (RF04, RN07), usando os valores técnicos da Seção 11.
-* `PUT /usuarios/{id}` responde **409** quando a Gestão tenta bloquear, desativar ou alterar o próprio perfil, ou quando a edição deixaria o sistema sem um usuário Gestão ativo (RN11).
+* `POST /usuarios` recebe a senha temporária definida pela Gestão (mínimo de 8 caracteres — RN10), e o usuário é criado com `troca_senha_obrigatoria` igual a `true`. `PUT /usuarios/{id}` permite alterar o status entre `ATIVO`, `BLOQUEADO` e `DESATIVADO` (RF04, RN07), usando os valores técnicos da Seção 11.
+* `PUT /usuarios/{id}` responde **409** quando a Gestão tenta bloquear, desativar ou alterar o próprio perfil, ou quando a edição deixaria o sistema com menos de dois usuários Gestão ativos (RN11).
 * A resposta do `POST /auth/login` inclui o campo `trocaSenhaObrigatoria` (boolean). Quando for `true`, o front-end leva o usuário direto para a tela de troca de senha (RN10).
 * `PUT /usuarios/{id}/senha` é restrito à Gestão e recebe a nova senha temporária (mínimo de 8 caracteres — RN10). Responde **409** quando a Gestão tenta redefinir a própria senha por esse caminho, no mesmo padrão da RN11; para isso ela usa `PUT /conta/senha`. Após a redefinição, `troca_senha_obrigatoria` passa a `true`. A regra de nova senha diferente da atual não se aplica a esta redefinição. A redefinição é permitida para usuário bloqueado ou desativado, que continua sem acesso até ser reativado (RN09).
 * `PUT /conta/senha` recebe a senha atual e a nova (mínimo de 8 caracteres — RN10); senha atual incorreta ou nova senha igual à atual são rejeitadas com **400** e mensagem clara (não 401, que o front-end trata como sessão expirada). Após a troca, `troca_senha_obrigatoria` volta a `false`. O endpoint não devolve token novo: o token usado na troca também deixa de valer, e o usuário precisa fazer login novamente (RN12).
@@ -438,6 +466,26 @@ Observações sobre autenticação:
 * Toda troca de senha atualiza `senha_alterada_em`. Um token só vale se tiver sido emitido depois de `senha_alterada_em`; o middleware de autenticação rejeita os demais (RN12). O tratamento de tokens emitidos no mesmo segundo da troca fica a cargo da implementação.
 * As trocas de senha ("senha redefinida pela Gestão" e "senha alterada pelo usuário") são registradas no `LogAuditoria` (RNF04), nunca com a senha.
 * `POST /auth/recuperar-senha` permanece reservado para uma etapa futura (redefinição por link enviado ao e-mail), dependente do Spike #19 e de nova decisão; não é requisito no momento.
+* Corpos das trocas de senha (adotados na Issue #18): `PUT /usuarios/{id}/senha` recebe `{ novaSenha }` e `PUT /conta/senha` recebe `{ senhaAtual, novaSenha }`. Ambos respondem **204**, sem corpo, quando a troca é feita.
+* `PUT /usuarios/{id}`, `PUT /usuarios/{id}/senha` e `PUT /conta/senha` respondem **409**, com mensagem para tentar de novo, quando uma alteração concorrente do mesmo usuário impede concluir a operação (transação repetida sem sucesso).
+* O campo `recurso` do `LogAuditoria` segue o formato `<recurso-da-API>/<id>` (ex.: `usuarios/6`). `acao` e `recurso` nunca contêm senha, hash, token ou dados pessoais, apenas textos fixos e identificadores numéricos (RNF04, RNF06).
+
+Observações sobre cadastros e ocorrências (v1.6):
+
+* **Convenção de campos:** os corpos JSON da API usam camelCase (ex.: `nomeCompleto`, `codigoEscolar`, `turmaId`, `tutorId`, `dataHora`, `senhaAtual`), e o banco usa snake_case (Seção 11).
+* **Códigos de resposta:** **400** para entrada inválida, inclusive referência inexistente no corpo (turma, estudante, categoria ou usuário); **404** para o recurso da URL inexistente ou fora da visibilidade do usuário (RN19); **409** para duplicidade (RN18) e para operações recusadas pelo estado da ocorrência ou pelo vínculo de tutoria (RN13, RN15, RN16). Não há `DELETE` para turmas, estudantes nem categorias (RN21).
+* **Permissões:** seguem a matriz da Seção 4 (`permitirPerfis`), com as restrições de visibilidade da RN19 e de dados da RN20.
+* `GET /usuarios`: para a Gestão, a resposta é completa. Para os demais perfis, traz apenas `id`, `nome` e `perfil` dos usuários com status `ATIVO` e perfil `TUTOR`, `PEDAGOGICO` ou `GESTAO`, e aceita o filtro `?perfil=` (RN20).
+* `PUT /usuarios/{id}` responde **409** quando a edição muda o perfil de um usuário Tutor que tem estudantes vinculados (RN13).
+* `POST /turmas` e `PUT /turmas/{id}` recebem `{ nome, etapa, anoLetivo }` (obrigatórios; `anoLetivo` inteiro de 4 dígitos). Turma duplicada no mesmo ano letivo responde **409** (RN18).
+* `GET /estudantes` aceita `?turmaId=`. Para quem não é Gestão, devolve apenas `id`, `nomeCompleto`, `turma` e `tutor` (`{ id, nome }` ou `null`, sem e-mail e sem status) (RN20). `POST /estudantes` e `PUT /estudantes/{id}` recebem `{ nomeCompleto, codigoEscolar?, turmaId, tutorId? }`; `tutorId: null` no `PUT` desvincula o tutor. Tutor que não tem perfil Tutor ou não está ativo responde **400** (RN13); código escolar duplicado responde **409** (RN18).
+* `POST /categorias` e `PUT /categorias/{id}` recebem `{ nome, descricao? }`. Nome duplicado responde **409** (RN18).
+* `POST /ocorrencias` recebe `{ dataHora, local, turmaId, categoriaId, descricao, estudanteIds[], demaisEnvolvidos?, testemunhas?, providenciasImediatas?, observacoes?, encaminhamentos[] }`, com ao menos um estudante (RN02) e ao menos um encaminhamento `{ destinatarioPerfil, destinatarioUsuarioId?, observacao? }` (RN03). O profissional responsável é o usuário logado, nunca um valor do corpo (RN02). A ocorrência, os estudantes, os encaminhamentos e o histórico são gravados em uma única transação, e a ocorrência nasce com status `ABERTO`. Responde **201**.
+* `GET /ocorrencias/{id}` devolve a ocorrência com estudantes, categoria, turma, encaminhamentos e comunicações. Para quem não é Gestão, os estudantes vêm sem o código escolar (RN20).
+* `POST /ocorrencias/{id}/encaminhamentos` recebe `{ destinatarioPerfil, destinatarioUsuarioId?, observacao?, responsavelAcompanhamentoId? }`, com as regras de destinatário da RN03 e de status e responsável da RN15. Responde **201**.
+* `POST /ocorrencias/{id}/comunicacoes` recebe `{ destinatario, meio, descricao, dataHora }`, com as regras da RN16 e da RN17. Responde **201**.
+* **Histórico (RN08):** o registro da ocorrência, cada encaminhamento, a mudança de status, a troca do responsável pelo acompanhamento e cada comunicação geram um registro em `HistoricoOcorrencia`, com ação em texto fixo.
+* **Auditoria (RNF04):** a criação e a edição de turmas, estudantes, categorias e ocorrências são registradas no `LogAuditoria`, com `recurso` no formato `<recurso-da-API>/<id>` (ex.: `turmas/3`), sem nomes de estudantes nem outros dados pessoais.
 
 ---
 
@@ -464,6 +512,7 @@ Uma implementação somente poderá ser considerada concluída quando atender ao
 | 1.3    | 12/10/2026 | Decisão da Issue #13: garantia de ao menos um usuário Gestão ativo, com recusa (HTTP 409) de autobloqueio, autodesativação, alteração do próprio perfil e de edições que deixem o sistema sem Gestão ativa (nova RN11; RF04 e Seção 10 atualizados); valores técnicos de `perfil` e `status` do usuário com rótulos amigáveis no front-end (Seção 11); observações do `PUT /usuarios/{id}` na Seção 12 |
 | 1.4    | 15/10/2026 | Decisão do Spike #17 (recuperação de acesso, Etapa 1): RF03 reescrito — redefinição da senha de outro usuário pela Gestão e troca da própria senha pelo usuário logado, com auditoria sem a senha; RN10 ampliada com troca obrigatória no próximo login após redefinição pela Gestão (cadastro segue sem troca obrigatória); nova RN12 (troca de senha encerra as sessões abertas); campos `troca_senha_obrigatoria` e `senha_alterada_em` em `Usuario` (Seção 11); novos endpoints `PUT /usuarios/{id}/senha` e `PUT /conta/senha`, observações de autenticação e `POST /auth/recuperar-senha` reservado para etapa futura dependente do Spike #19 (Seção 12); referência às RNs na Seção 10. Respostas aos pontos em aberto do Spike #17: após trocar a senha o usuário faz login novamente, sem token novo, e o token usado na troca também deixa de valer (RN12); campo `trocaSenhaObrigatoria` na resposta do login; HTTP 403 nas rotas protegidas enquanto a troca está pendente e HTTP 409 quando a Gestão tenta redefinir a própria senha por `PUT /usuarios/{id}/senha`; token só vale se emitido depois de `senha_alterada_em`; nova senha diferente da atual; redefinição permitida para usuário bloqueado ou desativado, sem liberar o acesso (RN09); linhas "Redefinir senha de usuário" e "Trocar a própria senha" na matriz de permissões (Seção 4); senha atual incorreta ou nova senha igual à atual em `PUT /conta/senha` respondem 400, e a regra de senha diferente não vale para a redefinição pela Gestão |
 | 1.5    | 15/10/2026 | Decisão do Spike #19: hospedagem da homologação no Render (front-end estático e API) e no Neon (PostgreSQL, região São Paulo), com deploy a partir da `main`, segredos em variáveis de ambiente, backup semanal com `pg_dump` (RNF05) e somente dados fictícios até autorização da escola (RN05, RNF06) — Seção 10 |
+| 1.6    | 25/10/2026 | Decisões do planejamento da Sprint 2 (D1 a D9), de 15/10/2026, e correções da auditoria pré-Sprint 2, aprovadas na mesma data: RN11 passa a exigir dois usuários Gestão ativos, com script de recuperação fora da API (Seção 10); RN10 com troca obrigatória de senha também no cadastro (Seções 11 e 12); campo `ano_letivo` na Turma, com unicidade (nome, etapa, ano letivo) (RN18, Seções 11 e 12); tutor (identificador e nome) visível a todos os perfis na lista de estudantes (RN20, Seção 12); nota na RN19 sobre a condição que hoje não ocorre para Professor e Técnico-administrativo; tolerância de 5 minutos na RN17; "até 8 horas, com tolerância técnica de segundos" na RNF03; variáveis de ambiente na Seção 10; "Versão do produto" no cabeçalho (Seção 1). Decisões do planejamento: RN02 (profissional responsável é o usuário logado), RN03 (encaminhamento inicial no registro, na mesma operação, com regras de destinatário), RN06 (orientação no formulário, sem filtro automático) e RN08 (histórico também no registro e na troca do responsável, com ação em texto fixo) ajustadas. Novas RNs: RN13 (quem pode ser tutor e o que acontece com o vínculo; 409 na troca de perfil de um tutor com tutorados), RN14 (turma de referência da ocorrência), RN15 (encaminhamento pela Gestão/Pedagógico e passagem para "em acompanhamento"), RN16 (registro de comunicação), RN17 (datas informadas e datas do sistema; UTC e horário de São Paulo), RN18 (unicidade de categoria, turma e código escolar), RN19 (visibilidade de ocorrências por perfil), RN20 (consulta de dados de apoio por todos os perfis, com dados reduzidos) e RN21 (sem exclusão de turmas, estudantes e categorias). Referências às RNs nos RF05, RF07, RF08, RF09, RF15 e RF16 (Seção 8) e na Seção 10. Observações e ponto a validar com a escola na matriz (Seção 4), que foi mantida. Seção 11: unicidades, origem das datas, turma de referência, regra do tutor, valores técnicos de status da ocorrência e de destinatário e seeds. Seção 12: permissões por endpoint, contratos de `/turmas`, `/estudantes`, `/categorias`, `/ocorrencias`, encaminhamentos e comunicações, convenção camelCase, códigos 400/404/409, histórico e auditoria dos cadastros. Pendências da Issue #18 registradas: corpos `{ novaSenha }` e `{ senhaAtual, novaSenha }`, resposta 204 nas trocas de senha, 409 em alteração concorrente e formato `<recurso>/<id>` do `LogAuditoria` |
 
 ---
 
