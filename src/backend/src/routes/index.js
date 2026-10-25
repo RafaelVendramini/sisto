@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rotasAuth from './auth.js';
 import rotasUsuarios from './usuarios.js';
 import rotasConta from './conta.js';
+import rotasCategorias from './categorias.js';
 import {
   bloquearComTrocaDeSenhaPendente,
   exigirAutenticacao,
@@ -53,6 +54,7 @@ protegidas.use(bloquearComTrocaDeSenhaPendente);
 
 // Rotas de negócio (Seção 12) — registre as novas rotas a partir daqui.
 protegidas.use('/usuarios', rotasUsuarios);
+protegidas.use('/categorias', rotasCategorias);
 
 rotas.use(protegidas);
 

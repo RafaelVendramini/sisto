@@ -15,6 +15,8 @@ import prisma from '../lib/prisma.js';
 export const ACOES_AUDITORIA = Object.freeze({
   SENHA_REDEFINIDA_PELA_GESTAO: 'senha redefinida pela Gestão',
   SENHA_ALTERADA_PELO_USUARIO: 'senha alterada pelo usuário',
+  CATEGORIA_CRIADA: 'categoria criada',
+  CATEGORIA_EDITADA: 'categoria editada',
 });
 
 /**
