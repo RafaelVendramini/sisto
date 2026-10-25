@@ -16,7 +16,7 @@ import {
 
 const URL_API = 'http://api.exemplo.test';
 const MSG_TROCA_PENDENTE =
-  'Sua senha foi redefinida pela Gestão. Troque a senha para continuar usando o sistema.';
+  'Você precisa trocar a sua senha temporária para continuar usando o sistema.';
 const MSG_SENHA_ALTERADA = 'Senha alterada. Entre com a nova senha.';
 const MSG_SENHA_ATUAL_INCORRETA = 'A senha atual está incorreta.';
 const MSG_NOVA_IGUAL_ATUAL = 'A nova senha deve ser diferente da senha atual.';

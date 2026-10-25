@@ -7,7 +7,7 @@ import { erroNaoAutenticado, verificarSessao } from '../services/sessao.js';
 
 /** Mensagem do 403 enquanto a troca de senha obrigatória estiver pendente (RN10). */
 export const MENSAGEM_TROCA_SENHA_OBRIGATORIA =
-  'Sua senha foi redefinida pela Gestão. Troque a senha para continuar usando o sistema.';
+  'Você precisa trocar a sua senha temporária para continuar usando o sistema.';
 
 /** Mensagem do 403 quando o perfil não tem acesso à rota (RN01 / RF14). */
 export const MENSAGEM_PERFIL_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';

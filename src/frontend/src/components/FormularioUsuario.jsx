@@ -50,6 +50,15 @@ export function validarDadosUsuario({ nome, email, perfil }) {
   return erros;
 }
 
+/**
+ * Confirmação do cadastro (RF01, RN10): o usuário é criado com troca de senha
+ * obrigatória, então a Gestão é avisada de que a senha temporária será trocada
+ * no primeiro acesso. A senha nunca aparece na mensagem.
+ */
+export function mensagemCadastroConcluido(nome) {
+  return `Usuário ${nome} cadastrado com sucesso. Entregue a senha temporária pessoalmente: no primeiro acesso, será obrigatório trocá-la.`;
+}
+
 /** Valida os dados do cadastro antes do envio (RN10). Retorna { campo: mensagem }. */
 export function validarCadastro({ nome, email, perfil, senha }) {
   const erros = validarDadosUsuario({ nome, email, perfil });
@@ -112,7 +121,7 @@ export default function FormularioUsuario({ aoCadastrar }) {
       });
       setDados(VAZIO);
       setMostrarSenha(false);
-      setSucesso(`Usuário ${criado?.nome ?? dados.nome.trim()} cadastrado com sucesso.`);
+      setSucesso(mensagemCadastroConcluido(criado?.nome ?? dados.nome.trim()));
       aoCadastrar?.(criado);
       refs.nome.current?.focus();
     } catch (falha) {
@@ -239,7 +248,8 @@ export default function FormularioUsuario({ aoCadastrar }) {
           />
           <span id="usuario-senha-ajuda" className="campo__ajuda">
             De {TAMANHO_MINIMO_SENHA} a {TAMANHO_MAXIMO_SENHA_BYTES} caracteres (letras acentuadas
-            contam como 2). Informe essa senha ao novo usuário.
+            contam como 2). Entregue essa senha ao novo usuário: no primeiro acesso, será
+            obrigatório trocá-la.
           </span>
           {mensagemCampo('senha')}
         </div>

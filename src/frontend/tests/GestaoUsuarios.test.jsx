@@ -12,8 +12,9 @@ import {
 
 const URL_API = 'http://api.exemplo.test';
 const AVISO_SESSAO = 'Sua sessão expirou ou seu acesso foi encerrado. Entre novamente.';
-const MSG_ULTIMA_GESTAO =
-  'O sistema precisa manter ao menos um usuário da Gestão ativo. Ative ou cadastre outro usuário da Gestão antes desta alteração.';
+// Texto do 409 da RN11 (SSD 1.6, Issue #37): mínimo de dois usuários Gestão ativos.
+const MSG_DUAS_GESTOES =
+  'O sistema precisa de ao menos dois usuários Gestão ativos. Cadastre ou reative outro usuário Gestão antes de bloquear, desativar ou alterar o perfil deste.';
 const MSG_PROPRIO_USUARIO =
   'Você não pode bloquear, desativar ou alterar o perfil do seu próprio usuário.';
 const MSG_EMAIL_DUPLICADO = 'Já existe um usuário cadastrado com este e-mail.';
@@ -342,15 +343,15 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
       expect(celulas('Bruno Ficcional')[1]).toBe('bruno@sisto.exemplo');
     });
 
-    it('409 da RN11 (última Gestão ativa) mostra a mensagem do back-end', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_ULTIMA_GESTAO }) });
+    it('409 da RN11 (mínimo de dois usuários Gestão ativos) mostra a mensagem do back-end', async () => {
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUAS_GESTOES }) });
       await abrirPagina();
       await usuario.click(screen.getByRole('button', { name: 'Editar Bruno Ficcional' }));
       const dialogo = screen.getByRole('dialog', { name: 'Editar usuário' });
       await usuario.selectOptions(within(dialogo).getByLabelText('Perfil'), 'GESTAO');
       await usuario.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }));
 
-      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_ULTIMA_GESTAO);
+      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_DUAS_GESTOES);
       expect(within(dialogo).getByLabelText('E-mail')).toHaveAttribute('aria-invalid', 'false');
     });
 
@@ -524,21 +525,54 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
 
-    it('409 de última Gestão ativa e de alteração simultânea mostram a mensagem do back-end', async () => {
-      const respostas = [MSG_ULTIMA_GESTAO, MSG_CONCORRENCIA];
+    it('409 de mínimo de duas Gestões ativas e de alteração simultânea mostram a mensagem do back-end', async () => {
+      const respostas = [MSG_DUAS_GESTOES, MSG_CONCORRENCIA];
       mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: respostas.shift() }) });
       await abrirPagina();
 
       await usuario.click(screen.getByRole('button', { name: 'Bloquear Bruno Ficcional' }));
       const dialogo = screen.getByRole('alertdialog', { name: 'Bloquear usuário' });
       await usuario.click(within(dialogo).getByRole('button', { name: 'Bloquear acesso' }));
-      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_ULTIMA_GESTAO);
+      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_DUAS_GESTOES);
 
       await usuario.click(within(dialogo).getByRole('button', { name: 'Bloquear acesso' }));
       await waitFor(() =>
         expect(within(dialogo).getByRole('alert')).toHaveTextContent(MSG_CONCORRENCIA),
       );
       expect(celulas('Bruno Ficcional')[3]).toBe('Ativo');
+    });
+
+    it('409 da RN11 ao desativar outra Gestão ativa mostra a mensagem do back-end (#37)', async () => {
+      // Só duas Gestões ativas: Maria (logada) e Joana. Desativar Joana é recusado.
+      const lista = [
+        ...USUARIOS_FICTICIOS,
+        { id: 5, nome: 'Joana Exemplo', email: 'joana@sisto.exemplo', perfil: 'GESTAO', status: 'ATIVO' },
+      ];
+      mockarApi({ lista, aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUAS_GESTOES }) });
+      await abrirPagina();
+
+      await usuario.click(screen.getByRole('button', { name: 'Desativar Joana Exemplo' }));
+      const dialogo = screen.getByRole('alertdialog', { name: 'Desativar usuário' });
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Desativar usuário' }));
+
+      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_DUAS_GESTOES);
+      expect(JSON.parse(chamadasPut()[0][1].body)).toEqual({ status: 'DESATIVADO' });
+      expect(celulas('Joana Exemplo')[3]).toBe('Ativo');
+      // Nenhuma confirmação de sucesso aparece.
+      expect(document.querySelector('.mensagem--sucesso')).toBeNull();
+    });
+
+    it('409 sem mensagem do servidor mostra texto fixo claro, sem nada técnico', async () => {
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, {}) });
+      await abrirPagina();
+
+      await usuario.click(screen.getByRole('button', { name: 'Bloquear Bruno Ficcional' }));
+      const dialogo = screen.getByRole('alertdialog', { name: 'Bloquear usuário' });
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Bloquear acesso' }));
+
+      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+        'Não foi possível salvar esta alteração agora. Atualize a página e tente novamente.',
+      );
     });
 
     it('404 mostra "Usuário não encontrado."', async () => {
@@ -764,13 +798,13 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
     });
 
     it('409 de regra (RN11) não recarrega a lista', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_ULTIMA_GESTAO }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUAS_GESTOES }) });
       await abrirPagina();
       await usuario.click(screen.getByRole('button', { name: 'Bloquear Bruno Ficcional' }));
       const dialogo = screen.getByRole('alertdialog', { name: 'Bloquear usuário' });
       await usuario.click(within(dialogo).getByRole('button', { name: 'Bloquear acesso' }));
 
-      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_ULTIMA_GESTAO);
+      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_DUAS_GESTOES);
       expect(chamadasGet()).toHaveLength(1);
     });
 

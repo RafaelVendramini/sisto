@@ -13,6 +13,9 @@ import {
 const URL_API = 'http://api.exemplo.test';
 const AVISO_SESSAO = 'Sua sessão expirou ou seu acesso foi encerrado. Entre novamente.';
 const SENHA_TEMPORARIA = 'Temporaria#2026';
+// RN10 (SSD 1.6, Issue #37): o cadastro avisa da troca obrigatória no primeiro acesso.
+const MSG_CADASTRO_CONCLUIDO =
+  'Usuário Bruno Ficcional cadastrado com sucesso. Entregue a senha temporária pessoalmente: no primeiro acesso, será obrigatório trocá-la.';
 
 const USUARIOS_FICTICIOS = [
   { id: 1, nome: 'Maria Fictícia', email: 'maria@sisto.exemplo', perfil: 'GESTAO', status: 'ATIVO' },
@@ -285,6 +288,15 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
       ]);
     });
 
+    it('o campo de senha temporária avisa da troca obrigatória no primeiro acesso (RN10, #37)', async () => {
+      mockarApi();
+      await abrirPaginaComLista();
+
+      expect(campos().senha).toHaveAccessibleDescription(
+        expect.stringContaining('no primeiro acesso, será obrigatório trocá-la.'),
+      );
+    });
+
     it('permite mostrar e ocultar a senha temporária', async () => {
       mockarApi();
       await abrirPaginaComLista();
@@ -426,7 +438,7 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
       await usuario.click(c.cadastrar);
 
       expect(
-        await screen.findByText('Usuário Bruno Ficcional cadastrado com sucesso.'),
+        await screen.findByText(MSG_CADASTRO_CONCLUIDO),
       ).toBeInTheDocument();
 
       // Corpo enviado: só os campos do contrato, com nome/e-mail sem espaços extras.
@@ -472,7 +484,7 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
 
       const c = await preencher(usuario);
       await usuario.click(c.cadastrar);
-      await screen.findByText('Usuário Bruno Ficcional cadastrado com sucesso.');
+      await screen.findByText(MSG_CADASTRO_CONCLUIDO);
 
       expect(document.body.textContent).not.toContain(SENHA_TEMPORARIA);
       expect(JSON.stringify({ ...sessionStorage })).not.toContain(SENHA_TEMPORARIA);

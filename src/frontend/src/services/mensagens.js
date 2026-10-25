@@ -7,4 +7,4 @@ export const MENSAGEM_SEM_CONEXAO =
 // (RN10, Issue #18). O contrato não traz um código próprio para esse caso:
 // o front-end reconhece o 403 por esta mensagem e leva o usuário à troca.
 export const MENSAGEM_TROCA_SENHA_PENDENTE =
-  'Sua senha foi redefinida pela Gestão. Troque a senha para continuar usando o sistema.';
+  'Você precisa trocar a sua senha temporária para continuar usando o sistema.';

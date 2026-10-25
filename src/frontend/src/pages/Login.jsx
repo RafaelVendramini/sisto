@@ -82,7 +82,7 @@ export default function Login() {
     setEnviando(true);
     try {
       const { trocaSenhaObrigatoria } = await entrar(emailLimpo, senha);
-      // RN10: senha redefinida pela Gestão — vai direto para a troca.
+      // RN10: senha temporária (cadastro ou redefinição pela Gestão) — vai direto para a troca.
       if (trocaSenhaObrigatoria) {
         navigate(ROTA_ALTERAR_SENHA, { replace: true });
         return;

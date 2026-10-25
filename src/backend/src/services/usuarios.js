@@ -1,8 +1,10 @@
 // Cadastro, listagem e edição de usuários — Sisto (Issues #12 e #13).
 //
 // - RF01: cadastro de usuários autorizados com perfil e senha temporária.
-// - RN10: senha temporária com no mínimo 8 caracteres (definida pela Gestão);
-//   não há troca obrigatória no primeiro acesso.
+// - RN10 (SSD v1.6, Issue #37): senha temporária com no mínimo 8 caracteres,
+//   definida pela Gestão; o usuário é criado com troca_senha_obrigatoria =
+//   true e precisa trocá-la no primeiro login (fluxo de PUT /conta/senha da
+//   #18). Usuários já cadastrados não são alterados.
 // - RNF03: senha armazenada somente como hash bcrypt.
 // - RN07: o usuário é sempre criado com status ATIVO.
 // - RNF06: nenhuma resposta inclui senha_hash (select explícito); nada de
@@ -14,8 +16,10 @@
 //   ATIVO. O usuário nunca é excluído (não há DELETE).
 // - RN09: o corte imediato do acesso vem do middleware de autenticação (#11),
 //   que consulta o status no banco a cada requisição.
-// - RN11 (SSD v1.3): o sistema mantém
-//   sempre ao menos um usuário GESTAO com status ATIVO.
+// - RN11 (SSD v1.6, Issue #37): o sistema mantém sempre ao menos DOIS
+//   usuários GESTAO com status ATIVO (um pode redefinir a senha do outro).
+//   Nenhuma edição pode reduzir esse número a menos de dois; a Gestão também
+//   não bloqueia, desativa nem altera o próprio perfil (409).
 import { Perfil, Prisma, StatusUsuario } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
@@ -133,7 +137,9 @@ function ehViolacaoDeUnicidade(erro) {
 }
 
 /**
- * Cadastra um usuário com status ATIVO (RF01, RN10, RNF03).
+ * Cadastra um usuário com status ATIVO e troca de senha obrigatória no
+ * primeiro login (RF01, RN10, RNF03). A resposta não muda: o campo
+ * troca_senha_obrigatoria não é devolvido (SELECAO_USUARIO_PUBLICO).
  * @param {unknown} corpo corpo da requisição
  * @param {object} [deps]
  * @param {object} [deps.db] client Prisma (injetável em testes)
@@ -155,7 +161,15 @@ export async function cadastrarUsuario(corpo, { db = prisma, gerarHash = gerarHa
 
   try {
     return await db.usuario.create({
-      data: { nome, email, perfil, senha_hash, status: StatusUsuario.ATIVO },
+      data: {
+        nome,
+        email,
+        perfil,
+        senha_hash,
+        status: StatusUsuario.ATIVO,
+        // RN10: a senha definida pela Gestão é temporária.
+        troca_senha_obrigatoria: true,
+      },
       select: SELECAO_USUARIO_PUBLICO,
     });
   } catch (erro) {
@@ -203,8 +217,11 @@ export const MENSAGEM_ID_INVALIDO = 'Identificador de usuário inválido.';
 export const MENSAGEM_USUARIO_NAO_ENCONTRADO = 'Usuário não encontrado.';
 export const MENSAGEM_ALTERAR_PROPRIO_ACESSO =
   'Você não pode bloquear, desativar ou alterar o perfil do seu próprio usuário.';
-export const MENSAGEM_ULTIMA_GESTAO_ATIVA =
-  'O sistema precisa manter ao menos um usuário da Gestão ativo. Ative ou cadastre outro usuário da Gestão antes desta alteração.';
+/** RN11: mínimo de usuários GESTAO com status ATIVO. */
+export const MINIMO_GESTOES_ATIVAS = 2;
+
+export const MENSAGEM_MINIMO_GESTOES_ATIVAS =
+  'O sistema precisa de ao menos dois usuários Gestão ativos. Cadastre ou reative outro usuário Gestão antes de bloquear, desativar ou alterar o perfil deste.';
 export const MENSAGEM_CONFLITO_CONCORRENTE =
   'O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.';
 
@@ -303,8 +320,9 @@ async function verificarEAtualizar(tx, id, dados) {
     }
   }
 
-  // Ao menos um GESTAO ATIVO: se este usuário é Gestão ativa e deixaria de
-  // ser (rebaixado, bloqueado ou desativado), precisa existir outro.
+  // RN11 — ao menos dois GESTAO ATIVO: se este usuário é Gestão ativa e
+  // deixaria de ser (rebaixado, bloqueado ou desativado), precisam restar ao
+  // menos MINIMO_GESTOES_ATIVAS outras Gestões ativas depois da edição.
   const depois = {
     perfil: dados.perfil ?? atual.perfil,
     status: dados.status ?? atual.status,
@@ -313,8 +331,8 @@ async function verificarEAtualizar(tx, id, dados) {
     const outrasGestoesAtivas = await tx.usuario.count({
       where: { perfil: Perfil.GESTAO, status: StatusUsuario.ATIVO, id: { not: id } },
     });
-    if (outrasGestoesAtivas === 0) {
-      throw new ErroHttp(409, MENSAGEM_ULTIMA_GESTAO_ATIVA);
+    if (outrasGestoesAtivas < MINIMO_GESTOES_ATIVAS) {
+      throw new ErroHttp(409, MENSAGEM_MINIMO_GESTOES_ATIVAS);
     }
   }
 
@@ -324,10 +342,11 @@ async function verificarEAtualizar(tx, id, dados) {
 /**
  * Edita um usuário: nome, e-mail, perfil e/ou status (RF01, RF04, RN07).
  *
- * Concorrência: a leitura, as verificações (e-mail único, última Gestão
- * ativa) e o update rodam numa transação SERIALIZABLE. Duas edições
- * simultâneas que, juntas, deixariam o sistema sem Gestão ativa (ex.: cada
- * uma rebaixa uma das duas únicas Gestões) não passam ambas: o PostgreSQL
+ * Concorrência: a leitura, as verificações (e-mail único, mínimo de duas
+ * Gestões ativas — RN11) e o update rodam numa transação SERIALIZABLE. Duas
+ * edições simultâneas que, juntas, deixariam o sistema com menos de duas
+ * Gestões ativas (ex.: com três Gestões ativas, cada uma rebaixa uma
+ * Gestão diferente — isoladas, ambas passariam) não passam ambas: o PostgreSQL
  * aborta uma delas (SQLSTATE 40001, que o Prisma expõe como P2034); ela é
  * repetida e então esbarra na regra. Esgotadas as tentativas, responde 409.
  *

@@ -47,7 +47,7 @@ export function validarTrocaSenha({ senhaAtual, novaSenha, confirmacao }) {
 }
 
 // Tela "Alterar minha senha" (RF03): todos os perfis. Também é a tela da troca
-// obrigatória depois de uma redefinição pela Gestão (RN10). Após a troca, o
+// obrigatória no primeiro acesso após o cadastro ou depois de uma redefinição pela Gestão (RN10). Após a troca, o
 // token atual deixa de valer (RN12): a sessão é descartada e o usuário entra
 // de novo. As senhas ficam só no estado dos campos, nunca no navegador.
 export default function AlterarSenha() {

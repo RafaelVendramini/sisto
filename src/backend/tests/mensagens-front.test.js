@@ -18,7 +18,7 @@ describe('Mensagens compartilhadas com o front-end', () => {
     const texto = readFileSync(arquivoMensagensFront, 'utf8');
 
     expect(MENSAGEM_TROCA_SENHA_OBRIGATORIA).toBe(
-      'Sua senha foi redefinida pela Gestão. Troque a senha para continuar usando o sistema.',
+      'Você precisa trocar a sua senha temporária para continuar usando o sistema.',
     );
     // Literal completo entre aspas simples: não basta um trecho parecido.
     expect(texto).toContain(`'${MENSAGEM_TROCA_SENHA_OBRIGATORIA}'`);
