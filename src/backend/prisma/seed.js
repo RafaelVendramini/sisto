@@ -5,12 +5,16 @@
 //   - Outros ambientes: 1 usuário por perfil (Gestão + 4 fictícios).
 // - Categorias de exemplo (Issue #38): somente fora de produção; o seed de
 //   produção não cria categorias (Seção 11 do SSD).
-// Turmas e estudantes fictícios ainda não são criados pelo seed.
-// A lógica fica em seed-usuarios.js e seed-categorias.js (testáveis sem banco).
+// - Turmas fictícias (Issue #40): somente fora de produção; o seed de
+//   produção não cria turmas (Seção 11 do SSD).
+// Estudantes fictícios ainda não são criados pelo seed.
+// A lógica fica em seed-usuarios.js, seed-categorias.js e seed-turmas.js
+// (testáveis sem banco).
 // O .env já é carregado por prisma7.config.js quando executado via Prisma CLI.
 import { criarPrismaClient } from '../src/lib/prisma.js';
 import { executarSeedUsuarios, ErroValidacaoSeed } from './seed-usuarios.js';
 import { executarSeedCategorias } from './seed-categorias.js';
+import { executarSeedTurmas } from './seed-turmas.js';
 
 const MENSAGEM_FALHA_BANCO =
   'Falha ao conectar/gravar no banco — verifique DATABASE_URL e se o PostgreSQL está rodando.';
@@ -31,6 +35,15 @@ async function main() {
     } else {
       console.log(
         `Seed de categorias: ${categorias.criadas.length} criada(s), ${categorias.existentes.length} já existente(s) (mantida(s) sem alteração).`,
+      );
+    }
+
+    const turmas = await executarSeedTurmas(prisma, process.env);
+    if (turmas.ignorado) {
+      console.log('Seed de turmas: ignorado em produção (nenhuma turma criada).');
+    } else {
+      console.log(
+        `Seed de turmas: ${turmas.criadas.length} criada(s), ${turmas.existentes.length} já existente(s) (mantida(s) sem alteração).`,
       );
     }
   } finally {

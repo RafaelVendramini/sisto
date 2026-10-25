@@ -14,6 +14,8 @@ vi.mock('../src/lib/prisma.js', () => ({
   default: {},
   criarPrismaClient: () => ({
     categoria: { findMany: mocks.findMany, createMany: mocks.createMany },
+    // Seed de turmas (Issue #40): fora do escopo deste arquivo, sem efeito.
+    turma: { findMany: async () => [], createMany: async ({ data }) => ({ count: data.length }) },
     $disconnect: mocks.disconnect,
   }),
 }));

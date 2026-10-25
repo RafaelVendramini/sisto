@@ -103,7 +103,7 @@ describe('Schema de cadastros — models, campos e relações (DMMF)', () => {
   });
 
   it('Turma, Estudante e Categoria têm somente os campos da Seção 11', () => {
-    expect(Object.keys(Prisma.TurmaScalarFieldEnum).sort()).toEqual(['etapa', 'id', 'nome']);
+    expect(Object.keys(Prisma.TurmaScalarFieldEnum).sort()).toEqual(['ano_letivo', 'etapa', 'id', 'nome']);
     expect(Object.keys(Prisma.EstudanteScalarFieldEnum).sort()).toEqual(
       ['codigo_escolar', 'id', 'nome_completo', 'turma_id', 'tutor_id'].sort(),
     );
@@ -124,6 +124,7 @@ describe('Schema de cadastros — models, campos e relações (DMMF)', () => {
       expect(campoDmmf(model, 'id')).toMatchObject({ kind: 'scalar', type: 'Int' });
     }
     expect(campoDmmf('Estudante', 'turma_id')).toMatchObject({ kind: 'scalar', type: 'Int' });
+    expect(campoDmmf('Turma', 'ano_letivo')).toMatchObject({ kind: 'scalar', type: 'Int' });
     expect(campoDmmf('Estudante', 'tutor_id')).toMatchObject({ kind: 'scalar', type: 'Int' });
   });
 
@@ -181,7 +182,7 @@ describe('Schema de cadastros — modificadores (não expostos pelo DMMF de runt
   it('obrigatoriedade conforme a Seção 11', () => {
     const obrigatorios = {
       Usuario: ['nome', 'email', 'senha_hash', 'perfil', 'status'],
-      Turma: ['nome', 'etapa'],
+      Turma: ['nome', 'etapa', 'ano_letivo'],
       Estudante: ['nome_completo', 'turma_id', 'turma'],
       Categoria: ['nome'],
     };
