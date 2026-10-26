@@ -5,6 +5,7 @@ import RotaProtegida from './components/RotaProtegida.jsx';
 import { SessaoProvider } from './components/Sessao.jsx';
 import AlterarSenha from './pages/AlterarSenha.jsx';
 import Categorias from './pages/Categorias.jsx';
+import Estudantes from './pages/Estudantes.jsx';
 import Inicio from './pages/Inicio.jsx';
 import Login from './pages/Login.jsx';
 import Turmas from './pages/Turmas.jsx';
@@ -12,6 +13,7 @@ import Usuarios from './pages/Usuarios.jsx';
 import { ROTA_ALTERAR_SENHA } from './services/conta.js';
 import {
   PERFIS_GESTAO_CATEGORIAS,
+  PERFIS_GESTAO_ESTUDANTES,
   PERFIS_GESTAO_TURMAS,
   PERFIS_GESTAO_USUARIOS,
 } from './services/perfis.js';
@@ -40,6 +42,9 @@ export default function App() {
             </Route>
             <Route element={<RotaPorPerfil perfis={PERFIS_GESTAO_TURMAS} />}>
               <Route path="/turmas" element={<Turmas />} />
+            </Route>
+            <Route element={<RotaPorPerfil perfis={PERFIS_GESTAO_ESTUDANTES} />}>
+              <Route path="/estudantes" element={<Estudantes />} />
             </Route>
             <Route element={<RotaPorPerfil perfis={PERFIS_GESTAO_CATEGORIAS} />}>
               <Route path="/categorias" element={<Categorias />} />

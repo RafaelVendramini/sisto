@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   ROTULOS_PERFIL,
   ROTULOS_STATUS,
+  PERFIS_GESTAO_ESTUDANTES,
   PERFIS_GESTAO_TURMAS,
   PERFIS_GESTAO_USUARIOS,
+  podeGerenciarEstudantes,
   podeGerenciarTurmas,
   podeGerenciarUsuarios,
   rotuloPerfil,
@@ -56,6 +58,16 @@ describe('services/perfis — acesso à gestão de turmas', () => {
     expect(podeGerenciarTurmas('GESTAO')).toBe(true);
     for (const perfil of ['PROFESSOR', 'TUTOR', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO', undefined]) {
       expect(podeGerenciarTurmas(perfil)).toBe(false);
+    }
+  });
+});
+
+describe('services/perfis — acesso à gestão de estudantes', () => {
+  it('somente a Gestão acessa a página de estudantes (Seção 4, RF15, RF16)', () => {
+    expect(PERFIS_GESTAO_ESTUDANTES).toEqual(['GESTAO']);
+    expect(podeGerenciarEstudantes('GESTAO')).toBe(true);
+    for (const perfil of ['PROFESSOR', 'TUTOR', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO', undefined]) {
+      expect(podeGerenciarEstudantes(perfil)).toBe(false);
     }
   });
 });
