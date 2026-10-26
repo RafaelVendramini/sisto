@@ -140,7 +140,11 @@ model Turma {
 model Estudante {
   id             Int     @id @default(autoincrement())
   nome_completo  String
-  codigo_escolar String?
+  // Único quando informado (RN18, Issue #42): índice único no banco. NULL não
+  // conflita no PostgreSQL, então vários estudantes podem ficar sem código;
+  // texto vazio é gravado como NULL (o service normaliza; a migration
+  // converteu vazios já existentes).
+  codigo_escolar String? @unique
   turma_id       Int
   tutor_id       Int?
 

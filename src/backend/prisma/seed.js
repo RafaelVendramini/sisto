@@ -7,14 +7,17 @@
 //   produção não cria categorias (Seção 11 do SSD).
 // - Turmas fictícias (Issue #40): somente fora de produção; o seed de
 //   produção não cria turmas (Seção 11 do SSD).
-// Estudantes fictícios ainda não são criados pelo seed.
-// A lógica fica em seed-usuarios.js, seed-categorias.js e seed-turmas.js
-// (testáveis sem banco).
+// - Estudantes fictícios (Issue #42): somente fora de produção, nas turmas
+//   fictícias, alguns vinculados ao tutor fictício; o seed de produção não
+//   cria estudantes (Seção 11 do SSD).
+// A lógica fica em seed-usuarios.js, seed-categorias.js, seed-turmas.js e
+// seed-estudantes.js (testáveis sem banco).
 // O .env já é carregado por prisma7.config.js quando executado via Prisma CLI.
 import { criarPrismaClient } from '../src/lib/prisma.js';
 import { executarSeedUsuarios, ErroValidacaoSeed } from './seed-usuarios.js';
 import { executarSeedCategorias } from './seed-categorias.js';
 import { executarSeedTurmas } from './seed-turmas.js';
+import { executarSeedEstudantes } from './seed-estudantes.js';
 
 const MENSAGEM_FALHA_BANCO =
   'Falha ao conectar/gravar no banco — verifique DATABASE_URL e se o PostgreSQL está rodando.';
@@ -45,6 +48,25 @@ async function main() {
       console.log(
         `Seed de turmas: ${turmas.criadas.length} criada(s), ${turmas.existentes.length} já existente(s) (mantida(s) sem alteração).`,
       );
+    }
+
+    // Depois de usuários e turmas: os estudantes usam o tutor e as turmas fictícias.
+    const estudantes = await executarSeedEstudantes(prisma, process.env);
+    if (estudantes.ignorado) {
+      console.log('Seed de estudantes: ignorado em produção (nenhum estudante criado).');
+    } else {
+      // Somente contagens — nunca nomes ou códigos de estudantes (RNF06).
+      console.log(
+        `Seed de estudantes: ${estudantes.criados.length} criado(s), ${estudantes.existentes.length} já existente(s) (mantido(s) sem alteração).`,
+      );
+      if (estudantes.semTurma.length > 0) {
+        console.log(
+          `  ${estudantes.semTurma.length} estudante(s) fictício(s) não criado(s): turma fictícia não encontrada.`,
+        );
+      }
+      if (estudantes.tutorIndisponivel) {
+        console.log('  Tutor fictício ausente ou não ativo: estudantes criados sem tutor (RN13).');
+      }
     }
   } finally {
     await prisma.$disconnect().catch(() => {});
