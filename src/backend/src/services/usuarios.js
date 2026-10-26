@@ -9,7 +9,10 @@
 // - RN07: o usuário é sempre criado com status ATIVO.
 // - RNF06: nenhuma resposta inclui senha_hash (select explícito); nada de
 //   senha ou e-mail em mensagens de erro ou logs.
-// - RN01: a restrição ao perfil GESTAO é aplicada nas rotas (permitirPerfis).
+// - RN01: cadastrar e editar são restritos a GESTAO nas rotas (permitirPerfis).
+// - RN20 (Issue #44): GET /usuarios é aberto aos 5 perfis; quem não é Gestão
+//   recebe só id, nome e perfil dos usuários ATIVOS que podem ser
+//   destinatários (TUTOR, PEDAGOGICO, GESTAO), sem e-mail e sem status.
 //
 // Edição, bloqueio, desativação e reativação (Issue #13):
 // - RF04 / RN07: status ATIVO, BLOQUEADO ou DESATIVADO; reativar = voltar a
@@ -20,6 +23,8 @@
 //   usuários GESTAO com status ATIVO (um pode redefinir a senha do outro).
 //   Nenhuma edição pode reduzir esse número a menos de dois; a Gestão também
 //   não bloqueia, desativa nem altera o próprio perfil (409).
+// - RN13 (Issue #44): o perfil de um usuário TUTOR com estudantes vinculados
+//   não pode ser alterado (409) até que os estudantes sejam desvinculados.
 import { Perfil, Prisma, StatusUsuario } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
@@ -180,16 +185,78 @@ export async function cadastrarUsuario(corpo, { db = prisma, gerarHash = gerarHa
   }
 }
 
+// ---------------------------------------------------------------------------
+// Listagem (GET /usuarios) — Issues #12 e #44
+// ---------------------------------------------------------------------------
+
+/** Perfil que recebe a lista completa de usuários (RN20). */
+const PERFIL_DADOS_COMPLETOS = Perfil.GESTAO;
+
 /**
- * Lista todos os usuários, sem senha_hash, ordenados por nome e depois id
- * (ordem estável mesmo com nomes repetidos).
+ * Perfis que podem ser destinatários de encaminhamento ou responsáveis pelo
+ * acompanhamento (RN03, RN15) — os únicos na lista reduzida (RN20).
+ */
+export const PERFIS_DESTINATARIOS = Object.freeze([Perfil.TUTOR, Perfil.PEDAGOGICO, Perfil.GESTAO]);
+
+/** Demais perfis (RN20): e-mail e status nem são lidos do banco. */
+export const SELECAO_USUARIO_REDUZIDA = Object.freeze({ id: true, nome: true, perfil: true });
+
+export const MENSAGEM_FILTRO_PERFIL_INVALIDO = `O filtro perfil deve ser um dos valores: ${PERFIS_DESTINATARIOS.join(', ')}.`;
+
+const ORDEM_USUARIOS = Object.freeze([{ nome: 'asc' }, { id: 'asc' }]);
+
+/**
+ * Valida o filtro ?perfil= do GET (mesmo padrão do ?turmaId= da #42).
+ * Ausente: sem filtro. Repetido (?perfil=A&perfil=B), vazio ou fora dos
+ * valores aceitos: 400. Valores exatos do enum (sem trim nem minúsculas).
+ * @param {unknown} valor req.query.perfil
+ * @param {readonly string[]} aceitos perfis aceitos para quem consulta
+ * @param {string} mensagem mensagem do 400
+ * @returns {string | undefined}
+ */
+export function validarFiltroPerfil(valor, aceitos, mensagem) {
+  if (valor === undefined) return undefined;
+  if (typeof valor !== 'string' || !aceitos.includes(valor)) {
+    throw new ErroHttp(400, mensagem);
+  }
+  return valor;
+}
+
+/**
+ * Lista usuários, sem senha_hash, ordenados por nome e depois id (ordem
+ * estável mesmo com nomes repetidos). O formato depende do perfil de quem
+ * consulta (RN20), lido do banco pelo middleware de autenticação (req.usuario):
+ * - GESTAO: id, nome, email, perfil e status de todos os usuários (qualquer
+ *   status), como antes da #44. Sem filtro: ?perfil= é ignorado (decisão do
+ *   Rafael na #44; o SSD só prevê o filtro para os demais perfis).
+ * - Demais perfis: só id, nome e perfil dos usuários ATIVOS com perfil TUTOR,
+ *   PEDAGOGICO ou GESTAO (possíveis destinatários/responsáveis). ?perfil=
+ *   opcional, restrito a esses três valores.
+ * @param {{ perfil: string }} solicitante req.usuario
+ * @param {{ perfil?: unknown }} [query] req.query
  * @param {object} [deps]
  * @param {object} [deps.db]
  */
-export async function listarUsuarios({ db = prisma } = {}) {
+export async function listarUsuarios(solicitante, query = {}, { db = prisma } = {}) {
+  if (solicitante?.perfil === PERFIL_DADOS_COMPLETOS) {
+    return db.usuario.findMany({
+      select: SELECAO_USUARIO_PUBLICO,
+      orderBy: ORDEM_USUARIOS,
+    });
+  }
+
+  const perfil = validarFiltroPerfil(
+    query?.perfil,
+    PERFIS_DESTINATARIOS,
+    MENSAGEM_FILTRO_PERFIL_INVALIDO,
+  );
   return db.usuario.findMany({
-    select: SELECAO_USUARIO_PUBLICO,
-    orderBy: [{ nome: 'asc' }, { id: 'asc' }],
+    where: {
+      status: StatusUsuario.ATIVO,
+      perfil: perfil !== undefined ? perfil : { in: [...PERFIS_DESTINATARIOS] },
+    },
+    select: SELECAO_USUARIO_REDUZIDA,
+    orderBy: ORDEM_USUARIOS,
   });
 }
 
@@ -222,6 +289,9 @@ export const MINIMO_GESTOES_ATIVAS = 2;
 
 export const MENSAGEM_MINIMO_GESTOES_ATIVAS =
   'O sistema precisa de ao menos dois usuários Gestão ativos. Cadastre ou reative outro usuário Gestão antes de bloquear, desativar ou alterar o perfil deste.';
+/** RN13: troca de perfil de um Tutor com estudantes vinculados (409). */
+export const MENSAGEM_TUTOR_COM_TUTORADOS =
+  'Este usuário Tutor tem estudantes vinculados. Desvincule os estudantes (ou troque o tutor deles) antes de alterar o perfil.';
 export const MENSAGEM_CONFLITO_CONCORRENTE =
   'O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.';
 
@@ -320,6 +390,19 @@ async function verificarEAtualizar(tx, id, dados) {
     }
   }
 
+  // RN13 — Tutor com estudantes vinculados não muda de perfil (409). Só a
+  // saída do perfil TUTOR é recusada; nome, e-mail e status continuam
+  // editáveis (o vínculo com tutor bloqueado/desativado é mantido — RN07).
+  // A contagem roda na mesma transação SERIALIZABLE do update: um vínculo
+  // novo criado ao mesmo tempo em POST/PUT /estudantes (também serializável)
+  // faz uma das duas transações abortar (P2034) e ser repetida.
+  if (atual.perfil === Perfil.TUTOR && dados.perfil !== undefined && dados.perfil !== Perfil.TUTOR) {
+    const tutorados = await tx.estudante.count({ where: { tutor_id: id } });
+    if (tutorados > 0) {
+      throw new ErroHttp(409, MENSAGEM_TUTOR_COM_TUTORADOS);
+    }
+  }
+
   // RN11 — ao menos dois GESTAO ATIVO: se este usuário é Gestão ativa e
   // deixaria de ser (rebaixado, bloqueado ou desativado), precisam restar ao
   // menos MINIMO_GESTOES_ATIVAS outras Gestões ativas depois da edição.
@@ -342,9 +425,9 @@ async function verificarEAtualizar(tx, id, dados) {
 /**
  * Edita um usuário: nome, e-mail, perfil e/ou status (RF01, RF04, RN07).
  *
- * Concorrência: a leitura, as verificações (e-mail único, mínimo de duas
- * Gestões ativas — RN11) e o update rodam numa transação SERIALIZABLE. Duas
- * edições simultâneas que, juntas, deixariam o sistema com menos de duas
+ * Concorrência: a leitura, as verificações (e-mail único, tutor com
+ * estudantes vinculados — RN13, mínimo de duas Gestões ativas — RN11) e o
+ * update rodam numa transação SERIALIZABLE. Duas edições simultâneas que, juntas, deixariam o sistema com menos de duas
  * Gestões ativas (ex.: com três Gestões ativas, cada uma rebaixa uma
  * Gestão diferente — isoladas, ambas passariam) não passam ambas: o PostgreSQL
  * aborta uma delas (SQLSTATE 40001, que o Prisma expõe como P2034); ela é

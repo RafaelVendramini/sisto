@@ -36,7 +36,7 @@ const SEGREDO_TESTE = 'segredo-ficticio-de-teste-com-mais-de-32-caracteres';
 const SENHA_TEMPORARIA = 'Temporaria123';
 const REGEX_BCRYPT = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
 const PERFIS = ['PROFESSOR', 'TUTOR', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
-const PERFIS_SEM_PERMISSAO = ['PROFESSOR', 'TUTOR', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
+const PERFIS_NAO_GESTAO = ['PROFESSOR', 'TUTOR', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
 
 /** "Banco" em memória: usuários fictícios. */
 let banco;
@@ -478,7 +478,7 @@ describe('GET /usuarios — listagem pela Gestão (200)', () => {
 });
 
 describe('Permissões (RN01, Seção 4)', () => {
-  it.each(PERFIS_SEM_PERMISSAO)('%s recebe 403 no POST /usuarios', async (perfil) => {
+  it.each(PERFIS_NAO_GESTAO)('%s recebe 403 no POST /usuarios', async (perfil) => {
     const res = await postUsuarios(corpoValido(), perfil);
 
     expect(res.status).toBe(403);
@@ -486,12 +486,19 @@ describe('Permissões (RN01, Seção 4)', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it.each(PERFIS_SEM_PERMISSAO)('%s recebe 403 no GET /usuarios', async (perfil) => {
+  // Issue #44 (RN20): o GET /usuarios passou a ser aberto aos 5 perfis, com
+  // lista reduzida para quem não é Gestão (detalhes em
+  // usuarios-destinatarios.test.js). Antes, estes perfis recebiam 403.
+  it.each(PERFIS_NAO_GESTAO)('%s recebe 200 (lista reduzida) no GET /usuarios', async (perfil) => {
     const res = await getUsuarios(perfil);
 
-    expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_PERFIL_SEM_PERMISSAO });
-    expect(findMany).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    for (const usuario of res.body) {
+      expect(Object.keys(usuario).sort()).toEqual(['id', 'nome', 'perfil']);
+    }
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ select: { id: true, nome: true, perfil: true } }),
+    );
   });
 
   it('perfil sem permissão recebe 403 antes da validação do corpo', async () => {

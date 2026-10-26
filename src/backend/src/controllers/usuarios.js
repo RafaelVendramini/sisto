@@ -8,9 +8,9 @@ export async function cadastrar(req, res) {
   res.status(201).json(usuario);
 }
 
-/** GET /usuarios */
+/** GET /usuarios[?perfil=] — completa para a Gestão, reduzida para os demais (RN20). */
 export async function listar(req, res) {
-  const usuarios = await listarUsuarios();
+  const usuarios = await listarUsuarios(req.usuario, req.query);
   res.status(200).json(usuarios);
 }
 
