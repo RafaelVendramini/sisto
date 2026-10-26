@@ -1,6 +1,11 @@
 import { NavLink } from 'react-router-dom';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
-import { podeGerenciarCategorias, podeGerenciarUsuarios, rotuloPerfil } from '../services/perfis.js';
+import {
+  podeGerenciarCategorias,
+  podeGerenciarTurmas,
+  podeGerenciarUsuarios,
+  rotuloPerfil,
+} from '../services/perfis.js';
 import { useSessao } from './Sessao.jsx';
 
 // Layout base responsivo (RNF01): cabeçalho com a marca, área de conteúdo e rodapé.
@@ -11,6 +16,7 @@ import { useSessao } from './Sessao.jsx';
 export default function Layout({ children }) {
   const { usuario, trocaSenhaPendente, sair } = useSessao();
   const veUsuarios = podeGerenciarUsuarios(usuario?.perfil);
+  const veTurmas = podeGerenciarTurmas(usuario?.perfil);
   const veCategorias = podeGerenciarCategorias(usuario?.perfil);
 
   return (
@@ -30,6 +36,11 @@ export default function Layout({ children }) {
               {veUsuarios && (
                 <NavLink to="/usuarios" className="layout__menu-item">
                   Usuários
+                </NavLink>
+              )}
+              {veTurmas && (
+                <NavLink to="/turmas" className="layout__menu-item">
+                  Turmas
                 </NavLink>
               )}
               {veCategorias && (

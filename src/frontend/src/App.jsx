@@ -7,9 +7,14 @@ import AlterarSenha from './pages/AlterarSenha.jsx';
 import Categorias from './pages/Categorias.jsx';
 import Inicio from './pages/Inicio.jsx';
 import Login from './pages/Login.jsx';
+import Turmas from './pages/Turmas.jsx';
 import Usuarios from './pages/Usuarios.jsx';
 import { ROTA_ALTERAR_SENHA } from './services/conta.js';
-import { PERFIS_GESTAO_CATEGORIAS, PERFIS_GESTAO_USUARIOS } from './services/perfis.js';
+import {
+  PERFIS_GESTAO_CATEGORIAS,
+  PERFIS_GESTAO_TURMAS,
+  PERFIS_GESTAO_USUARIOS,
+} from './services/perfis.js';
 
 function LayoutComConteudo() {
   return (
@@ -32,6 +37,9 @@ export default function App() {
             <Route path={ROTA_ALTERAR_SENHA} element={<AlterarSenha />} />
             <Route element={<RotaPorPerfil perfis={PERFIS_GESTAO_USUARIOS} />}>
               <Route path="/usuarios" element={<Usuarios />} />
+            </Route>
+            <Route element={<RotaPorPerfil perfis={PERFIS_GESTAO_TURMAS} />}>
+              <Route path="/turmas" element={<Turmas />} />
             </Route>
             <Route element={<RotaPorPerfil perfis={PERFIS_GESTAO_CATEGORIAS} />}>
               <Route path="/categorias" element={<Categorias />} />
