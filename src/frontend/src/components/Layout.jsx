@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
 import {
   podeGerenciarCategorias,
+  podeGerenciarEstudantes,
   podeGerenciarTurmas,
   podeGerenciarUsuarios,
   rotuloPerfil,
@@ -17,6 +18,7 @@ export default function Layout({ children }) {
   const { usuario, trocaSenhaPendente, sair } = useSessao();
   const veUsuarios = podeGerenciarUsuarios(usuario?.perfil);
   const veTurmas = podeGerenciarTurmas(usuario?.perfil);
+  const veEstudantes = podeGerenciarEstudantes(usuario?.perfil);
   const veCategorias = podeGerenciarCategorias(usuario?.perfil);
 
   return (
@@ -41,6 +43,11 @@ export default function Layout({ children }) {
               {veTurmas && (
                 <NavLink to="/turmas" className="layout__menu-item">
                   Turmas
+                </NavLink>
+              )}
+              {veEstudantes && (
+                <NavLink to="/estudantes" className="layout__menu-item">
+                  Estudantes
                 </NavLink>
               )}
               {veCategorias && (

@@ -60,3 +60,13 @@ export const PERFIS_GESTAO_TURMAS = Object.freeze(['GESTAO']);
 export function podeGerenciarTurmas(perfil) {
   return PERFIS_GESTAO_TURMAS.includes(perfil);
 }
+
+// Perfis que cadastram e editam estudantes e o vínculo com o tutor (RF15,
+// RF16, matriz da Seção 4: "Gerenciar usuários, turmas e estudantes"). Usado
+// no menu e na rota; a proteção real é do back-end (403).
+export const PERFIS_GESTAO_ESTUDANTES = Object.freeze(['GESTAO']);
+
+/** Indica se o perfil pode ver a página de estudantes. */
+export function podeGerenciarEstudantes(perfil) {
+  return PERFIS_GESTAO_ESTUDANTES.includes(perfil);
+}

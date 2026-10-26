@@ -403,6 +403,34 @@ h2 {
   white-space: nowrap;
 }
 
+/* Lista de estudantes: mesma tabela de usuários (cartões no celular). O botão
+   "Editar" e o selo do tutor não quebram no meio (overflow-wrap das células). */
+.tabela-estudantes .botao {
+  white-space: nowrap;
+}
+
+/* Largura mínima para um código comum (ex.: TESTE-0001) não quebrar no hífen;
+   códigos longos (até 150 caracteres) continuam quebrando, sem estourar a tela. */
+.tabela-estudantes__codigo {
+  min-width: 11ch;
+}
+
+/* Filtro por turma acima da lista de estudantes. */
+.filtro-estudantes {
+  max-width: 32rem;
+  margin-bottom: 1rem;
+}
+
+/* Rótulos longos (turma com etapa e ano) não alargam o seletor além da tela
+   no celular (RNF01). */
+.filtro-estudantes select,
+.dialogo .campo select,
+.pagina-estudantes .campo select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* Página de usuários */
 .pagina-usuarios__grade {
   display: grid;
