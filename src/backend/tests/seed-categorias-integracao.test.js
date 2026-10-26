@@ -16,6 +16,9 @@ vi.mock('../src/lib/prisma.js', () => ({
     categoria: { findMany: mocks.findMany, createMany: mocks.createMany },
     // Seed de turmas (Issue #40): fora do escopo deste arquivo, sem efeito.
     turma: { findMany: async () => [], createMany: async ({ data }) => ({ count: data.length }) },
+    // Seed de estudantes (Issue #42): fora do escopo deste arquivo, sem efeito.
+    usuario: { findUnique: async () => null },
+    estudante: { findMany: async () => [], createMany: async ({ data }) => ({ count: data.length }) },
     $disconnect: mocks.disconnect,
   }),
 }));
