@@ -396,6 +396,13 @@ h2 {
   white-space: nowrap;
 }
 
+/* Lista de turmas: mesma tabela de usuários (cartões no celular). O botão
+   "Editar" e o ano letivo não quebram no meio (overflow-wrap das células). */
+.tabela-turmas .botao,
+.tabela-turmas__ano {
+  white-space: nowrap;
+}
+
 /* Página de usuários */
 .pagina-usuarios__grade {
   display: grid;
@@ -593,11 +600,8 @@ h2 {
 
 /* Tablet */
 @media (min-width: 600px) {
-  .layout__menu {
-    order: 0;
-    width: auto;
-    flex: 1;
-  }
+  /* O menu fica em linha própria em todas as larguras (decisão do Rafael na #41):
+     logo e usuário na primeira linha, itens do menu na segunda. */
 
   .tabela-usuarios thead {
     position: static;
