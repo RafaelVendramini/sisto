@@ -235,7 +235,7 @@ model Encaminhamento {
   destinatario_perfil     DestinatarioPerfil
   destinatario_usuario_id Int?
   registrado_por_id       Int
-  data_hora               DateTime
+  data_hora               DateTime           @default(now()) // momento do registro, preenchido pelo sistema (RN17, Issue #45)
   observacao              String?
 
   ocorrencia           Ocorrencia @relation(fields: [ocorrencia_id], references: [id], onDelete: Restrict)
@@ -255,7 +255,7 @@ model Providencia {
   ocorrencia_id     Int
   descricao         String
   registrado_por_id Int
-  data_hora         DateTime
+  data_hora         DateTime @default(now()) // momento do registro, preenchido pelo sistema (RN17, Issue #45)
 
   ocorrencia     Ocorrencia @relation(fields: [ocorrencia_id], references: [id], onDelete: Restrict)
   registrado_por Usuario    @relation("RegistradorProvidencia", fields: [registrado_por_id], references: [id], onDelete: Restrict)
