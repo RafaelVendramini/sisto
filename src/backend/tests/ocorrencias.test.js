@@ -571,11 +571,13 @@ describe('POST /ocorrencias — autenticação', () => {
   it('a rota POST / vem primeiro e o middleware de perfil libera exatamente os 5 perfis', async () => {
     const { default: rotas } = await import('../src/routes/ocorrencias.js');
     const { Perfil } = await import('@prisma/client');
-    // Issue #47 acrescentou GET / e GET /:id (testados em ocorrencias-consulta.test.js).
+    // Issue #47 acrescentou GET / e GET /:id (testados em ocorrencias-consulta.test.js);
+    // a #49, POST /:id/encaminhamentos (testado em ocorrencias-encaminhamento.test.js).
     expect(rotas.stack.map((c) => [c.route.path, Object.keys(c.route.methods)])).toEqual([
       ['/', ['post']],
       ['/', ['get']],
       ['/:id', ['get']],
+      ['/:id/encaminhamentos', ['post']],
     ]);
 
     // Os 5 perfis da matriz (Seção 4) são todos os valores do enum Perfil.
