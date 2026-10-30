@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ListaDestinatarios, {
   CAMPOS_DESTINATARIO,
   idCampoDestinatario,
@@ -94,9 +95,12 @@ function semErro(erros, campo) {
 
 // Registrar ocorrência (UC01, RF05, RF06, RN02, RN03, RN06, RN14, RN17).
 // Disponível aos 5 perfis. O profissional responsável é o usuário logado,
-// definido pelo back-end (RN02). Ainda não existe a tela de detalhe (#48):
-// após o registro, a tela mostra o número da ocorrência e limpa o formulário.
+// definido pelo back-end (RN02). Após o registro, leva ao detalhe da
+// ocorrência criada (#48), que mostra "Ocorrência nº X registrada com
+// sucesso." no topo. Se a resposta vier sem id (não previsto no contrato),
+// fica na tela: mostra a confirmação e limpa o formulário.
 export default function RegistrarOcorrencia() {
+  const navigate = useNavigate();
   const [turmas, setTurmas] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [usuariosPorDestinatario, setUsuariosPorDestinatario] = useState(() =>
@@ -305,6 +309,10 @@ export default function RegistrarOcorrencia() {
     try {
       const criada = await registrarOcorrencia(montarEnvio(dados, estudantes, destinatarios));
       if (!montado.current) return;
+      if (criada?.id !== undefined && criada?.id !== null) {
+        navigate(`/ocorrencias/${criada.id}`, { state: { ocorrenciaRegistrada: criada.id } });
+        return;
+      }
       limparFormulario();
       setSucesso(mensagemOcorrenciaRegistrada(criada?.id));
     } catch (falha) {

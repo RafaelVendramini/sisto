@@ -3,9 +3,10 @@
 // filtro de turma separado da turma da ocorrência, sugestão de tutores,
 // validações no cliente, corpo do POST /ocorrencias (dataHora com fuso de
 // São Paulo), envio único, sucesso com número e erros da API (400, 403, sem
-// conexão). API mockada, sem rede. Somente dados fictícios (RN05 / LGPD).
+// conexão). Após o registro, leva ao detalhe da ocorrência criada (#48).
+// API mockada, sem rede. Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 
@@ -66,9 +67,34 @@ const ESTUDANTES_FICTICIOS = [
   { id: 4, nomeCompleto: 'Estudante Fictício D', turma: TURMA_7B, tutor: null },
 ];
 
+/** Detalhe fictício (GET /ocorrencias/{id}) exibido após o registro (#48). */
+function detalheFicticio(id) {
+  return {
+    id,
+    dataHora: '2026-10-30T10:00:00.000Z',
+    local: 'Pátio',
+    turma: TURMA_6A,
+    categoria: { id: 5, nome: 'Categoria Fictícia X' },
+    descricao: 'Descrição fictícia do fato.',
+    demaisEnvolvidos: null,
+    testemunhas: null,
+    providenciasImediatas: null,
+    observacoes: null,
+    status: 'ABERTO',
+    dataEncerramento: null,
+    profissionalResponsavel: { id: 1, nome: 'Maria Fictícia' },
+    responsavelAcompanhamento: null,
+    estudantes: [{ id: 1, nomeCompleto: 'Estudante Fictício A', turma: TURMA_6A }],
+    encaminhamentos: [],
+    comunicacoes: [],
+    providencias: [],
+  };
+}
+
 /**
  * GET /turmas, /categorias, /usuarios e /estudantes?turmaId= respondem com
- * os dados fictícios; POST /ocorrencias chama `aoRegistrar(corpo)`.
+ * os dados fictícios; POST /ocorrencias chama `aoRegistrar(corpo)`;
+ * GET /ocorrencias/{id} devolve o detalhe fictício.
  */
 function mockarApi({ usuarios = USUARIOS_GESTAO, turmas, aoRegistrar } = {}) {
   fetch.mockImplementation(async (url, opcoes = {}) => {
@@ -90,6 +116,10 @@ function mockarApi({ usuarios = USUARIOS_GESTAO, turmas, aoRegistrar } = {}) {
     }
     if (opcoes.method === 'POST' && url === `${URL_API}/ocorrencias` && aoRegistrar) {
       return aoRegistrar(JSON.parse(opcoes.body));
+    }
+    const detalhe = url.match(/\/ocorrencias\/(\d+)$/);
+    if (opcoes.method === 'GET' && detalhe) {
+      return respostaFalsa(200, detalheFicticio(Number(detalhe[1])));
     }
     throw new Error(`Chamada inesperada: ${opcoes.method} ${url}`);
   });
@@ -175,6 +205,9 @@ describe('Tela de registro de ocorrência (#46)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar o fetch: depois do registro a tela navega
+    // ao detalhe (#48) e um GET pendente não pode sair pelo fetch real.
+    cleanup();
     vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
@@ -526,7 +559,7 @@ describe('Tela de registro de ocorrência (#46)', () => {
       });
     });
 
-    it('botão desabilitado durante o envio; sucesso mostra o número e limpa o formulário', async () => {
+    it('botão desabilitado durante o envio; sucesso leva ao detalhe com o número em destaque', async () => {
       gravarSessaoFicticia();
       let responder;
       mockarApi({ aoRegistrar: () => new Promise((resolve) => (responder = resolve)) });
@@ -542,8 +575,32 @@ describe('Tela de registro de ocorrência (#46)', () => {
 
       responder(respostaFalsa(201, { id: 42, status: 'ABERTO' }));
 
+      // #48: vai para o detalhe da ocorrência criada, com a confirmação no topo.
       const sucesso = await screen.findByText('Ocorrência nº 42 registrada com sucesso.');
       expect(sucesso).toHaveFocus();
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Ocorrência nº 42' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText('Turma da ocorrência')).not.toBeInTheDocument();
+      expect(chamadasPost()).toHaveLength(1);
+      const gets = fetch.mock.calls.filter(([url]) => url === `${URL_API}/ocorrencias/42`);
+      expect(gets).toHaveLength(1);
+    });
+
+    it('depois do sucesso, abrir "Registrar ocorrência" de novo mostra o formulário vazio', async () => {
+      gravarSessaoFicticia();
+      mockarApi({ aoRegistrar: () => respostaFalsa(201, { id: 42, status: 'ABERTO' }) });
+      await abrirPagina();
+      const c = await preencherValido(usuario);
+      await usuario.click(screen.getByRole('button', { name: 'Adicionar destinatário' }));
+      await usuario.selectOptions(destinatario(2).tipo, 'Gestão');
+      await usuario.click(c.enviar);
+      await screen.findByRole('heading', { level: 1, name: 'Ocorrência nº 42' });
+
+      const menu = screen.getByRole('navigation', { name: 'Menu principal' });
+      await usuario.click(within(menu).getByRole('link', { name: 'Registrar ocorrência' }));
+      await screen.findByRole('button', { name: 'Registrar ocorrência' });
+
       const limpo = campos();
       expect(limpo.enviar).toBeEnabled();
       expect(limpo.turma).toHaveValue('');
@@ -555,10 +612,26 @@ describe('Tela de registro de ocorrência (#46)', () => {
       expect(nomesSelecionados()).toEqual([]);
       expect(destinatario(1).tipo).toHaveValue('');
       expect(screen.queryByRole('group', { name: 'Destinatário 2' })).not.toBeInTheDocument();
+      expect(screen.queryByText('Ocorrência nº 42 registrada com sucesso.')).not.toBeInTheDocument();
 
-      // Depois de limpar, o filtro volta a acompanhar a turma da ocorrência.
+      // O filtro acompanha a turma da ocorrência no formulário novo.
       await usuario.selectOptions(limpo.turma, ROTULO_7B);
       expect(limpo.filtro).toHaveValue('2');
+    });
+
+    it('resposta sem id (fora do contrato): fica na tela, confirma e limpa o formulário', async () => {
+      gravarSessaoFicticia();
+      mockarApi({ aoRegistrar: () => respostaFalsa(201, { status: 'ABERTO' }) });
+      await abrirPagina();
+      const c = await preencherValido(usuario);
+
+      await usuario.click(c.enviar);
+
+      const sucesso = await screen.findByText('Ocorrência registrada com sucesso.');
+      expect(sucesso).toHaveFocus();
+      expect(screen.getByRole('heading', { level: 1, name: 'Registrar ocorrência' })).toBeInTheDocument();
+      expect(campos().descricao).toHaveValue('');
+      expect(nomesSelecionados()).toEqual([]);
     });
 
     it('erro 400: mostra a mensagem da API e mantém o que foi preenchido', async () => {

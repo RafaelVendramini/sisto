@@ -1,6 +1,7 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useMatch } from 'react-router-dom';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
 import {
+  podeConsultarOcorrencias,
   podeGerenciarCategorias,
   podeGerenciarEstudantes,
   podeGerenciarTurmas,
@@ -22,6 +23,10 @@ export default function Layout({ children }) {
   const veEstudantes = podeGerenciarEstudantes(usuario?.perfil);
   const veCategorias = podeGerenciarCategorias(usuario?.perfil);
   const veRegistroOcorrencia = podeRegistrarOcorrencia(usuario?.perfil);
+  const veOcorrencias = podeConsultarOcorrencias(usuario?.perfil);
+  // "Ocorrências" fica marcado na lista e no detalhe, mas não no registro,
+  // que tem item próprio no menu.
+  const noRegistro = Boolean(useMatch('/ocorrencias/nova'));
 
   return (
     <div className="layout">
@@ -37,6 +42,11 @@ export default function Layout({ children }) {
               <NavLink to="/" end className="layout__menu-item">
                 Início
               </NavLink>
+              {veOcorrencias && (
+                <NavLink to="/ocorrencias" end={noRegistro} className="layout__menu-item">
+                  Ocorrências
+                </NavLink>
+              )}
               {veRegistroOcorrencia && (
                 <NavLink to="/ocorrencias/nova" className="layout__menu-item">
                   Registrar ocorrência

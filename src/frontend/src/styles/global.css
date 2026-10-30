@@ -904,3 +904,201 @@ h2 {
     align-self: flex-start;
   }
 }
+
+/* Lista e detalhe de ocorrências (UC03, RF05): cartões em coluna única no
+   celular, textos longos quebrando linha sem estourar a largura e áreas de
+   toque confortáveis (RNF01, RNF02). Só as cores da identidade (--cor-*). */
+.pagina-ocorrencia__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pagina-ocorrencia__cabecalho h1 {
+  margin: 0;
+}
+
+a.botao {
+  text-decoration: none;
+}
+
+.lista-ocorrencias {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartao-ocorrencia {
+  position: relative;
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-left: 4px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  padding: 1rem;
+  min-width: 0;
+}
+
+.cartao-ocorrencia:hover {
+  border-color: var(--cor-primaria);
+}
+
+.cartao-ocorrencia:focus-within {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+.cartao-ocorrencia__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.cartao-ocorrencia__titulo {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.cartao-ocorrencia__link {
+  color: var(--cor-primaria);
+  text-decoration: underline;
+}
+
+.cartao-ocorrencia__link:focus-visible {
+  outline: none;
+}
+
+/* O link cobre o cartão inteiro: toque em qualquer parte abre o detalhe. */
+.cartao-ocorrencia__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* Selo do status da ocorrência */
+.selo-ocorrencia {
+  white-space: normal;
+}
+
+.selo-ocorrencia--aberto {
+  background-color: var(--cor-superficie);
+  border-color: var(--cor-destaque);
+  color: var(--cor-primaria);
+}
+
+.selo-ocorrencia--em-acompanhamento {
+  background-color: var(--cor-fundo);
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
+}
+
+.selo-ocorrencia--encerrado {
+  background-color: var(--cor-fundo);
+  border-color: var(--cor-borda);
+  color: var(--cor-texto-secundario);
+}
+
+/* Pares rótulo/valor (lista e detalhe) */
+.dados-ocorrencia {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.dados-ocorrencia--compacto {
+  gap: 0.5rem;
+}
+
+.dados-ocorrencia > div {
+  min-width: 0;
+}
+
+.dados-ocorrencia dt {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--cor-texto-secundario);
+}
+
+.dados-ocorrencia dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.texto-longo {
+  white-space: pre-wrap;
+}
+
+/* Detalhe */
+.detalhe-ocorrencia__voltar {
+  margin: 0 0 0.5rem;
+}
+
+.detalhe-ocorrencia__voltar a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--cor-primaria);
+  font-weight: 600;
+}
+
+.detalhe-ocorrencia__voltar a:focus-visible {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+.detalhe-ocorrencia__cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.detalhe-ocorrencia__secao {
+  min-width: 0;
+}
+
+.detalhe-ocorrencia__secao + .detalhe-ocorrencia__secao {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.detalhe-ocorrencia__itens {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detalhe-ocorrencia__item {
+  padding: 0.75rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background-color: var(--cor-fundo);
+  min-width: 0;
+}
+
+.detalhe-ocorrencia__nome {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 600px) {
+  .dados-ocorrencia {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dados-ocorrencia > .dados-ocorrencia__longo {
+    grid-column: 1 / -1;
+  }
+}

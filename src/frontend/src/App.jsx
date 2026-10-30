@@ -5,14 +5,17 @@ import RotaProtegida from './components/RotaProtegida.jsx';
 import { SessaoProvider } from './components/Sessao.jsx';
 import AlterarSenha from './pages/AlterarSenha.jsx';
 import Categorias from './pages/Categorias.jsx';
+import DetalheOcorrencia from './pages/DetalheOcorrencia.jsx';
 import Estudantes from './pages/Estudantes.jsx';
 import Inicio from './pages/Inicio.jsx';
 import Login from './pages/Login.jsx';
+import Ocorrencias from './pages/Ocorrencias.jsx';
 import RegistrarOcorrencia from './pages/RegistrarOcorrencia.jsx';
 import Turmas from './pages/Turmas.jsx';
 import Usuarios from './pages/Usuarios.jsx';
 import { ROTA_ALTERAR_SENHA } from './services/conta.js';
 import {
+  PERFIS_CONSULTA_OCORRENCIAS,
   PERFIS_GESTAO_CATEGORIAS,
   PERFIS_GESTAO_ESTUDANTES,
   PERFIS_GESTAO_TURMAS,
@@ -39,6 +42,10 @@ export default function App() {
           <Route element={<RotaProtegida />}>
             <Route path="/" element={<Inicio />} />
             <Route path={ROTA_ALTERAR_SENHA} element={<AlterarSenha />} />
+            <Route element={<RotaPorPerfil perfis={PERFIS_CONSULTA_OCORRENCIAS} />}>
+              <Route path="/ocorrencias" element={<Ocorrencias />} />
+              <Route path="/ocorrencias/:id" element={<DetalheOcorrencia />} />
+            </Route>
             <Route element={<RotaPorPerfil perfis={PERFIS_REGISTRO_OCORRENCIA} />}>
               <Route path="/ocorrencias/nova" element={<RegistrarOcorrencia />} />
             </Route>
