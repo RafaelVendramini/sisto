@@ -85,3 +85,19 @@ export const PERFIS_REGISTRO_OCORRENCIA = Object.freeze([
 export function podeRegistrarOcorrencia(perfil) {
   return PERFIS_REGISTRO_OCORRENCIA.includes(perfil);
 }
+
+// Perfis que consultam ocorrências (UC03, RF05, matriz da Seção 4): todos os
+// cinco. O que cada um vê é decidido pelo back-end (RN19). Usado no menu e na
+// rota; a proteção real é do back-end.
+export const PERFIS_CONSULTA_OCORRENCIAS = Object.freeze([
+  'PROFESSOR',
+  'TUTOR',
+  'GESTAO',
+  'PEDAGOGICO',
+  'TECNICO_ADMINISTRATIVO',
+]);
+
+/** Indica se o perfil pode ver a lista e o detalhe de ocorrências. */
+export function podeConsultarOcorrencias(perfil) {
+  return PERFIS_CONSULTA_OCORRENCIAS.includes(perfil);
+}

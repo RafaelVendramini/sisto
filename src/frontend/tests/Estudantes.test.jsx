@@ -170,6 +170,7 @@ describe('Tela de estudantes (#43)', () => {
       const menu = screen.getByRole('navigation', { name: 'Menu principal' });
       expect(within(menu).getAllByRole('link').map((link) => link.textContent)).toEqual([
         'Início',
+        'Ocorrências',
         'Registrar ocorrência',
         'Usuários',
         'Turmas',

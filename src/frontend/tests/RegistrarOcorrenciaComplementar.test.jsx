@@ -6,7 +6,7 @@
 // espaços, datas na virada de dia/mês/ano em São Paulo e acessibilidade.
 // API mockada, sem rede. Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   MAXIMO_ESTUDANTES,
@@ -63,9 +63,34 @@ const ESTUDANTES_FICTICIOS = [
   { id: 3, nomeCompleto: 'Estudante Fictício C', turma: TURMA_7B, tutor: { id: 13, nome: 'Tutora Fictícia C' } },
 ];
 
+/** Detalhe fictício (GET /ocorrencias/{id}) exibido após o registro (#48). */
+function detalheFicticio(id) {
+  return {
+    id,
+    dataHora: '2026-10-30T10:00:00.000Z',
+    local: 'Pátio',
+    turma: TURMA_6A,
+    categoria: { id: 5, nome: 'Categoria Fictícia X' },
+    descricao: 'Descrição fictícia do fato.',
+    demaisEnvolvidos: null,
+    testemunhas: null,
+    providenciasImediatas: null,
+    observacoes: null,
+    status: 'ABERTO',
+    dataEncerramento: null,
+    profissionalResponsavel: { id: 1, nome: 'Maria Fictícia' },
+    responsavelAcompanhamento: null,
+    estudantes: [{ id: 1, nomeCompleto: 'Estudante Fictício A', turma: TURMA_6A }],
+    encaminhamentos: [],
+    comunicacoes: [],
+    providencias: [],
+  };
+}
+
 /**
  * GETs de apoio com os dados fictícios. `estudantes(turmaId)` permite trocar
- * a resposta de GET /estudantes?turmaId=; POST /ocorrencias chama `aoRegistrar`.
+ * a resposta de GET /estudantes?turmaId=; POST /ocorrencias chama `aoRegistrar`;
+ * GET /ocorrencias/{id} devolve o detalhe fictício (tela de destino após o registro).
  */
 function mockarApi({ usuarios = USUARIOS_FICTICIOS, estudantes, aoRegistrar } = {}) {
   fetch.mockImplementation(async (url, opcoes = {}) => {
@@ -86,6 +111,10 @@ function mockarApi({ usuarios = USUARIOS_FICTICIOS, estudantes, aoRegistrar } = 
     }
     if (opcoes.method === 'POST' && url === `${URL_API}/ocorrencias` && aoRegistrar) {
       return aoRegistrar(JSON.parse(opcoes.body));
+    }
+    const detalhe = url.match(/\/ocorrencias\/(\d+)$/);
+    if (opcoes.method === 'GET' && detalhe) {
+      return respostaFalsa(200, detalheFicticio(Number(detalhe[1])));
     }
     throw new Error(`Chamada inesperada: ${opcoes.method} ${url}`);
   });
@@ -169,6 +198,9 @@ describe('Tela de registro de ocorrência — testes complementares de QA (#46)'
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar o fetch: depois do registro a tela navega
+    // ao detalhe (#48) e um GET pendente não pode sair pelo fetch real.
+    cleanup();
     vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
@@ -508,6 +540,9 @@ describe('Tela de registro de ocorrência — testes complementares de QA (#46)'
 
       await usuario.click(c.enviar);
       expect(await screen.findByText('Ocorrência nº 15 registrada com sucesso.')).toBeInTheDocument();
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Ocorrência nº 15' }),
+      ).toBeInTheDocument();
       expect(screen.queryByText('A categoria informada não existe.')).not.toBeInTheDocument();
       expect(chamadasPost()).toHaveLength(2);
     });
@@ -600,7 +635,7 @@ describe('Tela de registro de ocorrência — testes complementares de QA (#46)'
       expect(chamadasPost()).toHaveLength(0);
     });
 
-    it('a mensagem de sucesso some ao começar um novo registro', async () => {
+    it('a faixa de sucesso some ao sair do detalhe e não aparece ao começar um novo registro', async () => {
       gravarSessaoFicticia();
       mockarApi({ aoRegistrar: () => respostaFalsa(201, { id: 21 }) });
       await abrirPagina();
@@ -608,7 +643,9 @@ describe('Tela de registro de ocorrência — testes complementares de QA (#46)'
       await usuario.click(c.enviar);
       expect(await screen.findByText('Ocorrência nº 21 registrada com sucesso.')).toBeInTheDocument();
 
-      await usuario.selectOptions(campos().turma, ROTULO_7B);
+      const menu = screen.getByRole('navigation', { name: 'Menu principal' });
+      await usuario.click(within(menu).getByRole('link', { name: 'Registrar ocorrência' }));
+      await usuario.selectOptions(await screen.findByLabelText('Turma da ocorrência'), ROTULO_7B);
       expect(screen.queryByText('Ocorrência nº 21 registrada com sucesso.')).not.toBeInTheDocument();
     });
   });

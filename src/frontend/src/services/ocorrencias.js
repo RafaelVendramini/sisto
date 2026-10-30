@@ -50,3 +50,30 @@ export function registrarOcorrencia({
     },
   });
 }
+
+/**
+ * Lista as ocorrências que o usuário pode ver (GET /ocorrencias — UC03, RN19).
+ * A visibilidade é decidida pelo back-end; a lista já vem resumida e ordenada
+ * da mais recente para a mais antiga. Sem filtros nesta versão (Sprint 3).
+ * @returns {Promise<Array<{ id: number, dataHora: string, local: string, status: string,
+ *   turma: { id: number, nome: string, etapa: string, anoLetivo: number },
+ *   categoria: { id: number, nome: string },
+ *   profissionalResponsavel: { id: number, nome: string },
+ *   estudantes: Array<{ id: number, nomeCompleto: string }> }>>}
+ */
+export async function listarOcorrencias() {
+  const dados = await requisicaoAutenticada('/ocorrencias');
+  return Array.isArray(dados) ? dados : [];
+}
+
+/**
+ * Consulta o detalhe de uma ocorrência (GET /ocorrencias/{id} — RF05, RN19,
+ * RN20). Fora da visibilidade do usuário ou inexistente: 404; id inválido: 400.
+ * O código escolar dos estudantes só vem para a Gestão (RN20).
+ * @param {number | string} id - como veio da URL
+ * @returns {Promise<object>} detalhe com estudantes, encaminhamentos,
+ *   comunicações e providências
+ */
+export function obterOcorrencia(id) {
+  return requisicaoAutenticada(`/ocorrencias/${encodeURIComponent(String(id))}`);
+}

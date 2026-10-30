@@ -1,5 +1,6 @@
 // Mensagens, rótulos, datas e validação da tela de registro de ocorrência
-// (UC01, RN02, RN03, RN06, RN14, RN17, RNF02): nada técnico aparece na tela.
+// (UC01, RN02, RN03, RN06, RN14, RN17, RNF02) e das telas de lista e detalhe
+// (UC03, RF05, RN19 — Issue #48): nada técnico aparece na tela.
 // A validação daqui é só usabilidade; a definitiva é a do back-end (400), cuja
 // mensagem (campo `erro`) é exibida como veio.
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from './mensagens.js';
@@ -59,6 +60,59 @@ export const MENSAGEM_REVISAR_CAMPOS = 'Confira os campos destacados antes de en
 const MENSAGEM_GENERICA_REGISTRAR =
   'Não foi possível registrar a ocorrência agora. Tente novamente em instantes.';
 
+// ---------------------------------------------------------------------------
+// Consulta de ocorrências: lista e detalhe (UC03, RF05, RN19, RN20)
+// ---------------------------------------------------------------------------
+
+// Status da ocorrência (Seção 11, RF10): valor técnico e rótulo na tela.
+export const STATUS_OCORRENCIA = Object.freeze([
+  Object.freeze({ valor: 'ABERTO', rotulo: 'Aberto' }),
+  Object.freeze({ valor: 'EM_ACOMPANHAMENTO', rotulo: 'Em acompanhamento' }),
+  Object.freeze({ valor: 'ENCERRADO', rotulo: 'Encerrado' }),
+]);
+
+/** Rótulo do status na tela (ex.: 'Em acompanhamento'); vazio se desconhecido. */
+export function rotuloStatusOcorrencia(status) {
+  return STATUS_OCORRENCIA.find((s) => s.valor === status)?.rotulo ?? '';
+}
+
+/** Texto exibido no lugar de um campo opcional vazio. */
+export const TEXTO_NAO_INFORMADO = 'Não informado';
+
+/** Encaminhamento à equipe inteira (sem usuário destinatário — RN03). */
+export const TEXTO_TODA_A_EQUIPE = 'Toda a equipe';
+
+export const MENSAGEM_OCORRENCIA_NAO_ENCONTRADA = 'Ocorrência não encontrada.';
+export const MENSAGEM_SEM_OCORRENCIAS = 'Nenhuma ocorrência para mostrar.';
+export const MENSAGEM_SEM_ENCAMINHAMENTOS = 'Nenhum encaminhamento registrado.';
+export const MENSAGEM_SEM_COMUNICACOES = 'Nenhuma comunicação registrada.';
+export const MENSAGEM_SEM_PROVIDENCIAS = 'Nenhuma providência registrada.';
+
+const MENSAGEM_GENERICA_LISTA = 'Não foi possível carregar as ocorrências agora.';
+const MENSAGEM_GENERICA_DETALHE = 'Não foi possível carregar a ocorrência agora.';
+
+/**
+ * Converte a falha do GET /ocorrencias em mensagem para a tela.
+ * O 401 não chega aqui na prática: o tratamento central leva ao login.
+ */
+export function mensagemErroListaOcorrencias(falha) {
+  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
+  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
+  return MENSAGEM_GENERICA_LISTA;
+}
+
+/**
+ * Converte a falha do GET /ocorrencias/{id} em mensagem para a tela. O 404
+ * (inexistente ou fora da visibilidade — RN19) e o 400 (id inválido na URL)
+ * têm a mesma mensagem: para o usuário, a ocorrência não existe.
+ */
+export function mensagemErroDetalheOcorrencia(falha) {
+  if ([400, 404].includes(falha?.status)) return MENSAGEM_OCORRENCIA_NAO_ENCONTRADA;
+  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
+  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
+  return MENSAGEM_GENERICA_DETALHE;
+}
+
 /** "Este destinatário repete o destinatário 1. Remova um deles." */
 export function mensagemDestinatarioRepetido(posicaoOriginal) {
   return `Este destinatário repete o destinatário ${posicaoOriginal}. Remova um deles.`;
@@ -111,6 +165,20 @@ function deslocamentoMinutos(instanteMs) {
   );
   const instanteEmSegundos = Math.floor(instanteMs / 1000) * 1000;
   return Math.round((parede - instanteEmSegundos) / 60000);
+}
+
+/**
+ * Data e hora de um instante (ISO vindo da API, em UTC) no horário de São
+ * Paulo, em formato brasileiro legível (RN17, RNF02).
+ * @param {string | number | Date} valor - ex.: "2026-10-30T12:39:00.000Z"
+ * @returns {string} ex.: "30/10/2026 às 09:39" (vazio quando ausente ou inválido)
+ */
+export function formatarDataHora(valor) {
+  if (valor === undefined || valor === null || valor === '') return '';
+  const instanteMs = new Date(valor).getTime();
+  if (Number.isNaN(instanteMs)) return '';
+  const p = partesNoFuso(instanteMs);
+  return `${p.day}/${p.month}/${p.year} às ${p.hour}:${p.minute}`;
 }
 
 /**
