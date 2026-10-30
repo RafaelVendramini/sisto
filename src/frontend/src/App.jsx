@@ -8,6 +8,7 @@ import Categorias from './pages/Categorias.jsx';
 import Estudantes from './pages/Estudantes.jsx';
 import Inicio from './pages/Inicio.jsx';
 import Login from './pages/Login.jsx';
+import RegistrarOcorrencia from './pages/RegistrarOcorrencia.jsx';
 import Turmas from './pages/Turmas.jsx';
 import Usuarios from './pages/Usuarios.jsx';
 import { ROTA_ALTERAR_SENHA } from './services/conta.js';
@@ -16,6 +17,7 @@ import {
   PERFIS_GESTAO_ESTUDANTES,
   PERFIS_GESTAO_TURMAS,
   PERFIS_GESTAO_USUARIOS,
+  PERFIS_REGISTRO_OCORRENCIA,
 } from './services/perfis.js';
 
 function LayoutComConteudo() {
@@ -37,6 +39,9 @@ export default function App() {
           <Route element={<RotaProtegida />}>
             <Route path="/" element={<Inicio />} />
             <Route path={ROTA_ALTERAR_SENHA} element={<AlterarSenha />} />
+            <Route element={<RotaPorPerfil perfis={PERFIS_REGISTRO_OCORRENCIA} />}>
+              <Route path="/ocorrencias/nova" element={<RegistrarOcorrencia />} />
+            </Route>
             <Route element={<RotaPorPerfil perfis={PERFIS_GESTAO_USUARIOS} />}>
               <Route path="/usuarios" element={<Usuarios />} />
             </Route>

@@ -70,3 +70,18 @@ export const PERFIS_GESTAO_ESTUDANTES = Object.freeze(['GESTAO']);
 export function podeGerenciarEstudantes(perfil) {
   return PERFIS_GESTAO_ESTUDANTES.includes(perfil);
 }
+
+// Perfis que registram ocorrências (UC01, RF05, matriz da Seção 4): todos os
+// cinco. Usado no menu e na rota; a proteção real é do back-end (403).
+export const PERFIS_REGISTRO_OCORRENCIA = Object.freeze([
+  'PROFESSOR',
+  'TUTOR',
+  'GESTAO',
+  'PEDAGOGICO',
+  'TECNICO_ADMINISTRATIVO',
+]);
+
+/** Indica se o perfil pode ver a página de registro de ocorrência. */
+export function podeRegistrarOcorrencia(perfil) {
+  return PERFIS_REGISTRO_OCORRENCIA.includes(perfil);
+}

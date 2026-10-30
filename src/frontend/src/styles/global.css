@@ -729,3 +729,178 @@ h2 {
     align-items: start;
   }
 }
+
+/* Registro de ocorrência (UC01): coluna única no celular, seções separadas,
+   lista de estudantes com rolagem limitada e áreas de toque de 44px (RNF01). */
+.pagina-ocorrencia {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.registro-ocorrencia {
+  gap: 1.5rem;
+  margin-top: 0;
+}
+
+.registro-ocorrencia__secao {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.registro-ocorrencia__secao + .registro-ocorrencia__secao {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.registro-ocorrencia__secao h2 {
+  margin-bottom: 0;
+}
+
+.registro-ocorrencia h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.registro-ocorrencia__linha {
+  display: grid;
+  gap: 1rem;
+}
+
+.registro-ocorrencia__orientacao {
+  margin: 0 0 0.25rem;
+  font-weight: 400;
+}
+
+/* Rótulos longos (turma com etapa e ano) não alargam o seletor (RNF01). */
+.registro-ocorrencia .campo select,
+.registro-ocorrencia .campo input,
+.registro-ocorrencia .campo textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.registro-ocorrencia__enviar {
+  width: 100%;
+}
+
+.selecao-estudantes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.selecao-estudantes__lista {
+  max-height: 18rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem 0.75rem 0.5rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.selecao-estudantes__lista legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.selecao-estudantes__opcao {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--cor-borda);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.selecao-estudantes__opcao:last-child {
+  border-bottom: 0;
+}
+
+.selecao-estudantes__opcao input {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--cor-primaria);
+}
+
+.selecao-estudantes__itens {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.selecao-estudantes__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.375rem 0.375rem 0.375rem 0.75rem;
+  background-color: #f8e9f2;
+  border-radius: var(--raio);
+}
+
+.selecao-estudantes__nome {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.selecao-estudantes__turma {
+  font-weight: 400;
+  color: var(--cor-texto-secundario);
+}
+
+.lista-destinatarios {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.lista-destinatarios__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.lista-destinatarios__item legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+  color: var(--cor-primaria);
+}
+
+.lista-destinatarios__remover {
+  align-self: flex-start;
+}
+
+@media (min-width: 600px) {
+  .registro-ocorrencia__linha {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  .registro-ocorrencia__enviar {
+    width: auto;
+    align-self: flex-start;
+  }
+
+  .lista-destinatarios > .botao {
+    align-self: flex-start;
+  }
+}

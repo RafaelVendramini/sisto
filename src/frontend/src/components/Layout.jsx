@@ -5,6 +5,7 @@ import {
   podeGerenciarEstudantes,
   podeGerenciarTurmas,
   podeGerenciarUsuarios,
+  podeRegistrarOcorrencia,
   rotuloPerfil,
 } from '../services/perfis.js';
 import { useSessao } from './Sessao.jsx';
@@ -20,6 +21,7 @@ export default function Layout({ children }) {
   const veTurmas = podeGerenciarTurmas(usuario?.perfil);
   const veEstudantes = podeGerenciarEstudantes(usuario?.perfil);
   const veCategorias = podeGerenciarCategorias(usuario?.perfil);
+  const veRegistroOcorrencia = podeRegistrarOcorrencia(usuario?.perfil);
 
   return (
     <div className="layout">
@@ -35,6 +37,11 @@ export default function Layout({ children }) {
               <NavLink to="/" end className="layout__menu-item">
                 Início
               </NavLink>
+              {veRegistroOcorrencia && (
+                <NavLink to="/ocorrencias/nova" className="layout__menu-item">
+                  Registrar ocorrência
+                </NavLink>
+              )}
               {veUsuarios && (
                 <NavLink to="/usuarios" className="layout__menu-item">
                   Usuários
