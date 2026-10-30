@@ -46,6 +46,9 @@
 // visibilidade responde 404 igual à inexistente (não revela que existe).
 // RN20: no detalhe, o código escolar dos estudantes só vai para a Gestão.
 // Leitura não grava histórico nem auditoria (mesmo padrão dos outros GETs).
+//
+// Encaminhamento (Issue #49, UC02): POST /ocorrencias/{id}/encaminhamentos —
+// ver a seção "Encaminhamento" no fim do arquivo.
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
@@ -98,7 +101,14 @@ export const DESTINATARIOS_VALIDOS = Object.freeze(Object.keys(PERFIL_DO_DESTINA
 export const ACOES_HISTORICO = Object.freeze({
   OCORRENCIA_REGISTRADA: 'ocorrência registrada',
   ENCAMINHAMENTO_REGISTRADO: 'encaminhamento registrado',
+  // Issue #49 (RN15): mudança de status e definição/troca do responsável.
+  STATUS_ALTERADO: 'status alterado',
+  RESPONSAVEL_DEFINIDO: 'responsável pelo acompanhamento definido',
+  RESPONSAVEL_ALTERADO: 'responsável pelo acompanhamento alterado',
 });
+
+/** Descrição fixa do histórico da mudança de status feita pelo encaminhamento (RN15). */
+export const DESCRICAO_HISTORICO_ABERTO_PARA_ACOMPANHAMENTO = 'De aberto para em acompanhamento';
 
 /** Descrição fixa do histórico de cada encaminhamento (sem nome do usuário). */
 const DESCRICAO_HISTORICO_DESTINATARIO = Object.freeze({
@@ -334,6 +344,37 @@ function validarEstudanteIds(valor) {
   return distintos;
 }
 
+/**
+ * RN03 — valida e normaliza destinatarioPerfil, destinatarioUsuarioId e
+ * observacao de UM encaminhamento (sem acessar o banco). Compartilhada pelo
+ * POST /ocorrencias (mensagens com a posição na lista) e pelo
+ * POST /ocorrencias/{id}/encaminhamentos (mensagens sem posição).
+ * @param {object} item objeto do encaminhamento (já conferido como objeto)
+ * @param {{ perfilInvalido: string, usuarioIdInvalido: string, tutorObrigatorio: string, campoObservacao: string }} mensagens
+ * @throws {ErroHttp} 400
+ */
+function normalizarDestinatario(item, mensagens) {
+  const { destinatarioPerfil, destinatarioUsuarioId, observacao } = item;
+  if (typeof destinatarioPerfil !== 'string' || !DESTINATARIOS_VALIDOS.includes(destinatarioPerfil)) {
+    throw new ErroHttp(400, mensagens.perfilInvalido);
+  }
+  let usuarioId = null;
+  if (destinatarioUsuarioId !== undefined && destinatarioUsuarioId !== null) {
+    if (!ehIdNumerico(destinatarioUsuarioId)) {
+      throw new ErroHttp(400, mensagens.usuarioIdInvalido);
+    }
+    usuarioId = destinatarioUsuarioId;
+  }
+  if (destinatarioPerfil === 'TUTOR' && usuarioId === null) {
+    throw new ErroHttp(400, mensagens.tutorObrigatorio);
+  }
+  return {
+    destinatarioPerfil,
+    destinatarioUsuarioId: usuarioId,
+    observacao: textoOpcional(observacao, mensagens.campoObservacao),
+  };
+}
+
 function validarEncaminhamentos(valor) {
   if (!Array.isArray(valor) || valor.length === 0) {
     throw new ErroHttp(400, MENSAGEM_ENCAMINHAMENTOS_OBRIGATORIOS);
@@ -346,25 +387,12 @@ function validarEncaminhamentos(valor) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) {
       throw new ErroHttp(400, mensagemEncaminhamentoInvalido(posicao));
     }
-    const { destinatarioPerfil, destinatarioUsuarioId, observacao } = item;
-    if (typeof destinatarioPerfil !== 'string' || !DESTINATARIOS_VALIDOS.includes(destinatarioPerfil)) {
-      throw new ErroHttp(400, mensagemDestinatarioPerfilInvalido(posicao));
-    }
-    let usuarioId = null;
-    if (destinatarioUsuarioId !== undefined && destinatarioUsuarioId !== null) {
-      if (!ehIdNumerico(destinatarioUsuarioId)) {
-        throw new ErroHttp(400, mensagemDestinatarioUsuarioIdInvalido(posicao));
-      }
-      usuarioId = destinatarioUsuarioId;
-    }
-    if (destinatarioPerfil === 'TUTOR' && usuarioId === null) {
-      throw new ErroHttp(400, mensagemTutorObrigatorio(posicao));
-    }
-    return {
-      destinatarioPerfil,
-      destinatarioUsuarioId: usuarioId,
-      observacao: textoOpcional(observacao, `observacao do encaminhamento ${posicao}`),
-    };
+    return normalizarDestinatario(item, {
+      perfilInvalido: mensagemDestinatarioPerfilInvalido(posicao),
+      usuarioIdInvalido: mensagemDestinatarioUsuarioIdInvalido(posicao),
+      tutorObrigatorio: mensagemTutorObrigatorio(posicao),
+      campoObservacao: `observacao do encaminhamento ${posicao}`,
+    });
   });
 
   // Decisão do Rafael: encaminhamentos repetidos são recusados. Repetido =
@@ -487,8 +515,12 @@ async function garantirReferenciasExistem(tx, dados) {
   }
 }
 
-/** RN03: o usuário destinatário, quando informado, tem o perfil certo e está ATIVO. */
-async function garantirDestinatariosValidos(tx, encaminhamentos) {
+/**
+ * RN03: o usuário destinatário, quando informado, tem o perfil certo e está ATIVO.
+ * @param {(posicao: number, destinatarioPerfil: string) => string} [mensagem]
+ *   mensagem do 400 (padrão: com a posição na lista do POST /ocorrencias)
+ */
+async function garantirDestinatariosValidos(tx, encaminhamentos, mensagem = mensagemDestinatarioInvalido) {
   const ids = [
     ...new Set(encaminhamentos.map((e) => e.destinatarioUsuarioId).filter((id) => id !== null)),
   ];
@@ -503,7 +535,7 @@ async function garantirDestinatariosValidos(tx, encaminhamentos) {
     const usuario = porId.get(encaminhamento.destinatarioUsuarioId);
     const perfilExigido = PERFIL_DO_DESTINATARIO[encaminhamento.destinatarioPerfil];
     if (!usuario || usuario.perfil !== perfilExigido || usuario.status !== 'ATIVO') {
-      throw new ErroHttp(400, mensagemDestinatarioInvalido(indice + 1, encaminhamento.destinatarioPerfil));
+      throw new ErroHttp(400, mensagem(indice + 1, encaminhamento.destinatarioPerfil));
     }
   });
 }
@@ -839,32 +871,275 @@ export async function obterOcorrencia(idUrl, solicitante, { db = prisma } = {}) 
     });
     if (!visivel) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
 
-    const ocorrencia = await lerOcorrenciaParaResposta(tx, id, { codigoEscolar });
-    const comunicacoes = await tx.comunicacao.findMany({
-      where: { ocorrencia_id: id },
-      select: {
-        id: true,
-        destinatario: true,
-        meio: true,
-        descricao: true,
-        data_hora: true,
-        registrado_por: { select: { id: true, nome: true } },
-      },
-      orderBy: [{ data_hora: 'asc' }, { id: 'asc' }],
-    });
-    const providencias = await tx.providencia.findMany({
-      where: { ocorrencia_id: id },
-      select: {
-        id: true,
-        descricao: true,
-        data_hora: true,
-        registrado_por: { select: { id: true, nome: true } },
-      },
-      orderBy: [{ data_hora: 'asc' }, { id: 'asc' }],
-    });
-    return paraRespostaDetalheOcorrencia(
-      { ...ocorrencia, comunicacoes, providencias },
-      { codigoEscolar },
-    );
+    return lerDetalheOcorrencia(tx, id, { codigoEscolar });
   });
+}
+
+/**
+ * Lê o detalhe completo (formato do GET /ocorrencias/{id}) de uma ocorrência
+ * cuja visibilidade já foi conferida, na transação recebida. Usada pelo GET
+ * do detalhe e pelo 201 do POST /ocorrencias/{id}/encaminhamentos.
+ * @param {object} tx client da transação
+ * @param {number} id
+ * @param {{ codigoEscolar?: boolean }} [opcoes] RN20: só para a Gestão
+ */
+async function lerDetalheOcorrencia(tx, id, { codigoEscolar = false } = {}) {
+  const ocorrencia = await lerOcorrenciaParaResposta(tx, id, { codigoEscolar });
+  const comunicacoes = await tx.comunicacao.findMany({
+    where: { ocorrencia_id: id },
+    select: {
+      id: true,
+      destinatario: true,
+      meio: true,
+      descricao: true,
+      data_hora: true,
+      registrado_por: { select: { id: true, nome: true } },
+    },
+    orderBy: [{ data_hora: 'asc' }, { id: 'asc' }],
+  });
+  const providencias = await tx.providencia.findMany({
+    where: { ocorrencia_id: id },
+    select: {
+      id: true,
+      descricao: true,
+      data_hora: true,
+      registrado_por: { select: { id: true, nome: true } },
+    },
+    orderBy: [{ data_hora: 'asc' }, { id: 'asc' }],
+  });
+  return paraRespostaDetalheOcorrencia(
+    { ...ocorrencia, comunicacoes, providencias },
+    { codigoEscolar },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Encaminhamento: POST /ocorrencias/{id}/encaminhamentos (Issue #49, UC02)
+// ---------------------------------------------------------------------------
+//
+// - Contrato (Seção 12): { destinatarioPerfil, destinatarioUsuarioId?,
+//   observacao?, responsavelAcompanhamentoId? }; responde 201 com o DETALHE
+//   COMPLETO da ocorrência (decisão do Rafael), no formato do
+//   GET /ocorrencias/{id} (codigoEscolar só para a Gestão — RN20). Campos
+//   fora do contrato (ex.: registradoPorId, status) são ignorados.
+// - Permissão (Seção 4, RN15): só GESTAO e PEDAGOGICO (na rota).
+// - RN03: mesmas regras de destinatário do POST /ocorrencias.
+// - RN15: ABERTO exige responsavelAcompanhamentoId (usuário ATIVO com perfil
+//   TUTOR, PEDAGOGICO ou GESTAO) e passa a EM_ACOMPANHAMENTO (RN04);
+//   EM_ACOMPANHAMENTO mantém o status e a troca do responsável é opcional
+//   (o mesmo responsável atual não é troca); ENCERRADO responde 409.
+// - Decisão do Rafael: encaminhar de novo para um destinatário que já
+//   recebeu esta ocorrência é PERMITIDO.
+// - RN17: registrado_por_id é o usuário logado e data_hora vem do banco.
+// - RN08: histórico "encaminhamento registrado" e, quando houver, "status
+//   alterado" e "responsável pelo acompanhamento definido/alterado" — textos
+//   fixos, sem nomes. RNF04: LogAuditoria "encaminhamento registrado".
+//
+// Ordem das respostas de erro: 400 do id da URL -> 400 do formato do corpo
+// (sem banco) -> 404 (inexistente/fora da visibilidade) -> 409 (ENCERRADO)
+// -> 400 de responsável obrigatório (ABERTO sem responsável) -> 400 do
+// usuário destinatário (RN03) -> 400 do responsável (RN15).
+//
+// Transação: tudo numa ÚNICA transação SERIALIZABLE, no padrão do POST
+// /ocorrencias. O status e o responsável atuais são lidos DENTRO dela, e a
+// linha da ocorrência é SEMPRE atualizada (mesmo sem mudança de valores): a
+// escrita trava a linha, e um encaminhamento ou encerramento concorrente na
+// mesma ocorrência aborta uma das transações (P2034), que é repetida e
+// relê o status; esgotadas as tentativas, responde 409.
+
+/** Perfis que podem encaminhar uma ocorrência já registrada (RN15, Seção 4). */
+export const PERFIS_ENCAMINHAMENTO = Object.freeze(['GESTAO', 'PEDAGOGICO']);
+
+/** Perfis aceitos como responsável pelo acompanhamento (RN15). */
+export const PERFIS_RESPONSAVEL_ACOMPANHAMENTO = Object.freeze(['TUTOR', 'PEDAGOGICO', 'GESTAO']);
+
+export const MENSAGEM_CORPO_ENCAMINHAMENTO_INVALIDO =
+  'Envie um objeto JSON com destinatarioPerfil e, opcionalmente, destinatarioUsuarioId, observacao e responsavelAcompanhamentoId.';
+export const MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_PERFIL_INVALIDO = `Informe destinatarioPerfil com um dos valores: ${DESTINATARIOS_VALIDOS.join(', ')}.`;
+export const MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_USUARIO_ID_INVALIDO =
+  'Informe destinatarioUsuarioId como número inteiro positivo (ou null).';
+export const MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO = 'O destinatário tutor exige destinatarioUsuarioId.';
+export const MENSAGEM_RESPONSAVEL_ID_INVALIDO =
+  'Informe responsavelAcompanhamentoId como número inteiro positivo (ou null).';
+export const MENSAGEM_RESPONSAVEL_OBRIGATORIO =
+  'Ocorrência com status aberto exige responsavelAcompanhamentoId (responsável pelo acompanhamento).';
+export const MENSAGEM_RESPONSAVEL_INVALIDO =
+  'O responsável pelo acompanhamento precisa ser um usuário com perfil Tutor, Pedagógico ou Gestão e status ativo.';
+export const MENSAGEM_OCORRENCIA_ENCERRADA_ENCAMINHAMENTO = 'Ocorrência encerrada não recebe encaminhamentos.';
+export const MENSAGEM_CONFLITO_CONCORRENTE_ENCAMINHAMENTO =
+  'Não foi possível registrar o encaminhamento por causa de outra operação ao mesmo tempo. Tente novamente.';
+
+/** Mensagem do 400 de usuário destinatário inválido (sem posição: um só encaminhamento). */
+export function mensagemDestinatarioEncaminhamentoInvalido(destinatarioPerfil) {
+  return `O usuário destinatário precisa ter perfil ${ROTULO_PERFIL_DESTINATARIO[destinatarioPerfil]} e status ativo.`;
+}
+
+/**
+ * Valida e normaliza o corpo do POST /ocorrencias/{id}/encaminhamentos. Não
+ * acessa o banco. responsavelAcompanhamentoId ausente ou null -> null (a
+ * obrigatoriedade depende do status e é conferida na transação).
+ * @param {unknown} corpo
+ * @throws {ErroHttp} 400
+ */
+export function validarEncaminhamento(corpo) {
+  if (!corpo || typeof corpo !== 'object' || Array.isArray(corpo)) {
+    throw new ErroHttp(400, MENSAGEM_CORPO_ENCAMINHAMENTO_INVALIDO);
+  }
+  const destinatario = normalizarDestinatario(corpo, {
+    perfilInvalido: MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_PERFIL_INVALIDO,
+    usuarioIdInvalido: MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_USUARIO_ID_INVALIDO,
+    tutorObrigatorio: MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO,
+    campoObservacao: 'observacao',
+  });
+  let responsavelAcompanhamentoId = null;
+  const { responsavelAcompanhamentoId: responsavel } = corpo;
+  if (responsavel !== undefined && responsavel !== null) {
+    if (!ehIdNumerico(responsavel)) throw new ErroHttp(400, MENSAGEM_RESPONSAVEL_ID_INVALIDO);
+    responsavelAcompanhamentoId = responsavel;
+  }
+  return { ...destinatario, responsavelAcompanhamentoId };
+}
+
+/** RN15: o responsável existe, está ATIVO e tem perfil TUTOR, PEDAGOGICO ou GESTAO (400). */
+async function garantirResponsavelValido(tx, usuarioId) {
+  const usuario = await tx.usuario.findUnique({
+    where: { id: usuarioId },
+    select: { id: true, perfil: true, status: true },
+  });
+  if (
+    !usuario ||
+    usuario.status !== 'ATIVO' ||
+    !PERFIS_RESPONSAVEL_ACOMPANHAMENTO.includes(usuario.perfil)
+  ) {
+    throw new ErroHttp(400, MENSAGEM_RESPONSAVEL_INVALIDO);
+  }
+}
+
+/** Grava o encaminhamento (com status, responsável, histórico e auditoria) e lê o detalhe. */
+async function gravarEncaminhamento(tx, id, dados, solicitante, filtro) {
+  const usuarioId = solicitante.id;
+
+  // Releitura do estado atual DENTRO da transação, já limitada pela
+  // visibilidade (RN19): inexistente e fora da visibilidade dão 404.
+  const atual = await tx.ocorrencia.findFirst({
+    where: { AND: [{ id }, filtro] },
+    select: { id: true, status: true, responsavel_acompanhamento_id: true },
+  });
+  if (!atual) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
+  if (atual.status === 'ENCERRADO') {
+    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ENCERRADA_ENCAMINHAMENTO);
+  }
+
+  const estavaAberta = atual.status === 'ABERTO';
+  if (estavaAberta && dados.responsavelAcompanhamentoId === null) {
+    throw new ErroHttp(400, MENSAGEM_RESPONSAVEL_OBRIGATORIO);
+  }
+
+  await garantirDestinatariosValidos(tx, [dados], (_posicao, destinatarioPerfil) =>
+    mensagemDestinatarioEncaminhamentoInvalido(destinatarioPerfil),
+  );
+
+  // Responsável informado e diferente do atual -> definição ou troca. Igual
+  // ao atual não é troca (não gera histórico). Em ocorrência ABERTO o
+  // responsável é sempre revalidado, mesmo igual ao gravado (RN15: ativo).
+  const responsavelAnterior = atual.responsavel_acompanhamento_id;
+  const mudaResponsavel =
+    dados.responsavelAcompanhamentoId !== null && dados.responsavelAcompanhamentoId !== responsavelAnterior;
+  if (estavaAberta || mudaResponsavel) {
+    await garantirResponsavelValido(tx, dados.responsavelAcompanhamentoId);
+  }
+
+  // data_hora vem do banco (@default(now()) — RN17).
+  await tx.encaminhamento.create({
+    data: {
+      ocorrencia_id: id,
+      destinatario_perfil: dados.destinatarioPerfil,
+      destinatario_usuario_id: dados.destinatarioUsuarioId,
+      registrado_por_id: usuarioId, // sempre o usuário logado
+      observacao: dados.observacao,
+    },
+    select: { id: true },
+  });
+
+  // Atualização SEMPRE feita (ver comentário da seção): trava a linha da
+  // ocorrência contra encaminhamento/encerramento concorrente.
+  await tx.ocorrencia.update({
+    where: { id },
+    data: {
+      status: estavaAberta ? 'EM_ACOMPANHAMENTO' : atual.status,
+      responsavel_acompanhamento_id: mudaResponsavel ? dados.responsavelAcompanhamentoId : responsavelAnterior,
+    },
+    select: { id: true },
+  });
+
+  // RN08: textos fixos, sem dados pessoais nem conteúdo da observação.
+  const historico = [
+    {
+      acao: ACOES_HISTORICO.ENCAMINHAMENTO_REGISTRADO,
+      descricao: DESCRICAO_HISTORICO_DESTINATARIO[dados.destinatarioPerfil],
+    },
+  ];
+  if (estavaAberta) {
+    historico.push({
+      acao: ACOES_HISTORICO.STATUS_ALTERADO,
+      descricao: DESCRICAO_HISTORICO_ABERTO_PARA_ACOMPANHAMENTO,
+    });
+  }
+  if (mudaResponsavel) {
+    historico.push({
+      acao:
+        responsavelAnterior === null
+          ? ACOES_HISTORICO.RESPONSAVEL_DEFINIDO
+          : ACOES_HISTORICO.RESPONSAVEL_ALTERADO,
+    });
+  }
+  await tx.historicoOcorrencia.createMany({
+    data: historico.map((h) => ({ ocorrencia_id: id, usuario_id: usuarioId, ...h })),
+  });
+
+  await registrarAuditoria(
+    {
+      usuarioId,
+      acao: ACOES_AUDITORIA.ENCAMINHAMENTO_REGISTRADO,
+      recurso: recursoAuditoria(RECURSO_OCORRENCIAS, id),
+    },
+    tx,
+  );
+
+  return lerDetalheOcorrencia(tx, id, {
+    codigoEscolar: solicitante.perfil === PERFIL_DADOS_COMPLETOS,
+  });
+}
+
+/**
+ * Registra um encaminhamento numa ocorrência já registrada (UC02, RF08, RN03,
+ * RN04, RN08, RN15, RN17, RNF04).
+ * @param {unknown} idUrl id recebido na URL (texto)
+ * @param {unknown} corpo corpo da requisição
+ * @param {{ id: number, perfil: string }} solicitante req.usuario
+ * @param {object} [deps]
+ * @param {object} [deps.db] client Prisma (injetável em testes)
+ * @returns {Promise<object>} detalhe completo da ocorrência (formato do GET /ocorrencias/{id})
+ * @throws {ErroHttp} 400 (id/corpo/destinatário/responsável inválidos),
+ *   404 (inexistente ou fora da visibilidade) ou 409 (encerrada ou conflito concorrente)
+ */
+export async function registrarEncaminhamento(idUrl, corpo, solicitante, { db = prisma } = {}) {
+  const id = validarIdOcorrencia(idUrl);
+  const dados = validarEncaminhamento(corpo);
+  const filtro = filtroVisibilidadeOcorrencias(solicitante);
+
+  for (let tentativa = 1; ; tentativa += 1) {
+    try {
+      return await db.$transaction((tx) => gravarEncaminhamento(tx, id, dados, solicitante, filtro), {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (erro) {
+      if (erro instanceof ErroHttp) throw erro;
+      if (erro?.code === 'P2034') {
+        if (tentativa < TENTATIVAS_TRANSACAO) continue;
+        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_ENCAMINHAMENTO);
+      }
+      throw erro;
+    }
+  }
 }
