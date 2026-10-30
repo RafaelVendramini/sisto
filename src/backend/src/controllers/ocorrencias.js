@@ -1,5 +1,17 @@
 // Controller de ocorrências — somente entrada/saída HTTP (regras em services/ocorrencias.js).
-import { registrarOcorrencia } from '../services/ocorrencias.js';
+import { listarOcorrencias, obterOcorrencia, registrarOcorrencia } from '../services/ocorrencias.js';
+
+/** GET /ocorrencias */
+export async function listar(req, res) {
+  const ocorrencias = await listarOcorrencias(req.usuario);
+  res.status(200).json(ocorrencias);
+}
+
+/** GET /ocorrencias/:id */
+export async function detalhar(req, res) {
+  const ocorrencia = await obterOcorrencia(req.params.id, req.usuario);
+  res.status(200).json(ocorrencia);
+}
 
 /** POST /ocorrencias */
 export async function registrar(req, res) {

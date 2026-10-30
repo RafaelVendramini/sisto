@@ -38,6 +38,14 @@
 // snapshot consistente, e um conflito com outra operação serializável
 // (ex.: PUT /usuarios bloqueando o destinatário ao mesmo tempo) aborta uma
 // delas (P2034), que é repetida; esgotadas as tentativas, responde 409.
+//
+// Consulta (Issue #47, UC02 passo 1): GET /ocorrencias (lista resumida, sem
+// filtros do RF11 nem paginação) e GET /ocorrencias/{id} (detalhe), ambos
+// limitados pela visibilidade da RN19 — ver filtroVisibilidadeOcorrencias,
+// a ÚNICA função que define o que cada usuário pode ver. Ocorrência fora da
+// visibilidade responde 404 igual à inexistente (não revela que existe).
+// RN20: no detalhe, o código escolar dos estudantes só vai para a Gestão.
+// Leitura não grava histórico nem auditoria (mesmo padrão dos outros GETs).
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
@@ -182,9 +190,17 @@ const SELECAO_RESPONSAVEIS_RESPOSTA = Object.freeze({
   responsavel_acompanhamento: { select: { id: true, nome: true } },
 });
 
-// Sem código escolar: a resposta é a mesma para todos os perfis (RN20).
+// Sem código escolar: é a seleção do 201 do POST (igual para todos os perfis)
+// e a do detalhe para quem não é Gestão (RN20 — o campo nem é lido do banco).
 const SELECAO_ESTUDANTES_RESPOSTA = Object.freeze({
   estudante: { select: { id: true, nome_completo: true, turma: { select: SELECAO_TURMA_RESUMO } } },
+});
+
+// Detalhe consultado pela Gestão (RN20): inclui o código escolar.
+const SELECAO_ESTUDANTES_RESPOSTA_GESTAO = Object.freeze({
+  estudante: {
+    select: { id: true, nome_completo: true, codigo_escolar: true, turma: { select: SELECAO_TURMA_RESUMO } },
+  },
 });
 
 const SELECAO_ENCAMINHAMENTO_RESPOSTA = Object.freeze({
@@ -196,8 +212,14 @@ const SELECAO_ENCAMINHAMENTO_RESPOSTA = Object.freeze({
   observacao: true,
 });
 
-/** Lê a ocorrência gravada, com estudantes e encaminhamentos, para a resposta. */
-async function lerOcorrenciaParaResposta(tx, id) {
+/**
+ * Lê a ocorrência, com estudantes e encaminhamentos, para a resposta.
+ * @param {object} tx client Prisma (transação)
+ * @param {number} id
+ * @param {{ codigoEscolar?: boolean }} [opcoes] codigoEscolar: lê o código
+ *   escolar dos estudantes (só no detalhe consultado pela Gestão — RN20)
+ */
+async function lerOcorrenciaParaResposta(tx, id, { codigoEscolar = false } = {}) {
   const ocorrencia = await tx.ocorrencia.findUnique({
     where: { id },
     select: SELECAO_OCORRENCIA_RESPOSTA,
@@ -208,7 +230,7 @@ async function lerOcorrenciaParaResposta(tx, id) {
   });
   const estudantes = await tx.ocorrenciaEstudante.findMany({
     where: { ocorrencia_id: id },
-    select: SELECAO_ESTUDANTES_RESPOSTA,
+    select: codigoEscolar ? SELECAO_ESTUDANTES_RESPOSTA_GESTAO : SELECAO_ESTUDANTES_RESPOSTA,
     orderBy: [{ estudante: { nome_completo: 'asc' } }, { estudante_id: 'asc' }],
   });
   const encaminhamentos = await tx.encaminhamento.findMany({
@@ -589,4 +611,260 @@ export async function registrarOcorrencia(
       throw erro;
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Consulta: GET /ocorrencias e GET /ocorrencias/{id} (Issue #47)
+// ---------------------------------------------------------------------------
+
+export const MENSAGEM_ID_OCORRENCIA_INVALIDO = 'Identificador de ocorrência inválido.';
+/** Mesma mensagem para inexistente e fora da visibilidade (RN19). */
+export const MENSAGEM_OCORRENCIA_NAO_ENCONTRADA = 'Ocorrência não encontrada.';
+
+/** Perfis que visualizam todas as ocorrências (RN19). */
+export const PERFIS_VISIBILIDADE_TOTAL = Object.freeze(['GESTAO', 'PEDAGOGICO']);
+
+/** Perfil que recebe o código escolar dos estudantes no detalhe (RN20). */
+const PERFIL_DADOS_COMPLETOS = 'GESTAO';
+
+/**
+ * Converte o id da URL (texto decimal simples, inteiro positivo até o maior
+ * Int do PostgreSQL), no mesmo padrão de /estudantes/{id}.
+ * @param {unknown} valor req.params.id
+ * @returns {number}
+ * @throws {ErroHttp} 400
+ */
+export function validarIdOcorrencia(valor) {
+  if (typeof valor !== 'string' || !/^[1-9][0-9]{0,9}$/.test(valor)) {
+    throw new ErroHttp(400, MENSAGEM_ID_OCORRENCIA_INVALIDO);
+  }
+  const id = Number(valor);
+  if (id > MAIOR_ID) throw new ErroHttp(400, MENSAGEM_ID_OCORRENCIA_INVALIDO);
+  return id;
+}
+
+/**
+ * RN19 — visibilidade das ocorrências por perfil. É a ÚNICA definição da
+ * regra no back-end: devolve o `where` do Prisma (modelo Ocorrencia) com as
+ * ocorrências que o usuário pode ver. Use-a em toda consulta ou operação sobre
+ * ocorrências de um usuário (lista, detalhe e, nas próximas Issues, filtros do
+ * RF11, histórico do RF12, RF13/RF14 e a #51), combinando com outras condições
+ * por `{ AND: [condicoes, filtroVisibilidadeOcorrencias(usuario)] }` — assim a
+ * restrição fica na própria consulta, e não numa checagem depois de ler.
+ *
+ * - GESTAO e PEDAGOGICO: todas (filtro vazio).
+ * - Demais perfis (mesma condição para todos, sem tratamento especial para
+ *   PROFESSOR e TECNICO_ADMINISTRATIVO): as que registrou
+ *   (profissional_responsavel_id) OU as encaminhadas a ele como usuário
+ *   destinatário (destinatario_usuario_id de algum encaminhamento).
+ * - TUTOR, além disso: as que acompanha como responsável
+ *   (responsavel_acompanhamento_id) OU as que envolvem algum estudante sob a
+ *   tutoria dele. Decisão do Rafael (Issue #47): vale o vínculo ATUAL do
+ *   estudante (estudantes.tutor_id no momento da consulta). Se o estudante
+ *   trocar de tutor, o novo tutor passa a ver as ocorrências dele (inclusive
+ *   as antigas) e o anterior deixa de vê-las, salvo se outra condição acima
+ *   ainda valer para ele (registrou, recebeu encaminhamento ou acompanha).
+ *
+ * O perfil e o id vêm de req.usuario, lidos do banco a cada requisição
+ * (services/sessao.js) — nunca do corpo nem do token.
+ * @param {{ id: number, perfil: string }} usuario usuário autenticado
+ * @returns {object} where do Prisma para o modelo Ocorrencia
+ * @throws {Error} sem usuário válido (erro de programação; falha fechada)
+ */
+export function filtroVisibilidadeOcorrencias(usuario) {
+  if (!usuario || !Number.isInteger(usuario.id) || usuario.id < 1) {
+    throw new Error('filtroVisibilidadeOcorrencias: usuário autenticado obrigatório.');
+  }
+  if (PERFIS_VISIBILIDADE_TOTAL.includes(usuario.perfil)) return {};
+
+  const condicoes = [
+    { profissional_responsavel_id: usuario.id },
+    { encaminhamentos: { some: { destinatario_usuario_id: usuario.id } } },
+  ];
+  if (usuario.perfil === 'TUTOR') {
+    condicoes.push(
+      { responsavel_acompanhamento_id: usuario.id },
+      { estudantes: { some: { estudante: { tutor_id: usuario.id } } } },
+    );
+  }
+  return { OR: condicoes };
+}
+
+/**
+ * Lê as ocorrências e as relações em consultas SEQUENCIAIS (no máximo duas
+ * relações por consulta, como em lerOcorrenciaParaResposta), sem N+1: uma
+ * consulta de ocorrências, uma dos profissionais e uma das associações com
+ * estudantes, independentemente do número de ocorrências.
+ */
+async function lerListaOcorrencias(tx, filtro) {
+  const ocorrencias = await tx.ocorrencia.findMany({
+    where: filtro,
+    select: {
+      id: true,
+      data_hora: true,
+      local: true,
+      status: true,
+      profissional_responsavel_id: true,
+      turma: { select: SELECAO_TURMA_RESUMO },
+      categoria: { select: { id: true, nome: true } },
+    },
+    // Mais recente primeiro; id desc desempata fatos com a mesma data/hora.
+    orderBy: [{ data_hora: 'desc' }, { id: 'desc' }],
+  });
+  if (ocorrencias.length === 0) return [];
+
+  const idsProfissionais = [...new Set(ocorrencias.map((o) => o.profissional_responsavel_id))];
+  const profissionais = await tx.usuario.findMany({
+    where: { id: { in: idsProfissionais } },
+    select: { id: true, nome: true },
+  });
+
+  // As associações vêm pelo MESMO filtro de visibilidade (e não por uma lista
+  // de ids, que cresceria com o número de ocorrências); a transação garante
+  // que as duas consultas enxergam o mesmo conjunto.
+  const associacoes = await tx.ocorrenciaEstudante.findMany({
+    where: Object.keys(filtro).length > 0 ? { ocorrencia: filtro } : {},
+    select: { ocorrencia_id: true, estudante: { select: { id: true, nome_completo: true } } },
+    orderBy: [{ estudante: { nome_completo: 'asc' } }, { estudante_id: 'asc' }],
+  });
+
+  const profissionalPorId = new Map(profissionais.map((u) => [u.id, u]));
+  const estudantesPorOcorrencia = new Map();
+  for (const { ocorrencia_id: ocorrenciaId, estudante } of associacoes) {
+    if (!estudantesPorOcorrencia.has(ocorrenciaId)) estudantesPorOcorrencia.set(ocorrenciaId, []);
+    estudantesPorOcorrencia.get(ocorrenciaId).push(estudante);
+  }
+  return ocorrencias.map((o) => ({
+    ...o,
+    profissional_responsavel: profissionalPorId.get(o.profissional_responsavel_id),
+    estudantes: estudantesPorOcorrencia.get(o.id) ?? [],
+  }));
+}
+
+/**
+ * Item RESUMIDO da lista (decisão do Rafael, Issue #47): sem descrição,
+ * demais textos, encaminhamentos nem comunicações — o detalhe traz o resto.
+ */
+export function paraRespostaItemListaOcorrencia(o) {
+  return {
+    id: o.id,
+    dataHora: o.data_hora,
+    local: o.local,
+    status: o.status,
+    turma: paraRespostaTurma(o.turma),
+    categoria: { id: o.categoria.id, nome: o.categoria.nome },
+    profissionalResponsavel: { id: o.profissional_responsavel.id, nome: o.profissional_responsavel.nome },
+    estudantes: o.estudantes.map((e) => ({ id: e.id, nomeCompleto: e.nome_completo })),
+  };
+}
+
+/**
+ * Detalhe: o mesmo formato do 201 do POST (paraRespostaOcorrencia) mais
+ * comunicações e providências. RN20: codigoEscolar nos estudantes SOMENTE
+ * para a Gestão; para os demais perfis a chave não aparece.
+ * @param {object} o ocorrência lida (com comunicacoes e providencias)
+ * @param {{ codigoEscolar?: boolean }} [opcoes]
+ */
+export function paraRespostaDetalheOcorrencia(o, { codigoEscolar = false } = {}) {
+  const base = paraRespostaOcorrencia(o);
+  const registradoPor = (r) => ({ id: r.registrado_por.id, nome: r.registrado_por.nome });
+  return {
+    ...base,
+    estudantes: codigoEscolar
+      ? base.estudantes.map((estudante, i) => ({
+          ...estudante,
+          codigoEscolar: o.estudantes[i].estudante.codigo_escolar,
+        }))
+      : base.estudantes,
+    comunicacoes: o.comunicacoes.map((c) => ({
+      id: c.id,
+      destinatario: c.destinatario,
+      meio: c.meio,
+      descricao: c.descricao,
+      dataHora: c.data_hora,
+      registradoPor: registradoPor(c),
+    })),
+    providencias: o.providencias.map((p) => ({
+      id: p.id,
+      descricao: p.descricao,
+      dataHora: p.data_hora,
+      registradoPor: registradoPor(p),
+    })),
+  };
+}
+
+// Leituras numa transação REPEATABLE READ: as consultas sequenciais enxergam
+// um único snapshot (a visibilidade conferida e os dados lidos são do mesmo
+// momento). Como só há leituras, não ocorre conflito de serialização.
+function emLeituraConsistente(db, operacao) {
+  return db.$transaction(operacao, {
+    isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+  });
+}
+
+/**
+ * Lista as ocorrências visíveis ao usuário (RN19), da mais recente para a mais
+ * antiga (data_hora desc, id desc), sem filtros (RF11 na Sprint 3) e sem
+ * paginação. Itens no formato resumido.
+ * @param {{ id: number, perfil: string }} solicitante req.usuario
+ * @param {object} [deps]
+ * @param {object} [deps.db] client Prisma (injetável em testes)
+ */
+export async function listarOcorrencias(solicitante, { db = prisma } = {}) {
+  const filtro = filtroVisibilidadeOcorrencias(solicitante);
+  const ocorrencias = await emLeituraConsistente(db, (tx) => lerListaOcorrencias(tx, filtro));
+  return ocorrencias.map(paraRespostaItemListaOcorrencia);
+}
+
+/**
+ * Detalhe de uma ocorrência visível ao usuário (RN19, RN20), com estudantes,
+ * categoria, turma, encaminhamentos, comunicações e providências.
+ * @param {unknown} idUrl id recebido na URL (texto)
+ * @param {{ id: number, perfil: string }} solicitante req.usuario
+ * @param {object} [deps]
+ * @param {object} [deps.db] client Prisma (injetável em testes)
+ * @throws {ErroHttp} 400 (id inválido) ou 404 (inexistente ou fora da visibilidade)
+ */
+export async function obterOcorrencia(idUrl, solicitante, { db = prisma } = {}) {
+  const id = validarIdOcorrencia(idUrl);
+  const filtro = filtroVisibilidadeOcorrencias(solicitante);
+  const codigoEscolar = solicitante.perfil === PERFIL_DADOS_COMPLETOS;
+
+  return emLeituraConsistente(db, async (tx) => {
+    // A visibilidade faz parte da consulta: inexistente e não permitida dão o
+    // mesmo resultado (null -> 404 com a mesma mensagem).
+    const visivel = await tx.ocorrencia.findFirst({
+      where: { AND: [{ id }, filtro] },
+      select: { id: true },
+    });
+    if (!visivel) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
+
+    const ocorrencia = await lerOcorrenciaParaResposta(tx, id, { codigoEscolar });
+    const comunicacoes = await tx.comunicacao.findMany({
+      where: { ocorrencia_id: id },
+      select: {
+        id: true,
+        destinatario: true,
+        meio: true,
+        descricao: true,
+        data_hora: true,
+        registrado_por: { select: { id: true, nome: true } },
+      },
+      orderBy: [{ data_hora: 'asc' }, { id: 'asc' }],
+    });
+    const providencias = await tx.providencia.findMany({
+      where: { ocorrencia_id: id },
+      select: {
+        id: true,
+        descricao: true,
+        data_hora: true,
+        registrado_por: { select: { id: true, nome: true } },
+      },
+      orderBy: [{ data_hora: 'asc' }, { id: 'asc' }],
+    });
+    return paraRespostaDetalheOcorrencia(
+      { ...ocorrencia, comunicacoes, providencias },
+      { codigoEscolar },
+    );
+  });
 }
