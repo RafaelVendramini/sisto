@@ -21,6 +21,7 @@ export const ACOES_AUDITORIA = Object.freeze({
   TURMA_EDITADA: 'turma editada',
   ESTUDANTE_CRIADO: 'estudante criado',
   ESTUDANTE_EDITADO: 'estudante editado',
+  OCORRENCIA_CRIADA: 'ocorrência criada',
 });
 
 /**

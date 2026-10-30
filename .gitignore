@@ -58,3 +58,6 @@ coverage/
 # Sistema Operacional
 .DS_Store
 Thumbs.db
+
+# Ferramentas locais (Playwright MCP)
+.playwright-mcp/
