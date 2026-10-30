@@ -363,8 +363,9 @@ describe('QA #45 — autenticação e usuário logado', () => {
     expect(banco.logs[0].usuario_id).toBe(ID_TECNICO);
   });
 
-  it('GET /ocorrencias ainda não existe nesta Issue (404, não 500)', async () => {
-    const res = await request(app).get('/ocorrencias').set('Authorization', `Bearer ${token(ID_GESTAO)}`);
+  // Issue #47 implementou GET /ocorrencias; PUT /ocorrencias/{id} segue fora do escopo.
+  it('PUT /ocorrencias/{id} ainda não existe (404, não 500)', async () => {
+    const res = await request(app).put('/ocorrencias/1').set('Authorization', `Bearer ${token(ID_GESTAO)}`).send({});
     expect(res.status).toBe(404);
   });
 });
