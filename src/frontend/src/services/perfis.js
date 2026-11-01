@@ -111,3 +111,15 @@ export const PERFIS_ENCAMINHAMENTO_OCORRENCIA = Object.freeze(['GESTAO', 'PEDAGO
 export function podeEncaminharOcorrencia(perfil) {
   return PERFIS_ENCAMINHAMENTO_OCORRENCIA.includes(perfil);
 }
+
+// Perfis que registram comunicações feitas fora do sistema (RF09, RN16,
+// matriz da Seção 4): Tutor, Gestão e Equipe Pedagógica. O Tutor só nas
+// ocorrências que pode ver (RN19), o que o back-end garante (404). Usado para
+// mostrar o botão "Registrar comunicação" no detalhe; a proteção real é do
+// back-end (403).
+export const PERFIS_COMUNICACAO_OCORRENCIA = Object.freeze(['TUTOR', 'GESTAO', 'PEDAGOGICO']);
+
+/** Indica se o perfil pode registrar comunicações numa ocorrência. */
+export function podeRegistrarComunicacao(perfil) {
+  return PERFIS_COMUNICACAO_OCORRENCIA.includes(perfil);
+}

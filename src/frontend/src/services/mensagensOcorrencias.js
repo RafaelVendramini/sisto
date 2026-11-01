@@ -483,3 +483,92 @@ export function mensagemErroEncaminhamento(falha) {
   if (status === 400 && falha?.doServidor && falha?.message) return falha.message;
   return MENSAGEM_GENERICA_ENCAMINHAR;
 }
+
+// ---------------------------------------------------------------------------
+// Registro de comunicação feita fora do sistema (RF09, RN16, RN17 — #52)
+// ---------------------------------------------------------------------------
+
+/** Limite de destinatário e meio (decisão do Rafael na Issue #51). */
+export const TAMANHO_MAXIMO_DESTINATARIO_MEIO = 150;
+
+export const MENSAGEM_COMUNICACAO_REGISTRADA = 'Comunicação registrada.';
+export const MENSAGEM_COMUNICACAO_DESTINATARIO_OBRIGATORIO = 'Informe com quem foi feito o contato.';
+export const MENSAGEM_COMUNICACAO_MEIO_OBRIGATORIO = 'Informe por qual meio o contato foi feito.';
+export const MENSAGEM_COMUNICACAO_DESCRICAO_OBRIGATORIA = 'Descreva o que foi tratado no contato.';
+export const MENSAGEM_COMUNICACAO_DATA_HORA_OBRIGATORIA = 'Informe a data e a hora do contato.';
+export const MENSAGEM_COMUNICACAO_DATA_HORA_FUTURA =
+  'A data e a hora não podem estar no futuro. Informe quando o contato foi feito.';
+export const MENSAGEM_COMUNICACAO_CONFLITO = MENSAGEM_ENCAMINHAMENTO_CONFLITO;
+
+// RN06/RN16: orientação exibida junto da descrição (o sistema não filtra o texto).
+export const ORIENTACAO_COMUNICACAO =
+  'Registre o que foi tratado no contato, de forma objetiva e sem opiniões. Não inclua ' +
+  'mais dados pessoais do que o necessário.';
+
+const MENSAGEM_GENERICA_COMUNICACAO =
+  'Não foi possível registrar a comunicação agora. Tente novamente em instantes.';
+
+/** Texto só com espaços (ou vazio) conta como não preenchido. */
+function textoVazio(valor) {
+  return limparTexto(valor) === '';
+}
+
+/**
+ * Valida o diálogo de comunicação antes do envio. É só usabilidade: a
+ * validação definitiva é a do back-end (400). Os tamanhos máximos já são
+ * limitados pelo maxLength dos campos.
+ * @param {{ destinatario: string, meio: string, descricao: string, dataHora: string }} dados
+ * @param {number} [agoraMs]
+ * @returns {Record<string, string>} erros por campo
+ */
+export function validarComunicacao(dados, agoraMs = Date.now()) {
+  const erros = {};
+  if (textoVazio(dados.destinatario)) erros.destinatario = MENSAGEM_COMUNICACAO_DESTINATARIO_OBRIGATORIO;
+  if (textoVazio(dados.meio)) erros.meio = MENSAGEM_COMUNICACAO_MEIO_OBRIGATORIO;
+  if (textoVazio(dados.descricao)) erros.descricao = MENSAGEM_COMUNICACAO_DESCRICAO_OBRIGATORIA;
+
+  // RN17: mesma regra do registro da ocorrência (tolerância de 5 minutos).
+  const dataHora = dataHoraParaEnvio(dados.dataHora);
+  if (!dataHora) erros.dataHora = MENSAGEM_COMUNICACAO_DATA_HORA_OBRIGATORIA;
+  else if (dataHora.instanteMs > agoraMs + TOLERANCIA_FUTURO_MS) {
+    erros.dataHora = MENSAGEM_COMUNICACAO_DATA_HORA_FUTURA;
+  }
+  return erros;
+}
+
+/**
+ * Monta os dados do POST /ocorrencias/{id}/comunicacoes a partir do diálogo já
+ * validado. Os textos vão como foram digitados: a normalização (trim) é da API.
+ */
+export function montarEnvioComunicacao(dados) {
+  return {
+    destinatario: dados.destinatario,
+    meio: dados.meio,
+    descricao: dados.descricao,
+    dataHora: dataHoraParaEnvio(dados.dataHora)?.iso ?? null,
+  };
+}
+
+/**
+ * A falha do registro indica que a ocorrência mudou ou sumiu (409: encerrada
+ * ou alterada ao mesmo tempo; 404: inexistente ou fora da visibilidade — RN19):
+ * vale atualizar o detalhe.
+ */
+export function comunicacaoPedeAtualizacao(falha) {
+  return [404, 409].includes(falha?.status);
+}
+
+/**
+ * Converte a falha do POST /ocorrencias/{id}/comunicacoes em mensagem para a
+ * tela. O 401 não chega aqui na prática: o tratamento central leva ao login.
+ * @param {{ status?: number, message?: string, doServidor?: boolean }} falha
+ */
+export function mensagemErroComunicacao(falha) {
+  const status = falha?.status;
+  if (status === 403) return MENSAGEM_SEM_PERMISSAO;
+  if (status === 0) return MENSAGEM_SEM_CONEXAO;
+  if (status === 409) return MENSAGEM_COMUNICACAO_CONFLITO;
+  if (status === 404) return MENSAGEM_OCORRENCIA_NAO_ENCONTRADA;
+  if (status === 400 && falha?.doServidor && falha?.message) return falha.message;
+  return MENSAGEM_GENERICA_COMUNICACAO;
+}

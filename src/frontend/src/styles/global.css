@@ -1129,6 +1129,20 @@ a.botao {
   max-width: 100%;
 }
 
+/* Diálogo de comunicação (#52): mesmos cuidados no celular; o campo de data
+   e hora também não pode estourar a largura (RNF01). */
+.comunicacao .campo input,
+.comunicacao .campo textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.comunicacao__orientacao {
+  margin: 0 0 0.25rem;
+  font-weight: 400;
+}
+
 @media (min-width: 600px) {
   .detalhe-ocorrencia__acoes {
     flex-direction: row;

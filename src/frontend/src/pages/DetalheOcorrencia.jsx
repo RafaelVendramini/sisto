@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import EncaminharOcorrencia from '../components/EncaminharOcorrencia.jsx';
+import RegistrarComunicacao from '../components/RegistrarComunicacao.jsx';
 import { SeloStatusOcorrencia } from '../components/ListaOcorrencias.jsx';
 import { useSessao } from '../components/Sessao.jsx';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import {
+  MENSAGEM_COMUNICACAO_REGISTRADA,
   MENSAGEM_ENCAMINHAMENTO_REGISTRADO,
   MENSAGEM_SEM_COMUNICACOES,
   MENSAGEM_SEM_ENCAMINHAMENTOS,
@@ -17,7 +19,7 @@ import {
   rotuloDestinatario,
 } from '../services/mensagensOcorrencias.js';
 import { obterOcorrencia } from '../services/ocorrencias.js';
-import { podeEncaminharOcorrencia } from '../services/perfis.js';
+import { podeEncaminharOcorrencia, podeRegistrarComunicacao } from '../services/perfis.js';
 
 const ID_SUCESSO = 'ocorrencia-registrada';
 
@@ -224,7 +226,11 @@ function ConteudoOcorrencia({ ocorrencia }) {
 // pelo botão "Encaminhar" (UC02, RF08, RN15); o detalhe é substituído pela
 // resposta da API, com o novo status, responsável e encaminhamento. Esconder
 // o botão é só usabilidade: a proteção real é do back-end (403/409).
-// A ação de encerrar (#52) entra na mesma área de ações.
+// Comunicação (#52): Tutor, Gestão e Pedagógico registram, em ocorrências não
+// encerradas, um contato feito fora do sistema pelo botão "Registrar
+// comunicação" (RF09, RN16, RN17); o detalhe também é substituído pela
+// resposta da API, já com a comunicação na lista. Para o Tutor, a API só
+// aceita ocorrências que ele pode ver (RN19): fora disso, 404.
 function Detalhe({ id }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -240,6 +246,7 @@ function Detalhe({ id }) {
   const [erro, setErro] = useState(null);
 
   const [encaminhando, setEncaminhando] = useState(false);
+  const [comunicando, setComunicando] = useState(false);
 
   const montado = useRef(true);
   const refSucesso = useRef(null);
@@ -299,22 +306,44 @@ function Detalhe({ id }) {
     setSucesso(MENSAGEM_ENCAMINHAMENTO_REGISTRADO);
   }
 
+  function abrirComunicacao() {
+    setSucesso('');
+    setComunicando(true);
+  }
+
+  // Sucesso: a resposta 201 já é o detalhe completo, com a nova comunicação.
+  function concluirComunicacao(detalhe) {
+    setComunicando(false);
+    if (detalhe) setOcorrencia(detalhe);
+    else carregar(); // resposta sem corpo (fora do contrato): busca de novo
+    setSucesso(MENSAGEM_COMUNICACAO_REGISTRADA);
+  }
+
   // 404/409 no envio: a ocorrência mudou (ex.: encerrada por outra pessoa).
   function atualizarAposConflito() {
     setEncaminhando(false);
+    setComunicando(false);
     carregar();
   }
 
-  const podeEncaminhar =
-    podeEncaminharOcorrencia(usuario?.perfil) && ocorrencia && ocorrencia.status !== 'ENCERRADO';
+  const naoEncerrada = Boolean(ocorrencia) && ocorrencia.status !== 'ENCERRADO';
+  const podeEncaminhar = naoEncerrada && podeEncaminharOcorrencia(usuario?.perfil);
+  const podeComunicar = naoEncerrada && podeRegistrarComunicacao(usuario?.perfil);
 
   function acoes() {
-    if (!podeEncaminhar) return null;
+    if (!podeEncaminhar && !podeComunicar) return null;
     return (
       <section className="detalhe-ocorrencia__acoes" aria-label="Ações sobre a ocorrência">
-        <button type="button" className="botao botao--primario" onClick={abrirEncaminhamento}>
-          Encaminhar
-        </button>
+        {podeEncaminhar && (
+          <button type="button" className="botao botao--primario" onClick={abrirEncaminhamento}>
+            Encaminhar
+          </button>
+        )}
+        {podeComunicar && (
+          <button type="button" className="botao botao--secundario" onClick={abrirComunicacao}>
+            Registrar comunicação
+          </button>
+        )}
       </section>
     );
   }
@@ -380,6 +409,16 @@ function Detalhe({ id }) {
           ocorrencia={ocorrencia}
           aoConcluir={concluirEncaminhamento}
           aoCancelar={() => setEncaminhando(false)}
+          aoAtualizarOcorrencia={atualizarAposConflito}
+          aoRestaurarFoco={() => refTitulo.current?.focus()}
+        />
+      )}
+
+      {comunicando && ocorrencia && (
+        <RegistrarComunicacao
+          ocorrencia={ocorrencia}
+          aoConcluir={concluirComunicacao}
+          aoCancelar={() => setComunicando(false)}
           aoAtualizarOcorrencia={atualizarAposConflito}
           aoRestaurarFoco={() => refTitulo.current?.focus()}
         />
