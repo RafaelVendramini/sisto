@@ -106,3 +106,21 @@ export function encaminharOcorrencia(
     corpo,
   });
 }
+
+/**
+ * Registra uma comunicação feita fora do sistema numa ocorrência
+ * (POST /ocorrencias/{id}/comunicacoes — RF09, RN16, RN17). Só Tutor, Gestão e
+ * Pedagógico (403 para os demais); ocorrência encerrada: 409. O sistema não
+ * envia notificações: só registra o contato. Envia só os campos do contrato;
+ * a normalização (trim) e a validação definitiva são do back-end (400).
+ * @param {number | string} id
+ * @param {{ destinatario: string, meio: string, descricao: string,
+ *   dataHora: string }} dados - dataHora em ISO 8601 com fuso
+ * @returns {Promise<object>} detalhe completo da ocorrência (201), no formato do GET /ocorrencias/{id}
+ */
+export function registrarComunicacao(id, { destinatario, meio, descricao, dataHora }) {
+  return requisicaoAutenticada(`/ocorrencias/${encodeURIComponent(String(id))}/comunicacoes`, {
+    metodo: 'POST',
+    corpo: { destinatario, meio, descricao, dataHora },
+  });
+}
