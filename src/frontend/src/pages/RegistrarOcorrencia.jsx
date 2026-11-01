@@ -9,7 +9,6 @@ import { listarCategorias } from '../services/categorias.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import {
-  DESTINATARIOS,
   MAXIMO_DESTINATARIOS,
   MENSAGEM_REVISAR_CAMPOS,
   ORIENTACAO_REDACAO,
@@ -19,7 +18,7 @@ import {
   mensagemErroRegistro,
   mensagemOcorrenciaRegistrada,
   montarEnvio,
-  usuariosAtivosDoPerfil,
+  separarUsuariosPorDestinatario,
   validarRegistro,
 } from '../services/mensagensOcorrencias.js';
 import { registrarOcorrencia } from '../services/ocorrencias.js';
@@ -78,15 +77,6 @@ function destinatarioVazio(chave) {
   return { chave, destinatarioPerfil: '', destinatarioUsuarioId: '', observacao: '' };
 }
 
-/** Usuários ativos de cada tipo de destinatário (RN03), só { id, nome }. */
-function separarDestinatarios(usuarios) {
-  const porTipo = {};
-  for (const { valor, perfilUsuario } of DESTINATARIOS) {
-    porTipo[valor] = usuariosAtivosDoPerfil(usuarios, perfilUsuario);
-  }
-  return porTipo;
-}
-
 function semErro(erros, campo) {
   if (!erros[campo]) return erros;
   const { [campo]: _removido, ...restantes } = erros;
@@ -104,7 +94,7 @@ export default function RegistrarOcorrencia() {
   const [turmas, setTurmas] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [usuariosPorDestinatario, setUsuariosPorDestinatario] = useState(() =>
-    separarDestinatarios([]),
+    separarUsuariosPorDestinatario([]),
   );
   const [opcoesCarregando, setOpcoesCarregando] = useState(true);
   const [opcoesErro, setOpcoesErro] = useState('');
@@ -148,7 +138,7 @@ export default function RegistrarOcorrencia() {
       if (!montado.current) return;
       setTurmas(listaTurmas);
       setCategorias(listaCategorias);
-      setUsuariosPorDestinatario(separarDestinatarios(usuarios));
+      setUsuariosPorDestinatario(separarUsuariosPorDestinatario(usuarios));
     } catch (falha) {
       // 401: o tratamento central já leva ao login com aviso.
       if (montado.current && falha?.status !== 401) setOpcoesErro(mensagemErroCarga(falha));

@@ -1102,3 +1102,36 @@ a.botao {
     grid-column: 1 / -1;
   }
 }
+
+/* Ações no detalhe da ocorrência (#50): no celular o botão ocupa a largura
+   toda (toque fácil); a partir do tablet fica do tamanho do texto (RNF01). */
+.detalhe-ocorrencia__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* O título recebe o foco quando o botão que abriu o diálogo deixa de existir. */
+.detalhe-ocorrencia h1:focus {
+  outline: none;
+}
+
+.detalhe-ocorrencia h1:focus-visible {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+/* Diálogo de encaminhamento: campos em coluna e texto longo sem estourar a
+   largura no celular; a rolagem interna vem de .dialogo (max-height). */
+.encaminhamento .campo textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 600px) {
+  .detalhe-ocorrencia__acoes {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

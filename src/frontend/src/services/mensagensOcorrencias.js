@@ -377,3 +377,109 @@ export function mensagemErroRegistro(falha) {
   if ([400, 409].includes(status) && falha?.doServidor && falha?.message) return falha.message;
   return MENSAGEM_GENERICA_REGISTRAR;
 }
+
+/** Usuários ativos de cada tipo de destinatário (RN03), só { id, nome }. */
+export function separarUsuariosPorDestinatario(usuarios) {
+  const porTipo = {};
+  for (const { valor, perfilUsuario } of DESTINATARIOS) {
+    porTipo[valor] = usuariosAtivosDoPerfil(usuarios, perfilUsuario);
+  }
+  return porTipo;
+}
+
+// ---------------------------------------------------------------------------
+// Encaminhamento de ocorrência já registrada (UC02, RF08, RN03, RN15 — #50)
+// ---------------------------------------------------------------------------
+
+export const MENSAGEM_ENCAMINHAMENTO_REGISTRADO = 'Encaminhamento registrado.';
+export const MENSAGEM_RESPONSAVEL_OBRIGATORIO =
+  'Escolha o responsável pelo acompanhamento. Ele é obrigatório quando a ocorrência está "Aberto".';
+export const MENSAGEM_ENCAMINHAMENTO_CONFLITO =
+  'A ocorrência foi encerrada ou alterada por outra pessoa. Atualize a ocorrência e tente novamente.';
+
+const MENSAGEM_GENERICA_ENCAMINHAR =
+  'Não foi possível registrar o encaminhamento agora. Tente novamente em instantes.';
+
+/**
+ * Pessoas que podem ser responsáveis pelo acompanhamento (RN15): ativas, com
+ * perfil Tutor, Pedagógico ou Gestão, agrupadas por perfil. Os tutores dos
+ * estudantes da ocorrência vêm primeiro (`tutoresSugeridos`).
+ * @param {Array<object>} usuarios - resposta do GET /usuarios
+ * @param {Array<object>} estudantesComTutor - estudantes da ocorrência com `tutor`
+ * @returns {{ tutoresSugeridos: Array, outrosTutores: Array, pedagogicos: Array, gestao: Array }}
+ */
+export function agruparResponsaveis(usuarios, estudantesComTutor) {
+  const { sugeridos, outros } = agruparTutores(
+    usuariosAtivosDoPerfil(usuarios, 'TUTOR'),
+    estudantesComTutor,
+  );
+  return {
+    tutoresSugeridos: sugeridos,
+    outrosTutores: outros,
+    pedagogicos: usuariosAtivosDoPerfil(usuarios, 'PEDAGOGICO'),
+    gestao: usuariosAtivosDoPerfil(usuarios, 'GESTAO'),
+  };
+}
+
+/**
+ * Valida o diálogo de encaminhamento antes do envio. É só usabilidade: a
+ * validação definitiva é a do back-end (400).
+ * @param {{ destinatarioPerfil: string, destinatarioUsuarioId: string,
+ *   responsavelAcompanhamentoId: string, observacao: string }} dados
+ * @param {string} statusOcorrencia - RN15: com "ABERTO" o responsável é obrigatório
+ * @returns {Record<string, string>} erros por campo
+ */
+export function validarEncaminhamento(dados, statusOcorrencia) {
+  const erros = {};
+  if (!perfilDoDestinatario(dados.destinatarioPerfil)) {
+    erros.destinatarioPerfil = MENSAGEM_TIPO_DESTINATARIO_OBRIGATORIO;
+  } else if (dados.destinatarioPerfil === 'TUTOR' && idParaEnvio(dados.destinatarioUsuarioId) === null) {
+    erros.destinatarioUsuarioId = MENSAGEM_TUTOR_OBRIGATORIO;
+  }
+  if (statusOcorrencia === 'ABERTO' && idParaEnvio(dados.responsavelAcompanhamentoId) === null) {
+    erros.responsavelAcompanhamentoId = MENSAGEM_RESPONSAVEL_OBRIGATORIO;
+  }
+  if (limparTexto(dados.observacao).length > TAMANHO_MAXIMO_TEXTO_LONGO) {
+    erros.observacao = `A observação deve ter no máximo ${TAMANHO_MAXIMO_TEXTO_LONGO} caracteres.`;
+  }
+  return erros;
+}
+
+/**
+ * Monta os dados do POST /ocorrencias/{id}/encaminhamentos a partir do diálogo
+ * já validado. Responsável vazio ("Manter o atual") não entra no corpo.
+ */
+export function montarEnvioEncaminhamento(dados) {
+  const envio = {
+    destinatarioPerfil: dados.destinatarioPerfil,
+    destinatarioUsuarioId: idParaEnvio(dados.destinatarioUsuarioId),
+    observacao: textoOpcionalParaEnvio(dados.observacao),
+  };
+  const responsavel = idParaEnvio(dados.responsavelAcompanhamentoId);
+  if (responsavel !== null) envio.responsavelAcompanhamentoId = responsavel;
+  return envio;
+}
+
+/**
+ * A falha do encaminhamento indica que a ocorrência mudou ou sumiu (409:
+ * encerrada ou alterada ao mesmo tempo; 404: inexistente ou fora da
+ * visibilidade): vale atualizar o detalhe.
+ */
+export function encaminhamentoPedeAtualizacao(falha) {
+  return [404, 409].includes(falha?.status);
+}
+
+/**
+ * Converte a falha do POST /ocorrencias/{id}/encaminhamentos em mensagem para
+ * a tela. O 401 não chega aqui na prática: o tratamento central leva ao login.
+ * @param {{ status?: number, message?: string, doServidor?: boolean }} falha
+ */
+export function mensagemErroEncaminhamento(falha) {
+  const status = falha?.status;
+  if (status === 403) return MENSAGEM_SEM_PERMISSAO;
+  if (status === 0) return MENSAGEM_SEM_CONEXAO;
+  if (status === 409) return MENSAGEM_ENCAMINHAMENTO_CONFLITO;
+  if (status === 404) return MENSAGEM_OCORRENCIA_NAO_ENCONTRADA;
+  if (status === 400 && falha?.doServidor && falha?.message) return falha.message;
+  return MENSAGEM_GENERICA_ENCAMINHAR;
+}
