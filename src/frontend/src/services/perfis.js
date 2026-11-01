@@ -101,3 +101,13 @@ export const PERFIS_CONSULTA_OCORRENCIAS = Object.freeze([
 export function podeConsultarOcorrencias(perfil) {
   return PERFIS_CONSULTA_OCORRENCIAS.includes(perfil);
 }
+
+// Perfis que encaminham uma ocorrência já registrada (UC02, RF08, RN15,
+// matriz da Seção 4): Gestão e Equipe Pedagógica. Usado para mostrar o botão
+// "Encaminhar" no detalhe; a proteção real é do back-end (403).
+export const PERFIS_ENCAMINHAMENTO_OCORRENCIA = Object.freeze(['GESTAO', 'PEDAGOGICO']);
+
+/** Indica se o perfil pode encaminhar ocorrências já registradas. */
+export function podeEncaminharOcorrencia(perfil) {
+  return PERFIS_ENCAMINHAMENTO_OCORRENCIA.includes(perfil);
+}

@@ -4,6 +4,7 @@ import {
   TAMANHO_MAXIMO_TEXTO_LONGO,
   agruparTutores,
 } from '../services/mensagensOcorrencias.js';
+import { OpcoesEquipe, OpcoesTutores } from './OpcoesUsuarios.jsx';
 
 /** Id de um campo da linha do destinatário (usado também para levar o foco ao erro). */
 export function idCampoDestinatario(chave, campo) {
@@ -81,45 +82,6 @@ export default function ListaDestinatarios({
     );
   }
 
-  function opcoesTutor() {
-    return (
-      <>
-        <option value="">Selecione o tutor</option>
-        {sugeridos.length > 0 && (
-          <optgroup label="Tutores dos estudantes selecionados">
-            {sugeridos.map((t) => (
-              <option key={t.id} value={String(t.id)}>
-                {t.nome}
-              </option>
-            ))}
-          </optgroup>
-        )}
-        {outros.length > 0 && (
-          <optgroup label={sugeridos.length > 0 ? 'Outros tutores' : 'Tutores'}>
-            {outros.map((t) => (
-              <option key={t.id} value={String(t.id)}>
-                {t.nome}
-              </option>
-            ))}
-          </optgroup>
-        )}
-      </>
-    );
-  }
-
-  function opcoesEquipe(lista) {
-    return (
-      <>
-        <option value="">Toda a equipe</option>
-        {lista.map((u) => (
-          <option key={u.id} value={String(u.id)}>
-            {u.nome}
-          </option>
-        ))}
-      </>
-    );
-  }
-
   function campoUsuario(destinatario) {
     const { chave, destinatarioPerfil, destinatarioUsuarioId } = destinatario;
     if (!destinatarioPerfil) return null;
@@ -146,7 +108,18 @@ export default function ListaDestinatarios({
           onChange={(evento) => aoAlterar(chave, 'destinatarioUsuarioId', evento.target.value)}
           {...propsAcessibilidade(chave, 'destinatarioUsuarioId', true)}
         >
-          {ehTutor ? opcoesTutor() : opcoesEquipe(lista)}
+          {ehTutor ? (
+            <>
+              <option value="">Selecione o tutor</option>
+              <OpcoesTutores
+                sugeridos={sugeridos}
+                outros={outros}
+                rotuloSugeridos="Tutores dos estudantes selecionados"
+              />
+            </>
+          ) : (
+            <OpcoesEquipe usuarios={lista} />
+          )}
         </select>
         <span
           id={idCampoDestinatario(chave, 'destinatarioUsuarioId-ajuda')}

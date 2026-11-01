@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import EncaminharOcorrencia from '../components/EncaminharOcorrencia.jsx';
 import { SeloStatusOcorrencia } from '../components/ListaOcorrencias.jsx';
+import { useSessao } from '../components/Sessao.jsx';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import {
+  MENSAGEM_ENCAMINHAMENTO_REGISTRADO,
   MENSAGEM_SEM_COMUNICACOES,
   MENSAGEM_SEM_ENCAMINHAMENTOS,
   MENSAGEM_SEM_PROVIDENCIAS,
@@ -14,6 +17,7 @@ import {
   rotuloDestinatario,
 } from '../services/mensagensOcorrencias.js';
 import { obterOcorrencia } from '../services/ocorrencias.js';
+import { podeEncaminharOcorrencia } from '../services/perfis.js';
 
 const ID_SUCESSO = 'ocorrencia-registrada';
 
@@ -216,11 +220,16 @@ function ConteudoOcorrencia({ ocorrencia }) {
 // registrada com sucesso.", recebida pelo state da navegação; o state é
 // apagado logo em seguida, para a faixa não reaparecer ao recarregar a
 // página nem ao voltar a ela pelo histórico.
-// As ações sobre a ocorrência (#50, #52) entram na área marcada abaixo.
+// Ações (#50): Gestão e Pedagógico encaminham ocorrências não encerradas
+// pelo botão "Encaminhar" (UC02, RF08, RN15); o detalhe é substituído pela
+// resposta da API, com o novo status, responsável e encaminhamento. Esconder
+// o botão é só usabilidade: a proteção real é do back-end (403/409).
+// A ação de encerrar (#52) entra na mesma área de ações.
 function Detalhe({ id }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [sucesso] = useState(() =>
+  const { usuario } = useSessao();
+  const [sucesso, setSucesso] = useState(() =>
     location.state?.ocorrenciaRegistrada !== undefined
       ? mensagemOcorrenciaRegistrada(location.state.ocorrenciaRegistrada)
       : '',
@@ -230,8 +239,11 @@ function Detalhe({ id }) {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
 
+  const [encaminhando, setEncaminhando] = useState(false);
+
   const montado = useRef(true);
   const refSucesso = useRef(null);
+  const refTitulo = useRef(null);
 
   useEffect(() => {
     montado.current = true;
@@ -273,6 +285,40 @@ function Detalhe({ id }) {
     carregar();
   }, [carregar]);
 
+  function abrirEncaminhamento() {
+    setSucesso('');
+    setEncaminhando(true);
+  }
+
+  // Sucesso: a resposta 201 já é o detalhe completo (status, responsável e o
+  // encaminhamento novo aparecem sem recarregar a página).
+  function concluirEncaminhamento(detalhe) {
+    setEncaminhando(false);
+    if (detalhe) setOcorrencia(detalhe);
+    else carregar(); // resposta sem corpo (fora do contrato): busca de novo
+    setSucesso(MENSAGEM_ENCAMINHAMENTO_REGISTRADO);
+  }
+
+  // 404/409 no envio: a ocorrência mudou (ex.: encerrada por outra pessoa).
+  function atualizarAposConflito() {
+    setEncaminhando(false);
+    carregar();
+  }
+
+  const podeEncaminhar =
+    podeEncaminharOcorrencia(usuario?.perfil) && ocorrencia && ocorrencia.status !== 'ENCERRADO';
+
+  function acoes() {
+    if (!podeEncaminhar) return null;
+    return (
+      <section className="detalhe-ocorrencia__acoes" aria-label="Ações sobre a ocorrência">
+        <button type="button" className="botao botao--primario" onClick={abrirEncaminhamento}>
+          Encaminhar
+        </button>
+      </section>
+    );
+  }
+
   function conteudo() {
     if (carregando) {
       return (
@@ -300,8 +346,9 @@ function Detalhe({ id }) {
     if (!ocorrencia) return null;
     return (
       <>
+        {/* Ações no topo do cartão: no celular ficam ao alcance sem rolar o detalhe todo. */}
+        {acoes()}
         <ConteudoOcorrencia ocorrencia={ocorrencia} />
-        {/* Ações sobre a ocorrência (#50, #52) entram aqui; nesta versão é somente leitura. */}
       </>
     );
   }
@@ -322,9 +369,21 @@ function Detalhe({ id }) {
         )}
       </div>
 
-      <h1>{titulo}</h1>
+      <h1 ref={refTitulo} tabIndex={-1}>
+        {titulo}
+      </h1>
 
       <div className="cartao detalhe-ocorrencia__cartao">{conteudo()}</div>
+
+      {encaminhando && ocorrencia && (
+        <EncaminharOcorrencia
+          ocorrencia={ocorrencia}
+          aoConcluir={concluirEncaminhamento}
+          aoCancelar={() => setEncaminhando(false)}
+          aoAtualizarOcorrencia={atualizarAposConflito}
+          aoRestaurarFoco={() => refTitulo.current?.focus()}
+        />
+      )}
     </div>
   );
 }

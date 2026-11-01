@@ -77,3 +77,32 @@ export async function listarOcorrencias() {
 export function obterOcorrencia(id) {
   return requisicaoAutenticada(`/ocorrencias/${encodeURIComponent(String(id))}`);
 }
+
+/**
+ * Registra um encaminhamento numa ocorrência já registrada
+ * (POST /ocorrencias/{id}/encaminhamentos — UC02, RF08, RN03, RN15). Só Gestão
+ * e Pedagógico (403 para os demais). Envia só os campos do contrato;
+ * `responsavelAcompanhamentoId` só vai no corpo quando informado (ausente =
+ * mantém o responsável atual numa ocorrência "Em acompanhamento").
+ * @param {number | string} id
+ * @param {{ destinatarioPerfil: string, destinatarioUsuarioId?: number | null,
+ *   observacao?: string | null, responsavelAcompanhamentoId?: number | null }} dados
+ * @returns {Promise<object>} detalhe completo da ocorrência (201), no formato do GET /ocorrencias/{id}
+ */
+export function encaminharOcorrencia(
+  id,
+  { destinatarioPerfil, destinatarioUsuarioId, observacao, responsavelAcompanhamentoId },
+) {
+  const corpo = {
+    destinatarioPerfil,
+    destinatarioUsuarioId: destinatarioUsuarioId ?? null,
+    observacao: observacao ?? null,
+  };
+  if (responsavelAcompanhamentoId !== undefined && responsavelAcompanhamentoId !== null) {
+    corpo.responsavelAcompanhamentoId = responsavelAcompanhamentoId;
+  }
+  return requisicaoAutenticada(`/ocorrencias/${encodeURIComponent(String(id))}/encaminhamentos`, {
+    metodo: 'POST',
+    corpo,
+  });
+}
