@@ -49,6 +49,9 @@
 //
 // Encaminhamento (Issue #49, UC02): POST /ocorrencias/{id}/encaminhamentos —
 // ver a seção "Encaminhamento" no fim do arquivo.
+//
+// Comunicação (Issue #51, UC02): POST /ocorrencias/{id}/comunicacoes — ver a
+// seção "Comunicação" no fim do arquivo.
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
@@ -105,6 +108,8 @@ export const ACOES_HISTORICO = Object.freeze({
   STATUS_ALTERADO: 'status alterado',
   RESPONSAVEL_DEFINIDO: 'responsável pelo acompanhamento definido',
   RESPONSAVEL_ALTERADO: 'responsável pelo acompanhamento alterado',
+  // Issue #51 (RN08/RN16): sem o conteúdo da comunicação.
+  COMUNICACAO_REGISTRADA: 'comunicação registrada',
 });
 
 /** Descrição fixa do histórico da mudança de status feita pelo encaminhamento (RN15). */
@@ -146,6 +151,10 @@ export const MENSAGEM_CATEGORIA_INEXISTENTE = 'A categoria informada não existe
 export const MENSAGEM_ESTUDANTE_INEXISTENTE = 'Um ou mais estudantes informados não existem.';
 export const MENSAGEM_CONFLITO_CONCORRENTE_OCORRENCIA =
   'Não foi possível registrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.';
+
+/** O PostgreSQL não grava U+0000 em colunas de texto (erro 22021 → 500). */
+export const MENSAGEM_TEXTO_CARACTERE_INVALIDO =
+  'O texto contém um caractere inválido. Remova-o e tente novamente.';
 
 /** Mensagem de texto longo opcional/obrigatório acima do limite. */
 export function mensagemTextoLongo(campo) {
@@ -307,11 +316,59 @@ export function converterDataHora(valor) {
   return data;
 }
 
+/**
+ * RN17: a data/hora informada pode estar no máximo TOLERANCIA_FUTURO_MS à
+ * frente do relógio do servidor; acima disso, 400 com a mensagem recebida.
+ * Compartilhada pelo POST /ocorrencias e pelo POST /ocorrencias/{id}/comunicacoes.
+ * @param {Date} dataHora
+ * @param {() => Date} agora relógio do servidor
+ * @param {string} mensagem
+ * @throws {ErroHttp} 400
+ */
+function garantirNaoFutura(dataHora, agora, mensagem) {
+  if (dataHora.getTime() > agora().getTime() + TOLERANCIA_FUTURO_MS) {
+    throw new ErroHttp(400, mensagem);
+  }
+}
+
+/**
+ * Executa `operacao` numa transação SERIALIZABLE, repetindo-a quando o banco
+ * aborta por conflito de serialização (P2034); esgotadas as tentativas,
+ * responde 409 com `mensagemConflito`. ErroHttp lançado dentro da operação
+ * sobe sem repetição. Compartilhada pelas gravações de ocorrências.
+ * @param {object} db client Prisma
+ * @param {(tx: object) => Promise<any>} operacao
+ * @param {string} mensagemConflito
+ * @throws {ErroHttp} 409 (conflito concorrente) ou o erro da operação
+ */
+async function executarSerializavel(db, operacao, mensagemConflito) {
+  for (let tentativa = 1; ; tentativa += 1) {
+    try {
+      return await db.$transaction(operacao, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    } catch (erro) {
+      if (erro instanceof ErroHttp) throw erro;
+      if (erro?.code === 'P2034') {
+        if (tentativa < TENTATIVAS_TRANSACAO) continue;
+        throw new ErroHttp(409, mensagemConflito);
+      }
+      throw erro;
+    }
+  }
+}
+
+/** Recusa o caractere nulo, que o PostgreSQL não aceita em texto (400, não 500). */
+function garantirSemCaractereNulo(texto) {
+  if (texto.includes('\u0000')) throw new ErroHttp(400, MENSAGEM_TEXTO_CARACTERE_INVALIDO);
+}
+
 /** Texto obrigatório: NFC, sem espaços nas pontas, não vazio, até `maximo`. */
 function textoObrigatorio(valor, maximo, mensagemObrigatorio, mensagemLongo) {
   if (typeof valor !== 'string' || valor.trim() === '') {
     throw new ErroHttp(400, mensagemObrigatorio);
   }
+  garantirSemCaractereNulo(valor);
   const limpo = valor.normalize('NFC').trim();
   if (limpo.length > maximo) throw new ErroHttp(400, mensagemLongo);
   return limpo;
@@ -324,6 +381,7 @@ function textoObrigatorio(valor, maximo, mensagemObrigatorio, mensagemLongo) {
 function textoOpcional(valor, campo) {
   if (valor === undefined || valor === null) return null;
   if (typeof valor !== 'string') throw new ErroHttp(400, mensagemTextoInvalido(campo));
+  garantirSemCaractereNulo(valor);
   const limpo = valor.normalize('NFC').trim();
   if (limpo.length > TAMANHO_MAXIMO_TEXTO_LONGO) throw new ErroHttp(400, mensagemTextoLongo(campo));
   return limpo === '' ? null : limpo;
@@ -423,9 +481,7 @@ export function validarOcorrencia(corpo, { agora = () => new Date() } = {}) {
 
   const dataHora = converterDataHora(corpo.dataHora);
   // RN17: até 5 minutos à frente do relógio do servidor; acima disso, recusa.
-  if (dataHora.getTime() > agora().getTime() + TOLERANCIA_FUTURO_MS) {
-    throw new ErroHttp(400, MENSAGEM_DATA_HORA_FUTURA);
-  }
+  garantirNaoFutura(dataHora, agora, MENSAGEM_DATA_HORA_FUTURA);
 
   const local = textoObrigatorio(
     corpo.local,
@@ -629,20 +685,11 @@ export async function registrarOcorrencia(
   const dados = validarOcorrencia(corpo, { agora });
   const usuarioId = solicitante.id;
 
-  for (let tentativa = 1; ; tentativa += 1) {
-    try {
-      return await db.$transaction((tx) => gravarOcorrencia(tx, dados, usuarioId), {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
-    } catch (erro) {
-      if (erro instanceof ErroHttp) throw erro;
-      if (erro?.code === 'P2034') {
-        if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_OCORRENCIA);
-      }
-      throw erro;
-    }
-  }
+  return executarSerializavel(
+    db,
+    (tx) => gravarOcorrencia(tx, dados, usuarioId),
+    MENSAGEM_CONFLITO_CONCORRENTE_OCORRENCIA,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -878,7 +925,8 @@ export async function obterOcorrencia(idUrl, solicitante, { db = prisma } = {}) 
 /**
  * Lê o detalhe completo (formato do GET /ocorrencias/{id}) de uma ocorrência
  * cuja visibilidade já foi conferida, na transação recebida. Usada pelo GET
- * do detalhe e pelo 201 do POST /ocorrencias/{id}/encaminhamentos.
+ * do detalhe e pelo 201 do POST /ocorrencias/{id}/encaminhamentos e do
+ * POST /ocorrencias/{id}/comunicacoes.
  * @param {object} tx client da transação
  * @param {number} id
  * @param {{ codigoEscolar?: boolean }} [opcoes] RN20: só para a Gestão
@@ -1128,18 +1176,182 @@ export async function registrarEncaminhamento(idUrl, corpo, solicitante, { db = 
   const dados = validarEncaminhamento(corpo);
   const filtro = filtroVisibilidadeOcorrencias(solicitante);
 
-  for (let tentativa = 1; ; tentativa += 1) {
-    try {
-      return await db.$transaction((tx) => gravarEncaminhamento(tx, id, dados, solicitante, filtro), {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
-    } catch (erro) {
-      if (erro instanceof ErroHttp) throw erro;
-      if (erro?.code === 'P2034') {
-        if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_ENCAMINHAMENTO);
-      }
-      throw erro;
-    }
+  return executarSerializavel(
+    db,
+    (tx) => gravarEncaminhamento(tx, id, dados, solicitante, filtro),
+    MENSAGEM_CONFLITO_CONCORRENTE_ENCAMINHAMENTO,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Comunicação: POST /ocorrencias/{id}/comunicacoes (Issue #51, UC02 passo 3)
+// ---------------------------------------------------------------------------
+//
+// - Contrato (Seção 12): { destinatario, meio, descricao, dataHora }, todos
+//   obrigatórios; responde 201 com o DETALHE COMPLETO da ocorrência (decisão
+//   do Rafael, mesmo padrão da #49), no formato do GET /ocorrencias/{id}, já
+//   com a nova comunicação (codigoEscolar só para a Gestão — RN20). Campos
+//   fora do contrato (ex.: registradoPorId, status) são ignorados.
+// - Permissão (Seção 4, RN16): TUTOR, GESTAO e PEDAGOGICO (na rota); o Tutor
+//   só nas ocorrências que pode visualizar (RN19 — filtroVisibilidadeOcorrencias
+//   na própria consulta; fora dela, 404 igual à inexistente).
+// - RN16: a comunicação é feita FORA do sistema e só registrada aqui; o
+//   sistema não envia notificações (Seção 5). destinatario e meio são texto
+//   livre (NFC + trim, até 150 caracteres — decisão do Rafael, como o local da
+//   #45); descricao até 5000. Ocorrência ENCERRADO responde 409; ABERTO e
+//   EM_ACOMPANHAMENTO aceitam e o status NÃO muda.
+// - RN17: dataHora (momento do contato) informada pelo usuário, ISO 8601 com
+//   fuso obrigatório, até 5 minutos à frente do relógio do servidor.
+// - registrado_por_id é sempre o usuário logado.
+// - RN08: histórico "comunicação registrada", sem descrição e SEM o conteúdo
+//   da comunicação (destinatário, meio, descrição). RNF04: LogAuditoria
+//   "comunicação registrada", recurso "ocorrencias/<id>".
+//
+// Ordem das respostas de erro: 400 do id da URL -> 400 do corpo (sem banco;
+// na ordem destinatario, meio, descricao, dataHora — formato e depois data
+// futura) -> 404 (inexistente/fora da visibilidade) -> 409 (ENCERRADO) ->
+// 409 (conflito concorrente esgotado).
+//
+// Transação: ÚNICA e SERIALIZABLE (executarSerializavel). O status é relido
+// DENTRO dela e a linha da ocorrência é SEMPRE atualizada (com o mesmo
+// status), como no encaminhamento: a escrita trava a linha, e um
+// encerramento concorrente aborta uma das transações (P2034), que é repetida
+// e relê o status.
+
+/** Perfis que podem registrar comunicação (Seção 4, RN16). */
+export const PERFIS_COMUNICACAO = Object.freeze(['TUTOR', 'GESTAO', 'PEDAGOGICO']);
+
+/** Limite de destinatario e meio da comunicação (decisão do Rafael, Issue #51). */
+export const TAMANHO_MAXIMO_DESTINATARIO_MEIO = 150;
+
+export const MENSAGEM_CORPO_COMUNICACAO_INVALIDO =
+  'Envie um objeto JSON com destinatario, meio, descricao e dataHora.';
+export const MENSAGEM_COMUNICACAO_DESTINATARIO_OBRIGATORIO = 'Informe destinatario (texto não vazio).';
+export const MENSAGEM_COMUNICACAO_DESTINATARIO_LONGO = `O destinatario deve ter no máximo ${TAMANHO_MAXIMO_DESTINATARIO_MEIO} caracteres.`;
+export const MENSAGEM_COMUNICACAO_MEIO_OBRIGATORIO = 'Informe meio (texto não vazio).';
+export const MENSAGEM_COMUNICACAO_MEIO_LONGO = `O meio deve ter no máximo ${TAMANHO_MAXIMO_DESTINATARIO_MEIO} caracteres.`;
+export const MENSAGEM_DATA_HORA_COMUNICACAO_FUTURA = 'A data e hora da comunicação não pode estar no futuro.';
+export const MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO = 'Ocorrência encerrada não recebe comunicações.';
+export const MENSAGEM_CONFLITO_CONCORRENTE_COMUNICACAO =
+  'Não foi possível registrar a comunicação por causa de outra operação ao mesmo tempo. Tente novamente.';
+
+/**
+ * Valida e normaliza o corpo do POST /ocorrencias/{id}/comunicacoes. Não
+ * acessa o banco.
+ * @param {unknown} corpo
+ * @param {object} [opcoes]
+ * @param {() => Date} [opcoes.agora] relógio do servidor (injetável em testes)
+ * @returns {{ destinatario: string, meio: string, descricao: string, dataHora: Date }}
+ * @throws {ErroHttp} 400
+ */
+export function validarComunicacao(corpo, { agora = () => new Date() } = {}) {
+  if (!corpo || typeof corpo !== 'object' || Array.isArray(corpo)) {
+    throw new ErroHttp(400, MENSAGEM_CORPO_COMUNICACAO_INVALIDO);
   }
+  const destinatario = textoObrigatorio(
+    corpo.destinatario,
+    TAMANHO_MAXIMO_DESTINATARIO_MEIO,
+    MENSAGEM_COMUNICACAO_DESTINATARIO_OBRIGATORIO,
+    MENSAGEM_COMUNICACAO_DESTINATARIO_LONGO,
+  );
+  const meio = textoObrigatorio(
+    corpo.meio,
+    TAMANHO_MAXIMO_DESTINATARIO_MEIO,
+    MENSAGEM_COMUNICACAO_MEIO_OBRIGATORIO,
+    MENSAGEM_COMUNICACAO_MEIO_LONGO,
+  );
+  const descricao = textoObrigatorio(
+    corpo.descricao,
+    TAMANHO_MAXIMO_TEXTO_LONGO,
+    MENSAGEM_DESCRICAO_OBRIGATORIA,
+    mensagemTextoLongo('descricao'),
+  );
+  const dataHora = converterDataHora(corpo.dataHora);
+  garantirNaoFutura(dataHora, agora, MENSAGEM_DATA_HORA_COMUNICACAO_FUTURA);
+  return { destinatario, meio, descricao, dataHora };
+}
+
+/** Grava a comunicação (com histórico e auditoria) e lê o detalhe. */
+async function gravarComunicacao(tx, id, dados, solicitante, filtro) {
+  const usuarioId = solicitante.id;
+
+  // Releitura do status DENTRO da transação, já limitada pela visibilidade
+  // (RN19): inexistente e fora da visibilidade dão 404.
+  const atual = await tx.ocorrencia.findFirst({
+    where: { AND: [{ id }, filtro] },
+    select: { id: true, status: true },
+  });
+  if (!atual) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
+  if (atual.status === 'ENCERRADO') {
+    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO);
+  }
+
+  await tx.comunicacao.create({
+    data: {
+      ocorrencia_id: id,
+      destinatario: dados.destinatario,
+      meio: dados.meio,
+      descricao: dados.descricao,
+      registrado_por_id: usuarioId, // sempre o usuário logado
+      data_hora: dados.dataHora, // momento do contato, informado (RN17)
+    },
+    select: { id: true },
+  });
+
+  // Atualização SEMPRE feita, com o MESMO status (a comunicação não muda o
+  // status): trava a linha contra encaminhamento/encerramento concorrente.
+  await tx.ocorrencia.update({
+    where: { id },
+    data: { status: atual.status },
+    select: { id: true },
+  });
+
+  // RN08: texto fixo, sem o conteúdo da comunicação nem dados pessoais.
+  await tx.historicoOcorrencia.create({
+    data: { ocorrencia_id: id, usuario_id: usuarioId, acao: ACOES_HISTORICO.COMUNICACAO_REGISTRADA },
+    select: { id: true },
+  });
+
+  await registrarAuditoria(
+    {
+      usuarioId,
+      acao: ACOES_AUDITORIA.COMUNICACAO_REGISTRADA,
+      recurso: recursoAuditoria(RECURSO_OCORRENCIAS, id),
+    },
+    tx,
+  );
+
+  return lerDetalheOcorrencia(tx, id, {
+    codigoEscolar: solicitante.perfil === PERFIL_DADOS_COMPLETOS,
+  });
+}
+
+/**
+ * Registra uma comunicação feita fora do sistema numa ocorrência (UC02, RF09,
+ * RN08, RN16, RN17, RN19, RNF04).
+ * @param {unknown} idUrl id recebido na URL (texto)
+ * @param {unknown} corpo corpo da requisição
+ * @param {{ id: number, perfil: string }} solicitante req.usuario
+ * @param {object} [deps]
+ * @param {object} [deps.db] client Prisma (injetável em testes)
+ * @param {() => Date} [deps.agora] relógio do servidor (injetável em testes)
+ * @returns {Promise<object>} detalhe completo da ocorrência (formato do GET /ocorrencias/{id})
+ * @throws {ErroHttp} 400 (id/corpo/data inválidos), 404 (inexistente ou fora
+ *   da visibilidade) ou 409 (encerrada ou conflito concorrente)
+ */
+export async function registrarComunicacao(
+  idUrl,
+  corpo,
+  solicitante,
+  { db = prisma, agora = () => new Date() } = {},
+) {
+  const id = validarIdOcorrencia(idUrl);
+  const dados = validarComunicacao(corpo, { agora });
+  const filtro = filtroVisibilidadeOcorrencias(solicitante);
+
+  return executarSerializavel(
+    db,
+    (tx) => gravarComunicacao(tx, id, dados, solicitante, filtro),
+    MENSAGEM_CONFLITO_CONCORRENTE_COMUNICACAO,
+  );
 }

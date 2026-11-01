@@ -248,6 +248,7 @@ const {
   PERFIS_RESPONSAVEL_ACOMPANHAMENTO,
   mensagemDestinatarioEncaminhamentoInvalido,
   mensagemTextoLongo,
+  MENSAGEM_TEXTO_CARACTERE_INVALIDO,
   registrarEncaminhamento,
   validarEncaminhamento,
 } = await import('../src/services/ocorrencias.js');
@@ -495,6 +496,7 @@ describe('validação do corpo (400 antes de qualquer consulta)', () => {
     ['tutor com usuário null', { destinatarioPerfil: 'TUTOR', destinatarioUsuarioId: null }, MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO],
     ['observacao número', { destinatarioPerfil: 'GESTAO', observacao: 5 }, 'Informe observacao como texto (ou null).'],
     ['observacao longa', { destinatarioPerfil: 'GESTAO', observacao: 'x'.repeat(5001) }, mensagemTextoLongo('observacao')],
+    ['observacao com caractere nulo', { destinatarioPerfil: 'GESTAO', observacao: 'Texto\u0000fictício' }, MENSAGEM_TEXTO_CARACTERE_INVALIDO],
     ['responsavel texto', { destinatarioPerfil: 'GESTAO', responsavelAcompanhamentoId: '2' }, MENSAGEM_RESPONSAVEL_ID_INVALIDO],
     ['responsavel zero', { destinatarioPerfil: 'GESTAO', responsavelAcompanhamentoId: 0 }, MENSAGEM_RESPONSAVEL_ID_INVALIDO],
     ['responsavel acima do Int', { destinatarioPerfil: 'GESTAO', responsavelAcompanhamentoId: 2147483648 }, MENSAGEM_RESPONSAVEL_ID_INVALIDO],

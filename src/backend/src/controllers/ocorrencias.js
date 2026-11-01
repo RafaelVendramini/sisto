@@ -2,6 +2,7 @@
 import {
   listarOcorrencias,
   obterOcorrencia,
+  registrarComunicacao,
   registrarEncaminhamento,
   registrarOcorrencia,
 } from '../services/ocorrencias.js';
@@ -27,5 +28,11 @@ export async function registrar(req, res) {
 /** POST /ocorrencias/:id/encaminhamentos — 201 com o detalhe completo da ocorrência. */
 export async function encaminhar(req, res) {
   const ocorrencia = await registrarEncaminhamento(req.params.id, req.body, req.usuario);
+  res.status(201).json(ocorrencia);
+}
+
+/** POST /ocorrencias/:id/comunicacoes — 201 com o detalhe completo da ocorrência. */
+export async function comunicar(req, res) {
+  const ocorrencia = await registrarComunicacao(req.params.id, req.body, req.usuario);
   res.status(201).json(ocorrencia);
 }

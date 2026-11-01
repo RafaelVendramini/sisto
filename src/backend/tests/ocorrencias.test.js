@@ -188,6 +188,7 @@ const {
   MENSAGEM_DATA_HORA_FUTURA,
   MENSAGEM_LOCAL_OBRIGATORIO,
   MENSAGEM_LOCAL_LONGO,
+  MENSAGEM_TEXTO_CARACTERE_INVALIDO,
   MENSAGEM_TURMA_ID_INVALIDO,
   MENSAGEM_CATEGORIA_ID_INVALIDO,
   MENSAGEM_DESCRICAO_OBRIGATORIA,
@@ -572,12 +573,14 @@ describe('POST /ocorrencias — autenticação', () => {
     const { default: rotas } = await import('../src/routes/ocorrencias.js');
     const { Perfil } = await import('@prisma/client');
     // Issue #47 acrescentou GET / e GET /:id (testados em ocorrencias-consulta.test.js);
-    // a #49, POST /:id/encaminhamentos (testado em ocorrencias-encaminhamento.test.js).
+    // a #49, POST /:id/encaminhamentos (testado em ocorrencias-encaminhamento.test.js);
+    // a #51, POST /:id/comunicacoes (testado em ocorrencias-comunicacao.test.js).
     expect(rotas.stack.map((c) => [c.route.path, Object.keys(c.route.methods)])).toEqual([
       ['/', ['post']],
       ['/', ['get']],
       ['/:id', ['get']],
       ['/:id/encaminhamentos', ['post']],
+      ['/:id/comunicacoes', ['post']],
     ]);
 
     // Os 5 perfis da matriz (Seção 4) são todos os valores do enum Perfil.
@@ -709,6 +712,17 @@ describe('POST /ocorrencias — validação do corpo (400)', () => {
       const res = await postOcorrencia(corpoValido({ [campo]: 123 }));
       expect(res.status).toBe(400);
       expect(res.body).toEqual({ erro: mensagemTextoInvalido(campo) });
+    },
+  );
+
+  // O PostgreSQL não grava U+0000 em texto (erro 22021 → 500): recusa com 400 (#51).
+  it.each(['local', 'descricao', 'demaisEnvolvidos', 'observacoes'])(
+    '%s com caractere nulo (U+0000) responde 400 antes do banco',
+    async (campo) => {
+      const res = await postOcorrencia(corpoValido({ [campo]: 'Texto fictício\u0000com nulo' }));
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ erro: MENSAGEM_TEXTO_CARACTERE_INVALIDO });
+      expect(mocks.$transaction).not.toHaveBeenCalled();
     },
   );
 
