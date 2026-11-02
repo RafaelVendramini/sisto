@@ -86,11 +86,11 @@ Arquivos complementares da equipe:
 
 ## Status do Projeto
 
-| Item             | Valor              |
-| ---------------- | ------------------ |
-| **Sprint Atual** | Sprint 1           |
-| **Versão**       | MVP 1.0            |
-| **Situação**     | Em desenvolvimento |
+| Item             | Valor                               |
+| ---------------- | ----------------------------------- |
+| **Sprint Atual** | Sprint 2 (concluída em 01/11/2026)  |
+| **Versão**       | MVP 1.0                             |
+| **Situação**     | Em desenvolvimento                  |
 
 ---
 
