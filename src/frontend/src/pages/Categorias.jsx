@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import FormularioCategoria from '../components/FormularioCategoria.jsx';
 import FormularioEdicaoCategoria from '../components/FormularioEdicaoCategoria.jsx';
 import ListaCategorias, { idBotaoEditarCategoria } from '../components/ListaCategorias.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarCategorias } from '../services/categorias.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
 
@@ -26,6 +27,7 @@ function camposExibidos({ id, nome, descricao }) {
 // Só para Gestão e Pedagógico (a rota é filtrada em App.jsx; a proteção real
 // é do back-end — 403). Não existe exclusão de categoria (RN21).
 export default function Categorias() {
+  useTituloPagina('Categorias');
   const [categorias, setCategorias] = useState([]);
   const [emEdicao, setEmEdicao] = useState(null);
   const [confirmacao, setConfirmacao] = useState('');

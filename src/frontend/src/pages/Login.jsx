@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import CampoSenha from '../components/CampoSenha.jsx';
 import { useSessao } from '../components/Sessao.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import { estaAutenticado } from '../services/auth.js';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
 
@@ -25,6 +26,7 @@ function mensagemDeErro(erro) {
 
 // Tela de login (RF02): e-mail e senha, validação antes do envio e mensagens claras.
 export default function Login() {
+  useTituloPagina('Entrar');
   const { entrar, aviso, sucesso } = useSessao();
   // O texto do aviso entra na região viva só depois da montagem, para que
   // leitores de tela o anunciem (a região já existe antes do texto).

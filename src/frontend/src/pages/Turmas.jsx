@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import FormularioEdicaoTurma from '../components/FormularioEdicaoTurma.jsx';
 import FormularioTurma from '../components/FormularioTurma.jsx';
 import ListaTurmas, { idBotaoEditarTurma } from '../components/ListaTurmas.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
 import { descreverTurma } from '../services/mensagensTurmas.js';
 import { listarTurmas } from '../services/turmas.js';
@@ -38,6 +39,7 @@ function camposExibidos({ id, nome, etapa, anoLetivo }) {
 // Só para a Gestão (a rota é filtrada em App.jsx; a proteção real é do
 // back-end — 403). Não existe exclusão de turma (RN21).
 export default function Turmas() {
+  useTituloPagina('Turmas');
   const [turmas, setTurmas] = useState([]);
   const [emEdicao, setEmEdicao] = useState(null);
   const [confirmacao, setConfirmacao] = useState('');

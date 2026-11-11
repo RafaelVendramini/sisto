@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { Outlet, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import RotaPorPerfil from './components/RotaPorPerfil.jsx';
 import RotaProtegida from './components/RotaProtegida.jsx';
@@ -10,6 +10,7 @@ import Estudantes from './pages/Estudantes.jsx';
 import Inicio from './pages/Inicio.jsx';
 import Login from './pages/Login.jsx';
 import Ocorrencias from './pages/Ocorrencias.jsx';
+import PaginaNaoEncontrada from './pages/PaginaNaoEncontrada.jsx';
 import RegistrarOcorrencia from './pages/RegistrarOcorrencia.jsx';
 import Turmas from './pages/Turmas.jsx';
 import Usuarios from './pages/Usuarios.jsx';
@@ -62,7 +63,8 @@ export default function App() {
               <Route path="/categorias" element={<Categorias />} />
             </Route>
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Endereço inexistente: página 404, fora de RotaProtegida (vale logado ou não). */}
+          <Route path="*" element={<PaginaNaoEncontrada />} />
         </Route>
       </Routes>
     </SessaoProvider>

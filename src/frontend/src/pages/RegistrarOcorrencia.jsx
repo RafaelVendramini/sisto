@@ -5,6 +5,7 @@ import ListaDestinatarios, {
   idCampoDestinatario,
 } from '../components/ListaDestinatarios.jsx';
 import SelecaoEstudantes from '../components/SelecaoEstudantes.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarCategorias } from '../services/categorias.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
@@ -90,6 +91,7 @@ function semErro(erros, campo) {
 // sucesso." no topo. Se a resposta vier sem id (não previsto no contrato),
 // fica na tela: mostra a confirmação e limpa o formulário.
 export default function RegistrarOcorrencia() {
+  useTituloPagina('Registrar ocorrência');
   const navigate = useNavigate();
   const [turmas, setTurmas] = useState([]);
   const [categorias, setCategorias] = useState([]);

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import FormularioEdicaoEstudante from '../components/FormularioEdicaoEstudante.jsx';
 import FormularioEstudante from '../components/FormularioEstudante.jsx';
 import ListaEstudantes, { idBotaoEditarEstudante } from '../components/ListaEstudantes.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarEstudantes } from '../services/estudantes.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
@@ -53,6 +54,7 @@ function tutoresAtivos(usuarios) {
 // Só para a Gestão (a rota é filtrada em App.jsx; a proteção real é do
 // back-end — 403). Não existe exclusão de estudante (RN21).
 export default function Estudantes() {
+  useTituloPagina('Estudantes');
   const [estudantes, setEstudantes] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
