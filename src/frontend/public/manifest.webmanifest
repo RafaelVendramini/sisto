@@ -1,0 +1,17 @@
+{
+  "name": "Sisto — Gestão de ocorrências escolares",
+  "short_name": "Sisto",
+  "theme_color": "#88185D",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo-sisto-icone.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

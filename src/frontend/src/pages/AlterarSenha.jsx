@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import CampoSenha from '../components/CampoSenha.jsx';
 import { useSessao } from '../components/Sessao.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import {
   MENSAGEM_NOVA_SENHA_IGUAL_ATUAL,
   MENSAGEM_SENHA_ATUAL_INCORRETA,
@@ -51,6 +52,7 @@ export function validarTrocaSenha({ senhaAtual, novaSenha, confirmacao }) {
 // token atual deixa de valer (RN12): a sessão é descartada e o usuário entra
 // de novo. As senhas ficam só no estado dos campos, nunca no navegador.
 export default function AlterarSenha() {
+  useTituloPagina('Alterar minha senha');
   const { trocaSenhaPendente, concluirTrocaSenha } = useSessao();
   const [dados, setDados] = useState(VAZIO);
   const [errosCampos, setErrosCampos] = useState({});

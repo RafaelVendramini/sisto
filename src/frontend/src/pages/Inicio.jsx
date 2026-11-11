@@ -1,8 +1,10 @@
 import { useSessao } from '../components/Sessao.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import { rotuloPerfil } from '../services/perfis.js';
 
 // Página inicial da área autenticada (placeholder da Sprint 1 — Issue #14).
 export default function Inicio() {
+  useTituloPagina('Início');
   const { usuario } = useSessao();
 
   return (

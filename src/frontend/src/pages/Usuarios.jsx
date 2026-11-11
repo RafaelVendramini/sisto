@@ -5,6 +5,7 @@ import FormularioUsuario from '../components/FormularioUsuario.jsx';
 import ListaUsuarios, { idBotaoEditar } from '../components/ListaUsuarios.jsx';
 import RedefinirSenhaUsuario from '../components/RedefinirSenhaUsuario.jsx';
 import { useSessao } from '../components/Sessao.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
 import { listarUsuarios } from '../services/usuarios.js';
 
@@ -29,6 +30,7 @@ function camposExibidos({ id, nome, email, perfil, status }) {
 // cadastro, edição, mudança de status e redefinição de senha. Só para a Gestão (a rota é filtrada em App.jsx;
 // a proteção real é do back-end — 403). Não existe exclusão de usuário (RN07).
 export default function Usuarios() {
+  useTituloPagina('Usuários');
   const { usuario: usuarioLogado, atualizarNomeUsuario } = useSessao();
   const [usuarios, setUsuarios] = useState([]);
   // Diálogo aberto: { tipo: 'editar' | 'status' | 'senha', usuario, novoStatus? } ou null.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ListaOcorrencias from '../components/ListaOcorrencias.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import { mensagemErroListaOcorrencias } from '../services/mensagensOcorrencias.js';
 import { listarOcorrencias } from '../services/ocorrencias.js';
 
@@ -9,6 +10,7 @@ import { listarOcorrencias } from '../services/ocorrencias.js';
 // perfis; a visibilidade é decidida pelo back-end. Sem filtros nesta versão
 // (o RF11 é da Sprint 3).
 export default function Ocorrencias() {
+  useTituloPagina('Ocorrências');
   const [ocorrencias, setOcorrencias] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');

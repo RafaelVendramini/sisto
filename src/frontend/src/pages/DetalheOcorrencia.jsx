@@ -4,6 +4,7 @@ import EncaminharOcorrencia from '../components/EncaminharOcorrencia.jsx';
 import RegistrarComunicacao from '../components/RegistrarComunicacao.jsx';
 import { SeloStatusOcorrencia } from '../components/ListaOcorrencias.jsx';
 import { useSessao } from '../components/Sessao.jsx';
+import { useTituloPagina } from '../components/useTituloPagina.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import {
   MENSAGEM_COMUNICACAO_REGISTRADA,
@@ -431,5 +432,7 @@ function Detalhe({ id }) {
 // dados nem a faixa de sucesso da anterior.
 export default function DetalheOcorrencia() {
   const { id } = useParams();
+  // Só o número vai para a aba (RNF06): texto digitado na URL não entra no título.
+  useTituloPagina(/^\d+$/.test(id) ? `Ocorrência nº ${id}` : 'Detalhe da ocorrência');
   return <Detalhe key={id} id={id} />;
 }
