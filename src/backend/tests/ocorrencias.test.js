@@ -574,13 +574,15 @@ describe('POST /ocorrencias — autenticação', () => {
     const { Perfil } = await import('@prisma/client');
     // Issue #47 acrescentou GET / e GET /:id (testados em ocorrencias-consulta.test.js);
     // a #49, POST /:id/encaminhamentos (testado em ocorrencias-encaminhamento.test.js);
-    // a #51, POST /:id/comunicacoes (testado em ocorrencias-comunicacao.test.js).
+    // a #51, POST /:id/comunicacoes (testado em ocorrencias-comunicacao.test.js);
+    // a #81, POST /:id/providencias (testado em ocorrencias-providencia.test.js).
     expect(rotas.stack.map((c) => [c.route.path, Object.keys(c.route.methods)])).toEqual([
       ['/', ['post']],
       ['/', ['get']],
       ['/:id', ['get']],
       ['/:id/encaminhamentos', ['post']],
       ['/:id/comunicacoes', ['post']],
+      ['/:id/providencias', ['post']],
     ]);
 
     // Os 5 perfis da matriz (Seção 4) são todos os valores do enum Perfil.

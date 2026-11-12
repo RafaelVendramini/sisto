@@ -28,6 +28,8 @@ export const ACOES_AUDITORIA = Object.freeze({
   OCORRENCIA_CRIADA: 'ocorrência criada',
   ENCAMINHAMENTO_REGISTRADO: 'encaminhamento registrado',
   COMUNICACAO_REGISTRADA: 'comunicação registrada',
+  // Issue #81 (RN04/RN22): sem o conteúdo da providência.
+  PROVIDENCIA_REGISTRADA: 'providência registrada',
 });
 
 /**
