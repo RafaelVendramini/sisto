@@ -52,6 +52,9 @@
 //
 // Comunicação (Issue #51, UC02): POST /ocorrencias/{id}/comunicacoes — ver a
 // seção "Comunicação" no fim do arquivo.
+//
+// Providência (Issue #81, UC04 passo 2): POST /ocorrencias/{id}/providencias —
+// ver a seção "Providência" no fim do arquivo.
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
@@ -110,6 +113,8 @@ export const ACOES_HISTORICO = Object.freeze({
   RESPONSAVEL_ALTERADO: 'responsável pelo acompanhamento alterado',
   // Issue #51 (RN08/RN16): sem o conteúdo da comunicação.
   COMUNICACAO_REGISTRADA: 'comunicação registrada',
+  // Issue #81 (RN04/RN08): descrição nula, sem o conteúdo da providência.
+  PROVIDENCIA_REGISTRADA: 'providência registrada',
 });
 
 /** Descrição fixa do histórico da mudança de status feita pelo encaminhamento (RN15). */
@@ -925,8 +930,8 @@ export async function obterOcorrencia(idUrl, solicitante, { db = prisma } = {}) 
 /**
  * Lê o detalhe completo (formato do GET /ocorrencias/{id}) de uma ocorrência
  * cuja visibilidade já foi conferida, na transação recebida. Usada pelo GET
- * do detalhe e pelo 201 do POST /ocorrencias/{id}/encaminhamentos e do
- * POST /ocorrencias/{id}/comunicacoes.
+ * do detalhe e pelo 201 do POST /ocorrencias/{id}/encaminhamentos, do
+ * POST /ocorrencias/{id}/comunicacoes e do POST /ocorrencias/{id}/providencias.
  * @param {object} tx client da transação
  * @param {number} id
  * @param {{ codigoEscolar?: boolean }} [opcoes] RN20: só para a Gestão
@@ -1353,5 +1358,161 @@ export async function registrarComunicacao(
     db,
     (tx) => gravarComunicacao(tx, id, dados, solicitante, filtro),
     MENSAGEM_CONFLITO_CONCORRENTE_COMUNICACAO,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Providência: POST /ocorrencias/{id}/providencias (Issue #81, UC04 passo 2)
+// ---------------------------------------------------------------------------
+//
+// - Contrato (Seção 12, SSD 1.8): { descricao }, obrigatória; responde 201
+//   com o DETALHE COMPLETO da ocorrência, no formato do GET /ocorrencias/{id},
+//   já com a nova providência (codigoEscolar só para a Gestão — RN20). Campos
+//   fora do contrato (ex.: registradoPorId, dataHora, status) são ignorados.
+// - Permissão (Seção 4, RN22): na rota, GESTAO, PEDAGOGICO e TUTOR (Professor
+//   e Técnico-administrativo recebem 403). No service, o Tutor só registra se
+//   for o RESPONSÁVEL PELO ACOMPANHAMENTO (responsavel_acompanhamento_id = ele);
+//   se vê a ocorrência (RN19) mas não é o responsável, recebe 403. Gestão e
+//   Pedagógico registram em qualquer ocorrência.
+// - Visibilidade (RN19): inexistente ou fora da visibilidade -> 404 com a
+//   mesma mensagem (filtroVisibilidadeOcorrencias na própria consulta). A
+//   visibilidade vem antes do 403 (decisão do Rafael, 12/11/2026).
+// - RN04: só com a ocorrência em EM_ACOMPANHAMENTO; ABERTO ou ENCERRADO ->
+//   409. O registro da providência NÃO muda o status.
+// - Texto (Seção 11): NFC, sem espaços nas pontas, não vazio, até 5000
+//   caracteres (UTF-16); U+0000 recusado (400).
+// - RN17: registrado_por_id é o usuário logado e data_hora vem do banco
+//   (@default(now()) — momento do registro).
+// - RN08: histórico "providência registrada", descrição nula, SEM o conteúdo
+//   da providência. RNF04: LogAuditoria "providência registrada", recurso
+//   "ocorrencias/<id>", sem dados pessoais.
+//
+// Ordem das respostas de erro: 400 do id da URL -> 400 do corpo (sem banco)
+// -> 404 (inexistente/fora da visibilidade) -> 403 (Tutor que não é o
+// responsável) -> 409 (ABERTO/ENCERRADO) -> 409 (conflito concorrente esgotado).
+//
+// Transação: ÚNICA e SERIALIZABLE (executarSerializavel). Status e
+// responsável são relidos DENTRO dela e a linha da ocorrência é SEMPRE
+// atualizada (com o mesmo status), como no encaminhamento e na comunicação: a
+// escrita trava a linha, e um encaminhamento (troca do responsável) ou
+// encerramento concorrente aborta uma das transações (P2034), que é repetida
+// e relê o estado.
+//
+// O 409 de status ainda não traz o campo `codigo` estável (Seção 12, v1.8):
+// ele depende do padrão da Issue #72 (D1), ainda não implementado.
+
+/** Perfis que podem registrar providência (Seção 4, RN22); o Tutor só se for o responsável. */
+export const PERFIS_PROVIDENCIA = Object.freeze(['GESTAO', 'PEDAGOGICO', 'TUTOR']);
+
+/** Mesmo texto do 403 por perfil do middleware (RN01/RF14). */
+export const MENSAGEM_PROVIDENCIA_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
+export const MENSAGEM_CORPO_PROVIDENCIA_INVALIDO = 'Envie um objeto JSON com descricao.';
+export const MENSAGEM_OCORRENCIA_ABERTA_PROVIDENCIA =
+  'A providência só pode ser registrada com a ocorrência em acompanhamento. Esta ocorrência ainda está aberta.';
+export const MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA = 'Ocorrência encerrada não recebe providências.';
+export const MENSAGEM_CONFLITO_CONCORRENTE_PROVIDENCIA =
+  'Não foi possível registrar a providência por causa de outra operação ao mesmo tempo. Tente novamente.';
+
+/**
+ * Valida e normaliza o corpo do POST /ocorrencias/{id}/providencias. Não
+ * acessa o banco.
+ * @param {unknown} corpo
+ * @returns {{ descricao: string }}
+ * @throws {ErroHttp} 400
+ */
+export function validarProvidencia(corpo) {
+  if (!corpo || typeof corpo !== 'object' || Array.isArray(corpo)) {
+    throw new ErroHttp(400, MENSAGEM_CORPO_PROVIDENCIA_INVALIDO);
+  }
+  const descricao = textoObrigatorio(
+    corpo.descricao,
+    TAMANHO_MAXIMO_TEXTO_LONGO,
+    MENSAGEM_DESCRICAO_OBRIGATORIA,
+    mensagemTextoLongo('descricao'),
+  );
+  return { descricao };
+}
+
+/** Grava a providência (com histórico e auditoria) e lê o detalhe. */
+async function gravarProvidencia(tx, id, dados, solicitante, filtro) {
+  const usuarioId = solicitante.id;
+
+  // Releitura do status e do responsável DENTRO da transação, já limitada
+  // pela visibilidade (RN19): inexistente e fora da visibilidade dão 404.
+  const atual = await tx.ocorrencia.findFirst({
+    where: { AND: [{ id }, filtro] },
+    select: { id: true, status: true, responsavel_acompanhamento_id: true },
+  });
+  if (!atual) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
+
+  // RN22: o Tutor que vê a ocorrência só registra se for o responsável.
+  if (solicitante.perfil === 'TUTOR' && atual.responsavel_acompanhamento_id !== usuarioId) {
+    throw new ErroHttp(403, MENSAGEM_PROVIDENCIA_SEM_PERMISSAO);
+  }
+
+  // RN04: só em EM_ACOMPANHAMENTO.
+  if (atual.status === 'ABERTO') throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ABERTA_PROVIDENCIA);
+  if (atual.status === 'ENCERRADO') throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA);
+
+  // data_hora vem do banco (@default(now()) — RN17).
+  await tx.providencia.create({
+    data: {
+      ocorrencia_id: id,
+      descricao: dados.descricao,
+      registrado_por_id: usuarioId, // sempre o usuário logado
+    },
+    select: { id: true },
+  });
+
+  // Atualização SEMPRE feita, com o MESMO status (a providência não muda o
+  // status): trava a linha contra encaminhamento/encerramento concorrente.
+  await tx.ocorrencia.update({
+    where: { id },
+    data: { status: atual.status },
+    select: { id: true },
+  });
+
+  // RN08: texto fixo, sem o conteúdo da providência nem dados pessoais.
+  await tx.historicoOcorrencia.create({
+    data: { ocorrencia_id: id, usuario_id: usuarioId, acao: ACOES_HISTORICO.PROVIDENCIA_REGISTRADA },
+    select: { id: true },
+  });
+
+  await registrarAuditoria(
+    {
+      usuarioId,
+      acao: ACOES_AUDITORIA.PROVIDENCIA_REGISTRADA,
+      recurso: recursoAuditoria(RECURSO_OCORRENCIAS, id),
+    },
+    tx,
+  );
+
+  return lerDetalheOcorrencia(tx, id, {
+    codigoEscolar: solicitante.perfil === PERFIL_DADOS_COMPLETOS,
+  });
+}
+
+/**
+ * Registra uma providência adotada numa ocorrência em acompanhamento (UC04,
+ * RF12, RF14, RN04, RN08, RN17, RN19, RN22, RNF04).
+ * @param {unknown} idUrl id recebido na URL (texto)
+ * @param {unknown} corpo corpo da requisição
+ * @param {{ id: number, perfil: string }} solicitante req.usuario
+ * @param {object} [deps]
+ * @param {object} [deps.db] client Prisma (injetável em testes)
+ * @returns {Promise<object>} detalhe completo da ocorrência (formato do GET /ocorrencias/{id})
+ * @throws {ErroHttp} 400 (id/corpo inválidos), 404 (inexistente ou fora da
+ *   visibilidade), 403 (Tutor que não é o responsável) ou 409 (status
+ *   diferente de em acompanhamento ou conflito concorrente)
+ */
+export async function registrarProvidencia(idUrl, corpo, solicitante, { db = prisma } = {}) {
+  const id = validarIdOcorrencia(idUrl);
+  const dados = validarProvidencia(corpo);
+  const filtro = filtroVisibilidadeOcorrencias(solicitante);
+
+  return executarSerializavel(
+    db,
+    (tx) => gravarProvidencia(tx, id, dados, solicitante, filtro),
+    MENSAGEM_CONFLITO_CONCORRENTE_PROVIDENCIA,
   );
 }
