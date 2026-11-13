@@ -5,6 +5,7 @@ import { useSessao } from '../components/Sessao.jsx';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { estaAutenticado } from '../services/auth.js';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
+import { MENSAGEM_MUITAS_TENTATIVAS } from '../services/mensagens.js';
 
 const MENSAGEM_CREDENCIAIS = 'E-mail ou senha inválidos.';
 const MENSAGEM_GENERICA = 'Não foi possível entrar agora. Tente novamente em instantes.';
@@ -16,6 +17,8 @@ function mensagemDeErro(erro) {
   if (status === 401) return MENSAGEM_CREDENCIAIS;
   // 400 (dados ausentes) já vem com texto amigável do back-end.
   if (status === 400 && erro?.message) return erro.message;
+  // 429: limite de tentativas com falha (Issue #90) — mostra o texto da API.
+  if (status === 429) return erro?.doServidor ? erro.message : MENSAGEM_MUITAS_TENTATIVAS;
   // 0 = sem conexão ou API não configurada: detalhe técnico só no console.
   if (status === 0) {
     console.error('[Sisto] Falha ao conectar à API:', erro?.message);

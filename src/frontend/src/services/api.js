@@ -24,6 +24,8 @@ export class ErroApi extends Error {
 // autenticada (com token) recebe 401, o app é avisado por este callback para
 // descartar a sessão e voltar ao login. Chamadas sem token (ex.: /auth/login)
 // não disparam o aviso: ali o 401 significa apenas credenciais inválidas.
+// Só o 401 encerra a sessão: o 429 do limite de tentativas (Issue #90) chega
+// à tela como ErroApi comum, com a mensagem da API.
 let aoNaoAutenticado = null;
 
 /**

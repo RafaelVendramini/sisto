@@ -8,3 +8,9 @@ export const MENSAGEM_SEM_CONEXAO =
 // o front-end reconhece o 403 por esta mensagem e leva o usuário à troca.
 export const MENSAGEM_TROCA_SENHA_PENDENTE =
   'Você precisa trocar a sua senha temporária para continuar usando o sistema.';
+
+// 429 do limite de tentativas com falha no login e na troca de senha (Issue #90,
+// SSD 1.8). As telas mostram o texto `erro` da API; este é o reserva, se a
+// resposta vier sem ele. O 429 nunca é tratado como sessão expirada.
+export const MENSAGEM_MUITAS_TENTATIVAS =
+  'Muitas tentativas. Tente novamente em alguns minutos.';
