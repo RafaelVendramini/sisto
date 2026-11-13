@@ -7,7 +7,8 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 
-const { findUnique, findMany, create, update, count, $transaction } = vi.hoisted(() => ({
+const { findUnique, findMany, create, update, count, $transaction, criarLog } = vi.hoisted(() => ({
+  criarLog: vi.fn(),
   findUnique: vi.fn(),
   findMany: vi.fn(),
   create: vi.fn(),
@@ -17,7 +18,11 @@ const { findUnique, findMany, create, update, count, $transaction } = vi.hoisted
 }));
 
 vi.mock('../src/lib/prisma.js', () => ({
-  default: { usuario: { findUnique, findMany, create, update, count }, $transaction },
+  default: {
+    usuario: { findUnique, findMany, create, update, count },
+    logAuditoria: { create: criarLog },
+    $transaction,
+  },
 }));
 
 const { default: app } = await import('../src/app.js');
@@ -127,8 +132,12 @@ beforeEach(() => {
   );
 
   $transaction.mockReset();
+  criarLog.mockReset();
+  criarLog.mockResolvedValue({ id: 1 });
+
+  // A edição grava o LogAuditoria na mesma transação (Issue #91).
   $transaction.mockImplementation(async (fn) =>
-    fn({ usuario: { findUnique, findMany, create, update, count } }),
+    fn({ usuario: { findUnique, findMany, create, update, count }, logAuditoria: { create: criarLog } }),
   );
 
   findMany.mockReset();

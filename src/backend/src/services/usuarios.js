@@ -25,11 +25,21 @@
 //   não bloqueia, desativa nem altera o próprio perfil (409).
 // - RN13 (Issue #44): o perfil de um usuário TUTOR com estudantes vinculados
 //   não pode ser alterado (409) até que os estudantes sejam desvinculados.
+//
+// Auditoria (Issue #91 — RNF04, RNF06): o cadastro grava "usuário criado" e a
+// edição (inclusive bloqueio, desativação e reativação) grava "usuário
+// editado", com recurso "usuarios/<id>" e usuario_id da Gestão logada, na
+// mesma transação da alteração (se o log falhar, a alteração é desfeita).
+// Operações recusadas (400, 403, 404, 409) não chegam a gravar o log.
 import { Perfil, Prisma, StatusUsuario } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
+import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { normalizarEmail } from './email.js';
 import { gerarHashSenha, mensagemPoliticaSenha } from './senha.js';
+
+/** Nome do recurso na API, usado no LogAuditoria ("usuarios/<id>"). */
+export const RECURSO_USUARIOS = 'usuarios';
 
 /**
  * Campos usados do corpo do POST /usuarios. Outros campos são IGNORADOS
@@ -145,14 +155,22 @@ function ehViolacaoDeUnicidade(erro) {
  * Cadastra um usuário com status ATIVO e troca de senha obrigatória no
  * primeiro login (RF01, RN10, RNF03). A resposta não muda: o campo
  * troca_senha_obrigatoria não é devolvido (SELECAO_USUARIO_PUBLICO).
+ *
+ * Auditoria (Issue #91): o create e o LogAuditoria "usuário criado" rodam na
+ * mesma transação; se o log falhar, o usuário não fica cadastrado.
  * @param {unknown} corpo corpo da requisição
+ * @param {{ id: number }} solicitante usuário autenticado (req.usuario)
  * @param {object} [deps]
  * @param {object} [deps.db] client Prisma (injetável em testes)
  * @param {(senha: string) => Promise<string>} [deps.gerarHash] gera o hash bcrypt
  * @returns {Promise<{ id: number, nome: string, email: string, perfil: string, status: string }>}
  * @throws {ErroHttp} 400 (dados inválidos) ou 409 (e-mail já cadastrado)
  */
-export async function cadastrarUsuario(corpo, { db = prisma, gerarHash = gerarHashSenha } = {}) {
+export async function cadastrarUsuario(
+  corpo,
+  solicitante,
+  { db = prisma, gerarHash = gerarHashSenha } = {},
+) {
   const { nome, email, perfil, senha } = validarCadastroUsuario(corpo);
 
   // Pré-checagem (evita gastar um hash bcrypt à toa). A corrida entre duas
@@ -162,20 +180,32 @@ export async function cadastrarUsuario(corpo, { db = prisma, gerarHash = gerarHa
     throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO);
   }
 
+  // O hash é gerado fora da transação para não mantê-la aberta durante o bcrypt.
   const senha_hash = await gerarHash(senha);
 
   try {
-    return await db.usuario.create({
-      data: {
-        nome,
-        email,
-        perfil,
-        senha_hash,
-        status: StatusUsuario.ATIVO,
-        // RN10: a senha definida pela Gestão é temporária.
-        troca_senha_obrigatoria: true,
-      },
-      select: SELECAO_USUARIO_PUBLICO,
+    return await db.$transaction(async (tx) => {
+      const usuario = await tx.usuario.create({
+        data: {
+          nome,
+          email,
+          perfil,
+          senha_hash,
+          status: StatusUsuario.ATIVO,
+          // RN10: a senha definida pela Gestão é temporária.
+          troca_senha_obrigatoria: true,
+        },
+        select: SELECAO_USUARIO_PUBLICO,
+      });
+      await registrarAuditoria(
+        {
+          usuarioId: solicitante?.id ?? null,
+          acao: ACOES_AUDITORIA.USUARIO_CRIADO,
+          recurso: recursoAuditoria(RECURSO_USUARIOS, usuario.id),
+        },
+        tx,
+      );
+      return usuario;
     });
   } catch (erro) {
     if (ehViolacaoDeUnicidade(erro)) {
@@ -369,8 +399,9 @@ function ehGestaoAtiva({ perfil, status }) {
  * @param {object} tx client da transação
  * @param {number} id
  * @param {object} dados campos já validados
+ * @param {{ id: number }} solicitante usuário autenticado (req.usuario)
  */
-async function verificarEAtualizar(tx, id, dados) {
+async function verificarEAtualizar(tx, id, dados, solicitante) {
   const atual = await tx.usuario.findUnique({
     where: { id },
     select: { id: true, email: true, perfil: true, status: true },
@@ -419,15 +450,30 @@ async function verificarEAtualizar(tx, id, dados) {
     }
   }
 
-  return tx.usuario.update({ where: { id }, data: dados, select: SELECAO_USUARIO_PUBLICO });
+  const usuario = await tx.usuario.update({
+    where: { id },
+    data: dados,
+    select: SELECAO_USUARIO_PUBLICO,
+  });
+  // Issue #91: toda edição aceita (nome, e-mail, perfil ou status — inclusive
+  // bloqueio, desativação e reativação) grava "usuário editado".
+  await registrarAuditoria(
+    {
+      usuarioId: solicitante?.id ?? null,
+      acao: ACOES_AUDITORIA.USUARIO_EDITADO,
+      recurso: recursoAuditoria(RECURSO_USUARIOS, usuario.id),
+    },
+    tx,
+  );
+  return usuario;
 }
 
 /**
  * Edita um usuário: nome, e-mail, perfil e/ou status (RF01, RF04, RN07).
  *
  * Concorrência: a leitura, as verificações (e-mail único, tutor com
- * estudantes vinculados — RN13, mínimo de duas Gestões ativas — RN11) e o
- * update rodam numa transação SERIALIZABLE. Duas edições simultâneas que, juntas, deixariam o sistema com menos de duas
+ * estudantes vinculados — RN13, mínimo de duas Gestões ativas — RN11), o
+ * update e o LogAuditoria "usuário editado" (#91) rodam numa transação SERIALIZABLE. Duas edições simultâneas que, juntas, deixariam o sistema com menos de duas
  * Gestões ativas (ex.: com três Gestões ativas, cada uma rebaixa uma
  * Gestão diferente — isoladas, ambas passariam) não passam ambas: o PostgreSQL
  * aborta uma delas (SQLSTATE 40001, que o Prisma expõe como P2034); ela é
@@ -458,7 +504,7 @@ export async function atualizarUsuario(idUrl, corpo, solicitante, { db = prisma 
 
   for (let tentativa = 1; ; tentativa += 1) {
     try {
-      return await db.$transaction((tx) => verificarEAtualizar(tx, id, dados), {
+      return await db.$transaction((tx) => verificarEAtualizar(tx, id, dados, solicitante), {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
     } catch (erro) {

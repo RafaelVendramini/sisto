@@ -15,6 +15,10 @@ import prisma from '../lib/prisma.js';
 export const ACOES_AUDITORIA = Object.freeze({
   SENHA_REDEFINIDA_PELA_GESTAO: 'senha redefinida pela Gestão',
   SENHA_ALTERADA_PELO_USUARIO: 'senha alterada pelo usuário',
+  // Cadastro e edição de usuários (Issue #91). A edição inclui bloqueio,
+  // desativação e reativação (mudança de status pelo PUT /usuarios/{id}).
+  USUARIO_CRIADO: 'usuário criado',
+  USUARIO_EDITADO: 'usuário editado',
   // Script de recuperação da Gestão (Issue #80), executado fora da API:
   // gravadas com usuario_id nulo.
   SENHA_REDEFINIDA_PELO_SCRIPT_DE_RECUPERACAO: 'senha redefinida pelo script de recuperação',
