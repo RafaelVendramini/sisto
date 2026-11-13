@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import CampoSenha from '../components/CampoSenha.jsx';
 import { useSessao } from '../components/Sessao.jsx';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { estaAutenticado } from '../services/auth.js';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
 import { MENSAGEM_MUITAS_TENTATIVAS } from '../services/mensagens.js';
+import { ROTA_PRIVACIDADE, ROTA_TERMOS } from '../services/rotasPublicas.js';
 
 const MENSAGEM_CREDENCIAIS = 'E-mail ou senha inválidos.';
 const MENSAGEM_GENERICA = 'Não foi possível entrar agora. Tente novamente em instantes.';
@@ -172,6 +173,12 @@ export default function Login() {
 
       {/* RF03: não há recuperação por e-mail (etapa futura, fora do escopo). */}
       <p className="login__ajuda texto-secundario">Esqueceu a senha? Procure a Gestão da escola.</p>
+
+      {/* #92: textos legais acessíveis antes de entrar (sem aceite obrigatório). */}
+      <nav className="login__links" aria-label="Textos legais">
+        <Link to={ROTA_PRIVACIDADE}>Política de privacidade</Link>
+        <Link to={ROTA_TERMOS}>Termos de uso</Link>
+      </nav>
     </section>
   );
 }

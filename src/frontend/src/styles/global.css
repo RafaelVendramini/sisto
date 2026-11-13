@@ -95,6 +95,33 @@ p {
   border-top: 1px solid var(--cor-borda);
 }
 
+/* Rodapé: escola, telefone e links legais (#92). Empilha no celular. */
+.layout__rodape-escola {
+  margin: 0;
+}
+
+.layout__rodape-separador {
+  display: none;
+}
+
+.layout__rodape-telefone {
+  display: block;
+}
+
+.layout__rodape a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* área de toque confortável no celular */
+  color: var(--cor-primaria);
+}
+
+.layout__rodape-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 1.25rem;
+}
+
 /* Componentes simples */
 .cartao {
   background-color: var(--cor-superficie);
@@ -622,6 +649,59 @@ h2 {
   text-align: center;
 }
 
+/* Links para os textos legais no login (#92) */
+.login__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.login__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--cor-primaria);
+}
+
+/* Páginas de texto legal (#92) */
+.texto-legal__aviso {
+  margin: 0 0 1.25rem;
+  border-color: var(--cor-destaque);
+  font-size: 1.0625rem;
+}
+
+.texto-legal h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.125rem;
+  color: var(--cor-primaria);
+}
+
+.texto-legal__lista {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.texto-legal__lista li {
+  margin-bottom: 0.375rem;
+}
+
+.texto-legal p,
+.texto-legal li {
+  overflow-wrap: anywhere;
+  max-width: 75ch;
+}
+
+/* Trechos que dependem de decisão da escola: destaque até a homologação (#95). */
+.texto-legal__a-definir {
+  background-color: #fde2dc;
+  color: #8a1c0c;
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  outline: 1px dashed var(--cor-destaque);
+}
+
 .mensagem p:last-child {
   margin-bottom: 0;
 }
@@ -707,6 +787,14 @@ h2 {
 
   .cartao--login {
     margin-top: 1.5rem;
+  }
+
+  .layout__rodape-separador {
+    display: inline;
+  }
+
+  .layout__rodape-telefone {
+    display: inline;
   }
 }
 
