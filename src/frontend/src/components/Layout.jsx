@@ -1,5 +1,6 @@
-import { NavLink, useMatch } from 'react-router-dom';
+import { Link, NavLink, useMatch } from 'react-router-dom';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
+import { linkTelefone, NOME_ESCOLA, TELEFONE_ESCOLA } from '../services/escola.js';
 import {
   podeConsultarOcorrencias,
   podeGerenciarCategorias,
@@ -9,6 +10,7 @@ import {
   podeRegistrarOcorrencia,
   rotuloPerfil,
 } from '../services/perfis.js';
+import { ROTA_PRIVACIDADE, ROTA_TERMOS } from '../services/rotasPublicas.js';
 import { useSessao } from './Sessao.jsx';
 
 // Layout base responsivo (RNF01): cabeçalho com a marca, área de conteúdo e rodapé.
@@ -16,6 +18,8 @@ import { useSessao } from './Sessao.jsx';
 // O menu só mostra o que o perfil pode usar (RN01); a proteção real é do back-end.
 // Com a troca de senha obrigatória pendente (RN10), o menu e o link da conta
 // ficam ocultos: só é possível trocar a senha ou sair.
+// O rodapé mostra o nome e o telefone da escola (sem endereço nem e-mail) e os
+// links para a Política de privacidade e os Termos de uso (#92).
 export default function Layout({ children }) {
   const { usuario, trocaSenhaPendente, sair } = useSessao();
   const veUsuarios = podeGerenciarUsuarios(usuario?.perfil);
@@ -98,8 +102,20 @@ export default function Layout({ children }) {
       </main>
 
       <footer className="layout__rodape">
-        <div className="layout__container">
-          EE José Carlos Nogueira Reverendo – Professor
+        <div className="layout__container layout__rodape-conteudo">
+          <p className="layout__rodape-escola">
+            {NOME_ESCOLA}
+            <span className="layout__rodape-separador" aria-hidden="true">
+              {' · '}
+            </span>
+            <span className="layout__rodape-telefone">
+              Telefone: <a href={linkTelefone()}>{TELEFONE_ESCOLA}</a>
+            </span>
+          </p>
+          <nav className="layout__rodape-links" aria-label="Informações legais">
+            <Link to={ROTA_PRIVACIDADE}>Política de privacidade</Link>
+            <Link to={ROTA_TERMOS}>Termos de uso</Link>
+          </nav>
         </div>
       </footer>
     </div>

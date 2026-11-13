@@ -11,7 +11,9 @@ import Inicio from './pages/Inicio.jsx';
 import Login from './pages/Login.jsx';
 import Ocorrencias from './pages/Ocorrencias.jsx';
 import PaginaNaoEncontrada from './pages/PaginaNaoEncontrada.jsx';
+import PoliticaPrivacidade from './pages/PoliticaPrivacidade.jsx';
 import RegistrarOcorrencia from './pages/RegistrarOcorrencia.jsx';
+import TermosUso from './pages/TermosUso.jsx';
 import Turmas from './pages/Turmas.jsx';
 import Usuarios from './pages/Usuarios.jsx';
 import { ROTA_ALTERAR_SENHA } from './services/conta.js';
@@ -23,6 +25,7 @@ import {
   PERFIS_GESTAO_USUARIOS,
   PERFIS_REGISTRO_OCORRENCIA,
 } from './services/perfis.js';
+import { ROTA_PRIVACIDADE, ROTA_TERMOS } from './services/rotasPublicas.js';
 
 function LayoutComConteudo() {
   return (
@@ -32,7 +35,7 @@ function LayoutComConteudo() {
   );
 }
 
-// Componente raiz: rotas públicas (/login) e área autenticada (RF02, RNF03).
+// Componente raiz: rotas públicas (/login, /privacidade, /termos) e área autenticada (RF02, RNF03).
 // O roteador (BrowserRouter) é criado em main.jsx; nos testes, MemoryRouter.
 export default function App() {
   return (
@@ -40,6 +43,9 @@ export default function App() {
       <Routes>
         <Route element={<LayoutComConteudo />}>
           <Route path="/login" element={<Login />} />
+          {/* Textos legais (#92): públicos, fora de RotaProtegida (logado ou não). */}
+          <Route path={ROTA_PRIVACIDADE} element={<PoliticaPrivacidade />} />
+          <Route path={ROTA_TERMOS} element={<TermosUso />} />
           <Route element={<RotaProtegida />}>
             <Route path="/" element={<Inicio />} />
             <Route path={ROTA_ALTERAR_SENHA} element={<AlterarSenha />} />
