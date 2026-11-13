@@ -6,6 +6,7 @@ import rotasCategorias from './categorias.js';
 import rotasTurmas from './turmas.js';
 import rotasEstudantes from './estudantes.js';
 import rotasOcorrencias from './ocorrencias.js';
+import rotasRelatorios from './relatorios.js';
 import {
   bloquearComTrocaDeSenhaPendente,
   exigirAutenticacao,
@@ -61,6 +62,7 @@ protegidas.use('/categorias', rotasCategorias);
 protegidas.use('/turmas', rotasTurmas);
 protegidas.use('/estudantes', rotasEstudantes);
 protegidas.use('/ocorrencias', rotasOcorrencias);
+protegidas.use('/relatorios', rotasRelatorios);
 
 rotas.use(protegidas);
 
