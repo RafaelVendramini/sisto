@@ -58,6 +58,9 @@
 //
 // Histórico (Issue #83, RF12): GET /ocorrencias/{id}/historico — ver a seção
 // "Histórico" no fim do arquivo.
+//
+// Encerramento (Issue #82, UC04 passo 3): PATCH /ocorrencias/{id}/status —
+// ver a seção "Encerramento" no fim do arquivo.
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
@@ -934,7 +937,8 @@ export async function obterOcorrencia(idUrl, solicitante, { db = prisma } = {}) 
  * Lê o detalhe completo (formato do GET /ocorrencias/{id}) de uma ocorrência
  * cuja visibilidade já foi conferida, na transação recebida. Usada pelo GET
  * do detalhe e pelo 201 do POST /ocorrencias/{id}/encaminhamentos, do
- * POST /ocorrencias/{id}/comunicacoes e do POST /ocorrencias/{id}/providencias.
+ * POST /ocorrencias/{id}/comunicacoes e do POST /ocorrencias/{id}/providencias,
+ * e pelo 200 do PATCH /ocorrencias/{id}/status.
  * @param {object} tx client da transação
  * @param {number} id
  * @param {{ codigoEscolar?: boolean }} [opcoes] RN20: só para a Gestão
@@ -1589,4 +1593,173 @@ export async function listarHistoricoOcorrencia(idUrl, solicitante, { db = prism
     });
     return registros.map(paraRespostaHistorico);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Encerramento: PATCH /ocorrencias/{id}/status (Issue #82, UC04 passo 3)
+// ---------------------------------------------------------------------------
+//
+// - Contrato (Seção 12, SSD 1.8): { status: "ENCERRADO" }, sem justificativa;
+//   responde 200 com o DETALHE COMPLETO da ocorrência, no formato do
+//   GET /ocorrencias/{id} (status ENCERRADO e dataEncerramento preenchida;
+//   codigoEscolar só para a Gestão — RN20). Campos fora do contrato são
+//   ignorados.
+// - Valor aceito (RN04): status ausente, que não seja texto ou fora do enum
+//   -> 400; ABERTO ou EM_ACOMPANHAMENTO -> 400 (o PATCH só encerra; a
+//   passagem para EM_ACOMPANHAMENTO é exclusiva do encaminhamento — RN15).
+// - Permissão (Seção 4, RN22): na rota, GESTAO, PEDAGOGICO e TUTOR (Professor
+//   e Técnico-administrativo recebem 403). No service, o Tutor só encerra se
+//   for o RESPONSÁVEL PELO ACOMPANHAMENTO; se vê a ocorrência (RN19) mas não é
+//   o responsável, recebe 403 — mesmo padrão da providência (#81).
+// - Visibilidade (RN19): inexistente ou fora da visibilidade -> 404 com a
+//   mesma mensagem, antes do 403.
+// - RN04: só encerra a partir de EM_ACOMPANHAMENTO e com ao menos uma
+//   providência registrada; ABERTO (não pula etapa), ENCERRADO (sem
+//   reabertura) ou sem providência -> 409.
+// - RN17: data_encerramento é o momento do registro, preenchido pelo sistema
+//   (relógio do servidor; a coluna não tem default no banco).
+// - RN08: histórico "status alterado", descrição fixa "De em acompanhamento
+//   para encerrado". RNF04: LogAuditoria "ocorrência encerrada", recurso
+//   "ocorrencias/<id>", sem dados pessoais.
+//
+// Ordem das respostas de erro: 400 do id da URL -> 400 do corpo (sem banco)
+// -> 404 (inexistente/fora da visibilidade) -> 403 (Tutor que não é o
+// responsável) -> 409 (ABERTO/ENCERRADO) -> 409 (sem providência) -> 409
+// (conflito concorrente esgotado).
+//
+// Transação: ÚNICA e SERIALIZABLE (executarSerializavel). Status, responsável
+// e a contagem de providências são lidos DENTRO dela. Encaminhamento e
+// providência concorrentes também atualizam a linha da ocorrência, então uma
+// das transações é abortada (P2034), repetida e relê o estado: não há
+// encerramento sem providência nem providência/encaminhamento gravado depois
+// do encerramento.
+//
+// O 409 ainda não traz o campo `codigo` estável (Seção 12, v1.8): ele depende
+// do padrão da Issue #72 (D1), ainda não implementado.
+
+/** Perfis que podem encerrar (Seção 4, RN22); o Tutor só se for o responsável. */
+export const PERFIS_ENCERRAMENTO = Object.freeze(['GESTAO', 'PEDAGOGICO', 'TUTOR']);
+
+/** Valores técnicos do status da ocorrência (Seção 11). */
+export const STATUS_OCORRENCIA = Object.freeze(['ABERTO', 'EM_ACOMPANHAMENTO', 'ENCERRADO']);
+
+/** Descrição fixa do histórico do encerramento (RN08, Seção 12). */
+export const DESCRICAO_HISTORICO_ACOMPANHAMENTO_PARA_ENCERRADO = 'De em acompanhamento para encerrado';
+
+/** Mesmo texto do 403 por perfil do middleware (RN01/RF14). */
+export const MENSAGEM_ENCERRAMENTO_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
+export const MENSAGEM_CORPO_STATUS_INVALIDO = 'Envie um objeto JSON com status.';
+export const MENSAGEM_STATUS_INVALIDO = 'Informe status com o valor ENCERRADO.';
+export const MENSAGEM_STATUS_SOMENTE_ENCERRADO = 'Só é possível alterar o status para encerrado.';
+export const MENSAGEM_OCORRENCIA_ABERTA_ENCERRAMENTO =
+  'A ocorrência só pode ser encerrada depois de entrar em acompanhamento. Esta ocorrência ainda está aberta.';
+export const MENSAGEM_OCORRENCIA_JA_ENCERRADA = 'Esta ocorrência já está encerrada e não pode ser reaberta.';
+export const MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA =
+  'Registre ao menos uma providência adotada antes de encerrar a ocorrência.';
+export const MENSAGEM_CONFLITO_CONCORRENTE_ENCERRAMENTO =
+  'Não foi possível encerrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.';
+
+/**
+ * Valida o corpo do PATCH /ocorrencias/{id}/status. Não acessa o banco.
+ * @param {unknown} corpo
+ * @returns {{ status: 'ENCERRADO' }}
+ * @throws {ErroHttp} 400
+ */
+export function validarAlteracaoStatus(corpo) {
+  if (!corpo || typeof corpo !== 'object' || Array.isArray(corpo)) {
+    throw new ErroHttp(400, MENSAGEM_CORPO_STATUS_INVALIDO);
+  }
+  const { status } = corpo;
+  if (typeof status !== 'string' || !STATUS_OCORRENCIA.includes(status)) {
+    throw new ErroHttp(400, MENSAGEM_STATUS_INVALIDO);
+  }
+  if (status !== 'ENCERRADO') throw new ErroHttp(400, MENSAGEM_STATUS_SOMENTE_ENCERRADO);
+  return { status };
+}
+
+/** Encerra a ocorrência (com histórico e auditoria) e lê o detalhe. */
+async function gravarEncerramento(tx, id, solicitante, filtro, agora) {
+  const usuarioId = solicitante.id;
+
+  // Releitura do status e do responsável DENTRO da transação, já limitada
+  // pela visibilidade (RN19): inexistente e fora da visibilidade dão 404.
+  const atual = await tx.ocorrencia.findFirst({
+    where: { AND: [{ id }, filtro] },
+    select: { id: true, status: true, responsavel_acompanhamento_id: true },
+  });
+  if (!atual) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
+
+  // RN22: o Tutor que vê a ocorrência só encerra se for o responsável.
+  if (solicitante.perfil === 'TUTOR' && atual.responsavel_acompanhamento_id !== usuarioId) {
+    throw new ErroHttp(403, MENSAGEM_ENCERRAMENTO_SEM_PERMISSAO);
+  }
+
+  // RN04: só a partir de EM_ACOMPANHAMENTO, sem pular etapa nem reabrir.
+  if (atual.status === 'ABERTO') throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ABERTA_ENCERRAMENTO);
+  if (atual.status === 'ENCERRADO') throw new ErroHttp(409, MENSAGEM_OCORRENCIA_JA_ENCERRADA);
+
+  // RN04: ao menos uma providência registrada (contada dentro da transação).
+  const providencias = await tx.providencia.count({ where: { ocorrencia_id: id } });
+  if (providencias === 0) throw new ErroHttp(409, MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA);
+
+  await tx.ocorrencia.update({
+    where: { id },
+    data: { status: 'ENCERRADO', data_encerramento: agora() }, // RN17: momento do registro
+    select: { id: true },
+  });
+
+  // RN08: texto fixo, sem dados pessoais.
+  await tx.historicoOcorrencia.create({
+    data: {
+      ocorrencia_id: id,
+      usuario_id: usuarioId,
+      acao: ACOES_HISTORICO.STATUS_ALTERADO,
+      descricao: DESCRICAO_HISTORICO_ACOMPANHAMENTO_PARA_ENCERRADO,
+    },
+    select: { id: true },
+  });
+
+  await registrarAuditoria(
+    {
+      usuarioId,
+      acao: ACOES_AUDITORIA.OCORRENCIA_ENCERRADA,
+      recurso: recursoAuditoria(RECURSO_OCORRENCIAS, id),
+    },
+    tx,
+  );
+
+  return lerDetalheOcorrencia(tx, id, {
+    codigoEscolar: solicitante.perfil === PERFIL_DADOS_COMPLETOS,
+  });
+}
+
+/**
+ * Encerra uma ocorrência em acompanhamento com ao menos uma providência
+ * (UC04 passo 3, RF10, RF12, RF14, RN04, RN08, RN17, RN19, RN22, RNF04).
+ * @param {unknown} idUrl id recebido na URL (texto)
+ * @param {unknown} corpo corpo da requisição
+ * @param {{ id: number, perfil: string }} solicitante req.usuario
+ * @param {object} [deps]
+ * @param {object} [deps.db] client Prisma (injetável em testes)
+ * @param {() => Date} [deps.agora] relógio do servidor (injetável em testes)
+ * @returns {Promise<object>} detalhe completo da ocorrência (formato do GET /ocorrencias/{id})
+ * @throws {ErroHttp} 400 (id/corpo inválidos), 404 (inexistente ou fora da
+ *   visibilidade), 403 (Tutor que não é o responsável) ou 409 (status
+ *   diferente de em acompanhamento, sem providência ou conflito concorrente)
+ */
+export async function encerrarOcorrencia(
+  idUrl,
+  corpo,
+  solicitante,
+  { db = prisma, agora = () => new Date() } = {},
+) {
+  const id = validarIdOcorrencia(idUrl);
+  validarAlteracaoStatus(corpo);
+  const filtro = filtroVisibilidadeOcorrencias(solicitante);
+
+  return executarSerializavel(
+    db,
+    (tx) => gravarEncerramento(tx, id, solicitante, filtro, agora),
+    MENSAGEM_CONFLITO_CONCORRENTE_ENCERRAMENTO,
+  );
 }

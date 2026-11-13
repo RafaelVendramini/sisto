@@ -576,7 +576,8 @@ describe('POST /ocorrencias — autenticação', () => {
     // a #49, POST /:id/encaminhamentos (testado em ocorrencias-encaminhamento.test.js);
     // a #51, POST /:id/comunicacoes (testado em ocorrencias-comunicacao.test.js);
     // a #81, POST /:id/providencias (testado em ocorrencias-providencia.test.js);
-    // a #83, GET /:id/historico (testado em ocorrencias-historico.test.js).
+    // a #83, GET /:id/historico (testado em ocorrencias-historico.test.js);
+    // a #82, PATCH /:id/status (testado em ocorrencias-encerramento.test.js).
     expect(rotas.stack.map((c) => [c.route.path, Object.keys(c.route.methods)])).toEqual([
       ['/', ['post']],
       ['/', ['get']],
@@ -585,6 +586,7 @@ describe('POST /ocorrencias — autenticação', () => {
       ['/:id/comunicacoes', ['post']],
       ['/:id/providencias', ['post']],
       ['/:id/historico', ['get']],
+      ['/:id/status', ['patch']],
     ]);
 
     // Os 5 perfis da matriz (Seção 4) são todos os valores do enum Perfil.

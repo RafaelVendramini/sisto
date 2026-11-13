@@ -1,5 +1,6 @@
 // Controller de ocorrências — somente entrada/saída HTTP (regras em services/ocorrencias.js).
 import {
+  encerrarOcorrencia,
   listarHistoricoOcorrencia,
   listarOcorrencias,
   obterOcorrencia,
@@ -49,4 +50,10 @@ export async function providenciar(req, res) {
 export async function historico(req, res) {
   const registros = await listarHistoricoOcorrencia(req.params.id, req.usuario);
   res.status(200).json(registros);
+}
+
+/** PATCH /ocorrencias/:id/status — 200 com o detalhe completo da ocorrência encerrada. */
+export async function encerrar(req, res) {
+  const ocorrencia = await encerrarOcorrencia(req.params.id, req.body, req.usuario);
+  res.status(200).json(ocorrencia);
 }

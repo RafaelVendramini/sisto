@@ -34,6 +34,8 @@ export const ACOES_AUDITORIA = Object.freeze({
   COMUNICACAO_REGISTRADA: 'comunicação registrada',
   // Issue #81 (RN04/RN22): sem o conteúdo da providência.
   PROVIDENCIA_REGISTRADA: 'providência registrada',
+  // Issue #82 (RN04/RN22): encerramento pelo PATCH /ocorrencias/{id}/status.
+  OCORRENCIA_ENCERRADA: 'ocorrência encerrada',
 });
 
 /**
