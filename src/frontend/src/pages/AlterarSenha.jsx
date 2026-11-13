@@ -8,6 +8,7 @@ import {
   trocarPropriaSenha,
 } from '../services/conta.js';
 import {
+  MENSAGEM_MUITAS_TENTATIVAS,
   MENSAGEM_SEM_CONEXAO,
   MENSAGEM_SEM_PERMISSAO,
   MENSAGEM_TROCA_SENHA_PENDENTE,
@@ -127,6 +128,9 @@ export default function AlterarSenha() {
         focarPrimeiroInvalido(errosApi);
       } else if ((status === 400 || status === 409) && mensagemServidor) {
         setErro(mensagemServidor);
+      } else if (status === 429) {
+        // Limite de tentativas com falha (Issue #90): a sessão continua.
+        setErro(mensagemServidor || MENSAGEM_MUITAS_TENTATIVAS);
       } else if (status === 403) {
         setErro(MENSAGEM_SEM_PERMISSAO);
       } else if (status === 0) {

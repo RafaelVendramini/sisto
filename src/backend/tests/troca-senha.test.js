@@ -59,6 +59,9 @@ const {
 } = await import('../src/services/troca-senha.js');
 const { ACOES_AUDITORIA } = await import('../src/services/auditoria.js');
 const { gerarHashSenha } = await import('../src/services/senha.js');
+const { CHAVE_LIMITADORES, criarLimitadoresTentativas } = await import(
+  '../src/middlewares/limite-tentativas.js'
+);
 
 const SEGREDO_TESTE = 'segredo-ficticio-de-teste-com-mais-de-32-caracteres';
 const SENHA_INICIAL = 'SenhaInicialFicticia1';
@@ -114,6 +117,9 @@ function buscar(id) {
 
 beforeEach(() => {
   process.env.JWT_SECRET = SEGREDO_TESTE;
+  // Contadores do limite de tentativas (#90) zerados a cada teste: aqui vários
+  // testes erram a senha do mesmo usuário (o limite tem testes próprios).
+  app.locals[CHAVE_LIMITADORES] = criarLimitadoresTentativas();
   banco = PERFIS.map((perfil, i) =>
     novoUsuario(i + 1, perfil, `${perfil.toLowerCase()}.base@sisto.exemplo`),
   );
