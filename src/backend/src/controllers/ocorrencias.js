@@ -1,5 +1,6 @@
 // Controller de ocorrências — somente entrada/saída HTTP (regras em services/ocorrencias.js).
 import {
+  listarHistoricoOcorrencia,
   listarOcorrencias,
   obterOcorrencia,
   registrarComunicacao,
@@ -42,4 +43,10 @@ export async function comunicar(req, res) {
 export async function providenciar(req, res) {
   const ocorrencia = await registrarProvidencia(req.params.id, req.body, req.usuario);
   res.status(201).json(ocorrencia);
+}
+
+/** GET /ocorrencias/:id/historico — 200 com o histórico, do mais antigo para o mais novo. */
+export async function historico(req, res) {
+  const registros = await listarHistoricoOcorrencia(req.params.id, req.usuario);
+  res.status(200).json(registros);
 }

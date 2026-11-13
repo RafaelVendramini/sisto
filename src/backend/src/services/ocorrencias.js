@@ -55,6 +55,9 @@
 //
 // Providência (Issue #81, UC04 passo 2): POST /ocorrencias/{id}/providencias —
 // ver a seção "Providência" no fim do arquivo.
+//
+// Histórico (Issue #83, RF12): GET /ocorrencias/{id}/historico — ver a seção
+// "Histórico" no fim do arquivo.
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
@@ -1515,4 +1518,75 @@ export async function registrarProvidencia(idUrl, corpo, solicitante, { db = pri
     (tx) => gravarProvidencia(tx, id, dados, solicitante, filtro),
     MENSAGEM_CONFLITO_CONCORRENTE_PROVIDENCIA,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Histórico: GET /ocorrencias/{id}/historico (Issue #83, RF12, UC03 passo 3)
+// ---------------------------------------------------------------------------
+//
+// - Permissão (Seção 4/12, RN01, RN19): os 5 perfis (na rota), limitados à
+//   visibilidade da RN19 — filtroVisibilidadeOcorrencias na própria consulta;
+//   inexistente ou fora da visibilidade respondem 404 com a MESMA mensagem.
+// - Formato (Seção 12): lista de { id, acao, descricao, dataHora,
+//   usuario: { id, nome } }, do registro mais antigo para o mais novo
+//   (data_hora crescente; no empate — ex.: vários registros da mesma
+//   transação, que recebem o mesmo now() do banco —, id crescente).
+// - Dados expostos: só o id e o nome de quem fez a ação (sem e-mail, perfil
+//   nem status do usuário). A ação e a descrição já são textos fixos, sem
+//   dados pessoais nem conteúdo de comunicação ou providência (RN08).
+// - Sem paginação. Leitura numa transação REPEATABLE READ
+//   (emLeituraConsistente): a visibilidade conferida e o histórico lido são do
+//   mesmo momento. A leitura não grava histórico nem auditoria.
+
+/**
+ * Converte um registro de HistoricoOcorrencia (snake_case) para a resposta da
+ * API (camelCase). Só o id e o nome do usuário.
+ * @param {object} h registro lido com usuario { id, nome }
+ */
+export function paraRespostaHistorico(h) {
+  return {
+    id: h.id,
+    acao: h.acao,
+    descricao: h.descricao,
+    dataHora: h.data_hora,
+    usuario: { id: h.usuario.id, nome: h.usuario.nome },
+  };
+}
+
+/**
+ * Histórico de alterações de uma ocorrência visível ao usuário (RF12, RN08,
+ * RN19).
+ * @param {unknown} idUrl id recebido na URL (texto)
+ * @param {{ id: number, perfil: string }} solicitante req.usuario
+ * @param {object} [deps]
+ * @param {object} [deps.db] client Prisma (injetável em testes)
+ * @returns {Promise<object[]>} registros do mais antigo para o mais novo
+ * @throws {ErroHttp} 400 (id inválido) ou 404 (inexistente ou fora da visibilidade)
+ */
+export async function listarHistoricoOcorrencia(idUrl, solicitante, { db = prisma } = {}) {
+  const id = validarIdOcorrencia(idUrl);
+  const filtro = filtroVisibilidadeOcorrencias(solicitante);
+
+  return emLeituraConsistente(db, async (tx) => {
+    // A visibilidade faz parte da consulta: inexistente e não permitida dão o
+    // mesmo resultado (null -> 404 com a mesma mensagem), sem ler o histórico.
+    const visivel = await tx.ocorrencia.findFirst({
+      where: { AND: [{ id }, filtro] },
+      select: { id: true },
+    });
+    if (!visivel) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
+
+    const registros = await tx.historicoOcorrencia.findMany({
+      where: { ocorrencia_id: id },
+      select: {
+        id: true,
+        acao: true,
+        descricao: true,
+        data_hora: true,
+        usuario: { select: { id: true, nome: true } },
+      },
+      orderBy: [{ data_hora: 'asc' }, { id: 'asc' }],
+    });
+    return registros.map(paraRespostaHistorico);
+  });
 }

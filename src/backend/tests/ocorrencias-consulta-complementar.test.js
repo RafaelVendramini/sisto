@@ -707,8 +707,9 @@ describe('QA #47 — caminhos e ids no detalhe', () => {
     expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_NAO_ENCONTRADA });
   });
 
-  it('subcaminhos ainda não implementados (/1/historico, /1/comunicacoes) dão 404, não 500', async () => {
-    for (const caminho of ['/ocorrencias/1/historico', '/ocorrencias/1/comunicacoes']) {
+  // GET /1/historico passou a existir na #83 (testado em ocorrencias-historico.test.js).
+  it('subcaminhos GET não implementados (/1/comunicacoes, /1/providencias) dão 404, não 500', async () => {
+    for (const caminho of ['/ocorrencias/1/comunicacoes', '/ocorrencias/1/providencias']) {
       const res = await request(app).get(caminho).set('Authorization', `Bearer ${token(ID_GESTAO)}`);
       expect(res.status, caminho).toBe(404);
     }

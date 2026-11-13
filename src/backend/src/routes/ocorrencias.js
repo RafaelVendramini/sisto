@@ -1,6 +1,14 @@
 import { Router } from 'express';
 import { permitirPerfis } from '../middlewares/autenticacao.js';
-import { comunicar, detalhar, encaminhar, listar, providenciar, registrar } from '../controllers/ocorrencias.js';
+import {
+  comunicar,
+  detalhar,
+  encaminhar,
+  historico,
+  listar,
+  providenciar,
+  registrar,
+} from '../controllers/ocorrencias.js';
 import { PERFIS_COMUNICACAO, PERFIS_ENCAMINHAMENTO, PERFIS_PROVIDENCIA } from '../services/ocorrencias.js';
 
 // Rotas de ocorrências (Seção 12 do SSD). Montadas em `protegidas`, depois do
@@ -18,7 +26,9 @@ import { PERFIS_COMUNICACAO, PERFIS_ENCAMINHAMENTO, PERFIS_PROVIDENCIA } from '.
 // TUTOR (RN22); Professor e Técnico-administrativo recebem 403. A visibilidade
 // (RN19) e a exigência de o Tutor ser o responsável pelo acompanhamento ficam
 // no service.
-// Status e histórico ficam para as próximas Issues (PUT /ocorrencias/{id} fora do MVP — SSD 1.8).
+// Issue #83: GET /ocorrencias/{id}/historico para os 5 perfis; a visibilidade
+// (RN19) fica no service, como no detalhe.
+// O status (encerramento) fica para a #82; PUT /ocorrencias/{id} está fora do MVP (SSD 1.8).
 const rotasOcorrencias = Router();
 
 const TODOS_OS_PERFIS = ['PROFESSOR', 'TUTOR', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
@@ -29,5 +39,6 @@ rotasOcorrencias.get('/:id', permitirPerfis(TODOS_OS_PERFIS), detalhar);
 rotasOcorrencias.post('/:id/encaminhamentos', permitirPerfis(PERFIS_ENCAMINHAMENTO), encaminhar);
 rotasOcorrencias.post('/:id/comunicacoes', permitirPerfis(PERFIS_COMUNICACAO), comunicar);
 rotasOcorrencias.post('/:id/providencias', permitirPerfis(PERFIS_PROVIDENCIA), providenciar);
+rotasOcorrencias.get('/:id/historico', permitirPerfis(TODOS_OS_PERFIS), historico);
 
 export default rotasOcorrencias;
