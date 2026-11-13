@@ -175,7 +175,14 @@ function delegado(modelo) {
   return {
     findMany: async (args) => {
       anotar(args);
-      return buscar(args).map((r) => selecionar(modelo, r, args?.select));
+      // skip/take: paginação do GET /ocorrencias (Issue #86).
+      const inicio = args?.skip ?? 0;
+      const fim = args?.take === undefined ? undefined : inicio + args.take;
+      return buscar(args).slice(inicio, fim).map((r) => selecionar(modelo, r, args?.select));
+    },
+    count: async (args) => {
+      anotar(args);
+      return buscar(args).length;
     },
     findFirst: async (args) => {
       anotar(args);
@@ -616,7 +623,7 @@ describe('QA — visibilidade (RN19) depois do encaminhamento', () => {
   it('o TUTOR destinatário e o TUTOR responsável passam a ver a ocorrência (detalhe e lista)', async () => {
     for (const id of [ID_TUTOR_2, ID_TUTOR_3]) {
       expect((await getDetalhe(O_ABERTA, id)).status).toBe(404);
-      expect((await getLista(id)).body.map((o) => o.id)).not.toContain(O_ABERTA);
+      expect((await getLista(id)).body.itens.map((o) => o.id)).not.toContain(O_ABERTA);
     }
 
     const res = await encaminhar(O_ABERTA, { ...CORPO_TUTOR, responsavelAcompanhamentoId: ID_TUTOR_3 });
@@ -627,7 +634,7 @@ describe('QA — visibilidade (RN19) depois do encaminhamento', () => {
       expect(detalhe.status).toBe(200);
       expect(detalhe.body.status).toBe('EM_ACOMPANHAMENTO');
       for (const e of detalhe.body.estudantes) expect(e).not.toHaveProperty('codigoEscolar');
-      expect((await getLista(id)).body.map((o) => o.id)).toContain(O_ABERTA);
+      expect((await getLista(id)).body.itens.map((o) => o.id)).toContain(O_ABERTA);
     }
   });
 

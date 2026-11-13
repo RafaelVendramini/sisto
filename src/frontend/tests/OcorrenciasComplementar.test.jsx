@@ -12,7 +12,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import App from '../src/App.jsx';
-import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
+import { gravarSessaoFicticia, paginaOcorrencias, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 
 const URL_API = 'http://api.exemplo.test';
 const MSG_NAO_ENCONTRADA = 'Ocorrência não encontrada.';
@@ -65,7 +65,7 @@ function detalhe(id, extra = {}) {
 
 /** GET /ocorrencias chama `lista()`; GET /ocorrencias/{id} chama `obter(id)` (id como veio na URL). */
 function mockarApi({
-  lista = () => respostaFalsa(200, [itemLista(12), itemLista(11)]),
+  lista = () => respostaFalsa(200, paginaOcorrencias([itemLista(12), itemLista(11)])),
   obter = (id) => respostaFalsa(200, detalhe(Number(id))),
 } = {}) {
   fetch.mockImplementation(async (url, opcoes = {}) => {
@@ -322,11 +322,14 @@ describe('Lista e detalhe de ocorrências — complementar (#48)', () => {
       sessao('TECNICO_ADMINISTRATIVO');
       mockarApi({
         lista: () =>
-          respostaFalsa(200, [
-            itemLista(5, { dataHora: '2026-10-01T12:00:00.000Z' }),
-            itemLista(9, { dataHora: '2026-10-25T12:00:00.000Z' }),
-            itemLista(7, { dataHora: '2026-10-10T12:00:00.000Z' }),
-          ]),
+          respostaFalsa(
+            200,
+            paginaOcorrencias([
+              itemLista(5, { dataHora: '2026-10-01T12:00:00.000Z' }),
+              itemLista(9, { dataHora: '2026-10-25T12:00:00.000Z' }),
+              itemLista(7, { dataHora: '2026-10-10T12:00:00.000Z' }),
+            ]),
+          ),
       });
       renderizarApp('/ocorrencias');
 
@@ -343,7 +346,7 @@ describe('Lista e detalhe de ocorrências — complementar (#48)', () => {
       sessao();
       mockarApi({
         lista: () =>
-          respostaFalsa(200, [itemLista(3, { estudantes: [], categoria: null, turma: null, status: null })]),
+          respostaFalsa(200, paginaOcorrencias([itemLista(3, { estudantes: [], categoria: null, turma: null, status: null })])),
       });
       renderizarApp('/ocorrencias');
 
@@ -445,12 +448,15 @@ describe('Lista e detalhe de ocorrências — complementar (#48)', () => {
       const img = '<img src=x onerror="window.__xss=2">';
       mockarApi({
         lista: () =>
-          respostaFalsa(200, [
-            itemLista(12, {
-              categoria: { id: 5, nome: '<b>Categoria fictícia</b>' },
-              estudantes: [{ id: 1, nomeCompleto: img }],
-            }),
-          ]),
+          respostaFalsa(
+            200,
+            paginaOcorrencias([
+              itemLista(12, {
+                categoria: { id: 5, nome: '<b>Categoria fictícia</b>' },
+                estudantes: [{ id: 1, nomeCompleto: img }],
+              }),
+            ]),
+          ),
         obter: (id) =>
           respostaFalsa(
             200,
@@ -655,7 +661,7 @@ describe('Registro -> detalhe -> lista, ponta a ponta (#46 + #48)', () => {
         return respostaFalsa(201, criada);
       }
       if (m === 'GET' && url === `${URL_API}/ocorrencias`) {
-        return respostaFalsa(200, registradas.map((o) => itemLista(o.id, { local: o.local })));
+        return respostaFalsa(200, paginaOcorrencias(registradas.map((o) => itemLista(o.id, { local: o.local }))));
       }
       const get = url.match(/\/ocorrencias\/(\d+)$/);
       if (m === 'GET' && get) {

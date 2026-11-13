@@ -174,7 +174,14 @@ function delegado(modelo, emTransacao) {
   return {
     findMany: async (args) => {
       anotar('findMany', args);
-      return buscar(args).map((r) => selecionar(modelo, r, args?.select));
+      // skip/take: paginação do GET /ocorrencias (Issue #86).
+      const inicio = args?.skip ?? 0;
+      const fim = args?.take === undefined ? undefined : inicio + args.take;
+      return buscar(args).slice(inicio, fim).map((r) => selecionar(modelo, r, args?.select));
+    },
+    count: async (args) => {
+      anotar('count', args);
+      return buscar(args).length;
     },
     findFirst: async (args) => {
       anotar('findFirst', args);
@@ -478,10 +485,10 @@ describe('QA #47 — sem duplicação quando várias condições da RN19 valem',
 
     const res = await getLista(ID_TUTOR);
     expect(res.status).toBe(200);
-    const ids = res.body.map((o) => o.id);
+    const ids = res.body.itens.map((o) => o.id);
     expect(ids.filter((x) => x === id)).toHaveLength(1);
     expect(new Set(ids).size).toBe(ids.length);
-    const item = res.body.find((o) => o.id === id);
+    const item = res.body.itens.find((o) => o.id === id);
     expect(item.estudantes.map((e) => e.id).sort()).toEqual([ID_ESTUDANTE_TUTORADO, 5]);
 
     const detalhe = await getDetalhe(id, ID_TUTOR);
@@ -493,9 +500,9 @@ describe('QA #47 — sem duplicação quando várias condições da RN19 valem',
   it('nenhuma lista de nenhum usuário tem ids repetidos nem estudantes repetidos num item', async () => {
     for (const usuarioId of TODOS_OS_USUARIOS_ATIVOS) {
       const res = await getLista(usuarioId);
-      const ids = res.body.map((o) => o.id);
+      const ids = res.body.itens.map((o) => o.id);
       expect(new Set(ids).size, `usuário ${usuarioId}`).toBe(ids.length);
-      for (const item of res.body) {
+      for (const item of res.body.itens) {
         const est = item.estudantes.map((e) => e.id);
         expect(new Set(est).size).toBe(est.length);
       }
@@ -504,7 +511,7 @@ describe('QA #47 — sem duplicação quando várias condições da RN19 valem',
 
   it('o tutor vê TODOS os estudantes da ocorrência, não só o tutorado dele (lista e detalhe)', async () => {
     const lista = await getLista(ID_TUTOR);
-    const o5 = lista.body.find((o) => o.id === 5);
+    const o5 = lista.body.itens.find((o) => o.id === 5);
     expect(o5.estudantes.map((e) => e.id)).toEqual([ID_ESTUDANTE_SEM_TUTOR, ID_ESTUDANTE_TUTORADO]);
     const detalhe = await getDetalhe(5, ID_TUTOR);
     expect(detalhe.body.estudantes.map((e) => e.id)).toEqual([ID_ESTUDANTE_SEM_TUTOR, ID_ESTUDANTE_TUTORADO]);
@@ -513,15 +520,15 @@ describe('QA #47 — sem duplicação quando várias condições da RN19 valem',
 
 describe('QA #47 — condições da RN19 que NÃO devem valer', () => {
   it('PEDAGOGICO e GESTAO como destinatários veem exatamente o mesmo conjunto (todas)', async () => {
-    const pedagogico = (await getLista(ID_PEDAGOGICO)).body.map((o) => o.id);
-    const gestao = (await getLista(ID_GESTAO)).body.map((o) => o.id);
+    const pedagogico = (await getLista(ID_PEDAGOGICO)).body.itens.map((o) => o.id);
+    const gestao = (await getLista(ID_GESTAO)).body.itens.map((o) => o.id);
     expect(pedagogico).toEqual(gestao);
     expect(gestao).toHaveLength(banco.ocorrencias.length);
   });
 
   it('PROFESSOR como responsável pelo acompanhamento NÃO passa a ver (condição exclusiva do Tutor)', async () => {
     const id = novaOcorrencia({ responsavel_acompanhamento_id: ID_PROFESSOR });
-    expect((await getLista(ID_PROFESSOR)).body.map((o) => o.id)).not.toContain(id);
+    expect((await getLista(ID_PROFESSOR)).body.itens.map((o) => o.id)).not.toContain(id);
     expect((await getDetalhe(id, ID_PROFESSOR)).status).toBe(404);
   });
 
@@ -549,14 +556,14 @@ describe('QA #47 — condições da RN19 que NÃO devem valer', () => {
   it('ocorrência só com estudante sem tutor não aparece para nenhum tutor', async () => {
     const id = novaOcorrencia({}, [ID_ESTUDANTE_SEM_TUTOR]);
     for (const usuarioId of [ID_TUTOR, ID_TUTOR_NOVO]) {
-      expect((await getLista(usuarioId)).body.map((o) => o.id)).not.toContain(id);
+      expect((await getLista(usuarioId)).body.itens.map((o) => o.id)).not.toContain(id);
     }
   });
 
   it('tutor que vira PROFESSOR (perfil lido do banco) perde as condições de tutor', async () => {
     banco.usuarios.find((u) => u.id === ID_TUTOR).perfil = 'PROFESSOR';
     // Continua vendo só a que registrou (O7) e a encaminhada a ele (O3).
-    expect((await getLista(ID_TUTOR)).body.map((o) => o.id)).toEqual([7, 3]);
+    expect((await getLista(ID_TUTOR)).body.itens.map((o) => o.id)).toEqual([7, 3]);
   });
 });
 
@@ -570,7 +577,7 @@ describe('QA #47 — lista vazia e coerência lista x detalhe', () => {
     for (const usuarioId of PERFIS_PRINCIPAIS) {
       const res = await getLista(usuarioId);
       expect(res.status).toBe(200);
-      expect(res.body).toEqual([]);
+      expect(res.body.itens).toEqual([]);
     }
   });
 
@@ -578,19 +585,19 @@ describe('QA #47 — lista vazia e coerência lista x detalhe', () => {
     banco.ocorrencias = banco.ocorrencias.filter((o) => o.profissional_responsavel_id !== ID_PROFESSOR);
     const res = await getLista(ID_PROFESSOR);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
+    expect(res.body.itens).toEqual([]);
   });
 
   for (const usuarioId of TODOS_OS_USUARIOS_ATIVOS) {
     it(`usuário ${usuarioId}: todo id da lista abre 200 no detalhe e todo id fora dela dá 404`, async () => {
       const lista = await getLista(usuarioId);
-      const visiveis = new Set(lista.body.map((o) => o.id));
+      const visiveis = new Set(lista.body.itens.map((o) => o.id));
       const maxId = Math.max(...banco.ocorrencias.map((o) => o.id));
       for (let id = 1; id <= maxId + 1; id += 1) {
         const res = await getDetalhe(id, usuarioId);
         expect(res.status, `ocorrência ${id}`).toBe(visiveis.has(id) ? 200 : 404);
         if (visiveis.has(id)) {
-          const item = lista.body.find((o) => o.id === id);
+          const item = lista.body.itens.find((o) => o.id === id);
           // O item resumido é coerente com o detalhe.
           expect(res.body.dataHora).toBe(item.dataHora);
           expect(res.body.local).toBe(item.local);
@@ -609,14 +616,14 @@ describe('QA #47 — formato e dados expostos (RN01, RN17, RN20)', () => {
   for (const usuarioId of PERFIS_PRINCIPAIS) {
     it(`usuário ${usuarioId}: itens da lista só com as chaves resumidas, datas ISO UTC e sem dados sensíveis`, async () => {
       const res = await getLista(usuarioId);
-      expect(res.body.length).toBeGreaterThan(0);
-      for (const item of res.body) {
+      expect(res.body.itens.length).toBeGreaterThan(0);
+      for (const item of res.body.itens) {
         expect(Object.keys(item).sort()).toEqual(CHAVES_ITEM_LISTA);
         expect(item.dataHora).toMatch(ISO_UTC);
         expect(Object.keys(item.profissionalResponsavel).sort()).toEqual(['id', 'nome']);
         for (const e of item.estudantes) expect(Object.keys(e).sort()).toEqual(['id', 'nomeCompleto']);
       }
-      expect(chavesSensiveis(res.body.map(({ status: _s, ...resto }) => resto))).toEqual([]);
+      expect(chavesSensiveis(res.body.itens.map(({ status: _s, ...resto }) => resto))).toEqual([]);
       const texto = JSON.stringify(res.body);
       expect(texto).not.toMatch(/Descrição fictícia|TESTE-000|sisto\.exemplo|hash-ficticio/);
     });
@@ -690,7 +697,7 @@ describe('QA #47 — caminhos e ids no detalhe', () => {
   it('/ocorrencias/ (barra final) é a lista', async () => {
     const res = await request(app).get('/ocorrencias/').set('Authorization', `Bearer ${token(ID_PROFESSOR)}`);
     expect(res.status).toBe(200);
-    expect(res.body.map((o) => o.id)).toEqual([1]);
+    expect(res.body.itens.map((o) => o.id)).toEqual([1]);
   });
 
   for (const id of ['%201', '1%20', '+1', '%EF%BC%91', '0x1', 'null', 'undefined', '1,2']) {
@@ -727,7 +734,7 @@ describe('QA #47 — usuário bloqueado e sessão', () => {
 
   it('destinatário/tutor bloqueado não muda o que os outros veem', async () => {
     banco.usuarios.find((u) => u.id === ID_TUTOR).status = 'BLOQUEADO';
-    expect((await getLista(ID_GESTAO)).body.map((o) => o.id)).toEqual(TODAS);
+    expect((await getLista(ID_GESTAO)).body.itens.map((o) => o.id)).toEqual(TODAS);
     const detalhe = await getDetalhe(3, ID_GESTAO);
     expect(detalhe.status).toBe(200);
     expect(detalhe.body.encaminhamentos[0].destinatarioUsuario.id).toBe(ID_TUTOR);
@@ -766,7 +773,7 @@ describe('QA #47 — POST /ocorrencias inalterado', () => {
     expect(post.body).not.toHaveProperty('comunicacoes');
     expect(post.body).not.toHaveProperty('providencias');
     const lista = await getLista(ID_TUTOR);
-    expect(lista.body[0].id).toBe(post.body.id);
+    expect(lista.body.itens[0].id).toBe(post.body.id);
     const detalhe = await getDetalhe(post.body.id, ID_TUTOR);
     expect(detalhe.body).toEqual({ ...post.body, comunicacoes: [], providencias: [] });
     // Professor que não participa não vê.

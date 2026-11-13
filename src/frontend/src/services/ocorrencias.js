@@ -54,7 +54,10 @@ export function registrarOcorrencia({
 /**
  * Lista as ocorrências que o usuário pode ver (GET /ocorrencias — UC03, RN19).
  * A visibilidade é decidida pelo back-end; a lista já vem resumida e ordenada
- * da mais recente para a mais antiga. Sem filtros nesta versão (Sprint 3).
+ * da mais recente para a mais antiga. Desde a Issue #86 a API responde
+ * paginada ({ itens, total, pagina, tamanhoPagina }, 20 por página); aqui são
+ * lidos só os itens da primeira página — filtros e paginação na tela ficam
+ * para a Issue #87.
  * @returns {Promise<Array<{ id: number, dataHora: string, local: string, status: string,
  *   turma: { id: number, nome: string, etapa: string, anoLetivo: number },
  *   categoria: { id: number, nome: string },
@@ -63,7 +66,7 @@ export function registrarOcorrencia({
  */
 export async function listarOcorrencias() {
   const dados = await requisicaoAutenticada('/ocorrencias');
-  return Array.isArray(dados) ? dados : [];
+  return Array.isArray(dados?.itens) ? dados.itens : [];
 }
 
 /**

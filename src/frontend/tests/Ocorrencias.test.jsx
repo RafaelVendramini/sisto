@@ -21,7 +21,7 @@ import {
   PERFIS_CONSULTA_OCORRENCIAS,
   podeConsultarOcorrencias,
 } from '../src/services/perfis.js';
-import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
+import { gravarSessaoFicticia, paginaOcorrencias, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 
 const URL_API = 'http://api.exemplo.test';
 const PERFIS = ['PROFESSOR', 'TUTOR', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
@@ -173,7 +173,7 @@ const DETALHE_GESTAO = Object.freeze({
  * (id como texto, do jeito que veio na URL).
  */
 function mockarApi({
-  lista = () => respostaFalsa(200, LISTA_FICTICIA),
+  lista = () => respostaFalsa(200, paginaOcorrencias(LISTA_FICTICIA)),
   detalhe = () => respostaFalsa(200, DETALHE_COMPLETO),
 } = {}) {
   fetch.mockImplementation(async (url, opcoes = {}) => {
@@ -349,6 +349,25 @@ describe('Lista e detalhe de ocorrências (#48)', () => {
       expect(opcoes.headers.Authorization).toMatch(/^Bearer /);
     });
 
+    it('lê os itens da resposta paginada { itens, total, pagina, tamanhoPagina } (#86)', async () => {
+      sessao();
+      const vinte = Array.from({ length: 20 }, (_, i) => ({ ...LISTA_FICTICIA[0], id: 100 - i }));
+      mockarApi({ lista: () => respostaFalsa(200, paginaOcorrencias(vinte, { total: 45 })) });
+      renderizarApp('/ocorrencias');
+
+      await screen.findByRole('link', { name: 'Ocorrência nº 100' });
+      expect(cartoes()).toHaveLength(20);
+      expect(screen.getByRole('link', { name: 'Ocorrência nº 81' })).toBeInTheDocument();
+    });
+
+    it('resposta fora do formato paginado (lista solta) não quebra a tela: mostra lista vazia', async () => {
+      sessao();
+      mockarApi({ lista: () => respostaFalsa(200, LISTA_FICTICIA) });
+      renderizarApp('/ocorrencias');
+
+      expect(await screen.findByText('Nenhuma ocorrência para mostrar.')).toBeInTheDocument();
+    });
+
     it('cada cartão leva ao detalhe da ocorrência', async () => {
       sessao();
       mockarApi({ detalhe: () => respostaFalsa(200, DETALHE_MINIMO) });
@@ -378,7 +397,7 @@ describe('Lista e detalhe de ocorrências (#48)', () => {
 
     it('lista vazia mostra mensagem clara', async () => {
       sessao('TECNICO_ADMINISTRATIVO');
-      mockarApi({ lista: () => respostaFalsa(200, []) });
+      mockarApi({ lista: () => respostaFalsa(200, paginaOcorrencias([])) });
       renderizarApp('/ocorrencias');
 
       expect(await screen.findByText('Nenhuma ocorrência para mostrar.')).toBeInTheDocument();
@@ -390,7 +409,7 @@ describe('Lista e detalhe de ocorrências (#48)', () => {
       let falhar = true;
       mockarApi({
         lista: () =>
-          falhar ? Promise.reject(new TypeError('Failed to fetch')) : respostaFalsa(200, LISTA_FICTICIA),
+          falhar ? Promise.reject(new TypeError('Failed to fetch')) : respostaFalsa(200, paginaOcorrencias(LISTA_FICTICIA)),
       });
       renderizarApp('/ocorrencias');
 

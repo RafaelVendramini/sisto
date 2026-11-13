@@ -176,7 +176,14 @@ function delegado(modelo) {
   return {
     findMany: async (args) => {
       anotar(args);
-      return buscar(args).map((r) => selecionar(modelo, r, args?.select));
+      // skip/take: paginação do GET /ocorrencias (Issue #86).
+      const inicio = args?.skip ?? 0;
+      const fim = args?.take === undefined ? undefined : inicio + args.take;
+      return buscar(args).slice(inicio, fim).map((r) => selecionar(modelo, r, args?.select));
+    },
+    count: async (args) => {
+      anotar(args);
+      return buscar(args).length;
     },
     findFirst: async (args) => {
       anotar(args);
