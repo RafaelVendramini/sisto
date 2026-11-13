@@ -4,7 +4,7 @@ import { redefinirSenhaUsuario } from '../services/troca-senha.js';
 
 /** POST /usuarios */
 export async function cadastrar(req, res) {
-  const usuario = await cadastrarUsuario(req.body);
+  const usuario = await cadastrarUsuario(req.body, req.usuario);
   res.status(201).json(usuario);
 }
 

@@ -7,14 +7,17 @@ import request from 'supertest';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-const { findUnique, findMany, create } = vi.hoisted(() => ({
+const { findUnique, findMany, create, criarLog, $transaction } = vi.hoisted(() => ({
   findUnique: vi.fn(),
   findMany: vi.fn(),
   create: vi.fn(),
+  criarLog: vi.fn(),
+  $transaction: vi.fn(),
 }));
 
+// O cadastro grava o usuário e o LogAuditoria numa transação (Issue #91).
 vi.mock('../src/lib/prisma.js', () => ({
-  default: { usuario: { findUnique, findMany, create } },
+  default: { usuario: { findUnique, findMany, create }, logAuditoria: { create: criarLog }, $transaction },
 }));
 
 // Sem vi.mock de services/senha.js: o hash usa o custo real (12). Mockar o
@@ -88,6 +91,14 @@ beforeEach(() => {
     banco.push(registro);
     return selecionar(registro, select);
   });
+
+  criarLog.mockReset();
+  criarLog.mockResolvedValue({ id: 1 });
+
+  $transaction.mockReset();
+  $transaction.mockImplementation(async (fn) =>
+    fn({ usuario: { findUnique, findMany, create }, logAuditoria: { create: criarLog } }),
+  );
 
   findMany.mockReset();
   findMany.mockImplementation(async ({ select }) =>
@@ -532,9 +543,9 @@ describe('Permissões (RN01, Seção 4)', () => {
 describe('cadastrarUsuario — injeção de dependência (service)', () => {
   it('usa o gerarHash injetado (custo baixo) e grava só o hash', async () => {
     const gerarHash = vi.fn((senha) => gerarHashSenha(senha, 4));
-    const db = { usuario: { findUnique, create } };
+    const db = { usuario: { findUnique, create }, $transaction };
 
-    const usuario = await cadastrarUsuario(corpoValido(), { db, gerarHash });
+    const usuario = await cadastrarUsuario(corpoValido(), { id: 3 }, { db, gerarHash });
 
     expect(gerarHash).toHaveBeenCalledWith(SENHA_TEMPORARIA);
     expect(usuario).toEqual({
@@ -553,10 +564,13 @@ describe('cadastrarUsuario — injeção de dependência (service)', () => {
 
   it('e-mail duplicado não chega a gerar hash', async () => {
     const gerarHash = vi.fn();
-    const db = { usuario: { findUnique, create } };
+    const db = { usuario: { findUnique, create }, $transaction };
 
     await expect(
-      cadastrarUsuario(corpoValido({ email: 'gestao.base@sisto.exemplo' }), { db, gerarHash }),
+      cadastrarUsuario(corpoValido({ email: 'gestao.base@sisto.exemplo' }), { id: 3 }, {
+        db,
+        gerarHash,
+      }),
     ).rejects.toMatchObject({ status: 409 });
     expect(gerarHash).not.toHaveBeenCalled();
   });

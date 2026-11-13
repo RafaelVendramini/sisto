@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   estudanteCountGlobal: vi.fn(),
   estudanteCountTx: vi.fn(),
   $transaction: vi.fn(),
+  criarLog: vi.fn(),
 }));
 const { findUnique, findMany, update, count, estudanteCountGlobal, estudanteCountTx, $transaction } =
   mocks;
@@ -30,6 +31,7 @@ vi.mock('../src/lib/prisma.js', () => ({
     },
     // Fora da transação: se a RN13 contasse aqui, o teste de transação falharia.
     estudante: { count: mocks.estudanteCountGlobal },
+    logAuditoria: { create: mocks.criarLog },
     $transaction: mocks.$transaction,
   },
 }));
@@ -149,9 +151,14 @@ beforeEach(() => {
   estudanteCountTx.mockImplementation(contarTutorados);
   mocks.create.mockReset();
 
+  mocks.criarLog.mockReset();
+  mocks.criarLog.mockResolvedValue({ id: 1 });
+
+  // A edição grava o LogAuditoria na mesma transação (Issue #91).
   $transaction.mockReset();
   $transaction.mockImplementation(async (fn) =>
     fn({
+      logAuditoria: { create: mocks.criarLog },
       usuario: { findUnique, findMany, update, count },
       estudante: { count: estudanteCountTx },
     }),
