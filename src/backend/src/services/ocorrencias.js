@@ -39,13 +39,15 @@
 // (ex.: PUT /usuarios bloqueando o destinatário ao mesmo tempo) aborta uma
 // delas (P2034), que é repetida; esgotadas as tentativas, responde 409.
 //
-// Consulta (Issue #47, UC02 passo 1): GET /ocorrencias (lista resumida, sem
-// filtros do RF11 nem paginação) e GET /ocorrencias/{id} (detalhe), ambos
+// Consulta (Issue #47, UC02 passo 1): GET /ocorrencias (lista resumida) e
+// GET /ocorrencias/{id} (detalhe), ambos
 // limitados pela visibilidade da RN19 — ver filtroVisibilidadeOcorrencias,
 // a ÚNICA função que define o que cada usuário pode ver. Ocorrência fora da
 // visibilidade responde 404 igual à inexistente (não revela que existe).
 // RN20: no detalhe, o código escolar dos estudantes só vai para a Gestão.
 // Leitura não grava histórico nem auditoria (mesmo padrão dos outros GETs).
+// Filtros e paginação da lista (Issue #86, RF11, UC03): ver
+// validarFiltrosOcorrencias e listarOcorrencias.
 //
 // Encaminhamento (Issue #49, UC02): POST /ocorrencias/{id}/encaminhamentos —
 // ver a seção "Encaminhamento" no fim do arquivo.
@@ -65,6 +67,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
+import { interpretarPeriodo } from './periodo.js';
 import { paraRespostaTurma } from './turmas.js';
 
 /** Nome do recurso na API, usado no LogAuditoria ("ocorrencias/<id>"). */
@@ -780,13 +783,120 @@ export function filtroVisibilidadeOcorrencias(usuario) {
   return { OR: condicoes };
 }
 
+// ---------------------------------------------------------------------------
+// Filtros e paginação do GET /ocorrencias (Issue #86, RF11, UC03)
+// ---------------------------------------------------------------------------
+
+/** Tamanho FIXO da página da lista (SSD 1.8, Seção 12). */
+export const TAMANHO_PAGINA_OCORRENCIAS = 20;
+
+/** Valores técnicos do status da ocorrência (Seção 11). */
+export const STATUS_OCORRENCIA = Object.freeze(['ABERTO', 'EM_ACOMPANHAMENTO', 'ENCERRADO']);
+
+export const MENSAGEM_FILTRO_ESTUDANTE_INVALIDO =
+  'O filtro estudanteId deve ser um número inteiro positivo.';
+export const MENSAGEM_FILTRO_TURMA_INVALIDO = 'O filtro turmaId deve ser um número inteiro positivo.';
+export const MENSAGEM_FILTRO_CATEGORIA_INVALIDO =
+  'O filtro categoriaId deve ser um número inteiro positivo.';
+export const MENSAGEM_FILTRO_PROFISSIONAL_INVALIDO =
+  'O filtro profissionalResponsavelId deve ser um número inteiro positivo.';
+export const MENSAGEM_FILTRO_STATUS_INVALIDO = `O filtro status deve ser um dos valores: ${STATUS_OCORRENCIA.join(', ')}.`;
+export const MENSAGEM_PAGINA_INVALIDA = 'O parâmetro pagina deve ser um número inteiro a partir de 1.';
+
 /**
- * Lê as ocorrências e as relações em consultas SEQUENCIAIS (no máximo duas
- * relações por consulta, como em lerOcorrenciaParaResposta), sem N+1: uma
- * consulta de ocorrências, uma dos profissionais e uma das associações com
- * estudantes, independentemente do número de ocorrências.
+ * Inteiro positivo da query string: texto decimal simples (sem sinal, zeros à
+ * esquerda, espaços ou expoente) até o maior Int do PostgreSQL. Ausente ->
+ * undefined. Repetido (?turmaId=1&turmaId=2 vira lista), vazio ou fora do
+ * formato: 400 — mesmo padrão do ?turmaId= de /estudantes. Id válido de
+ * registro inexistente não é erro: só não casa com nenhuma ocorrência.
  */
-async function lerListaOcorrencias(tx, filtro) {
+function inteiroPositivoOpcional(valor, mensagem) {
+  if (valor === undefined) return undefined;
+  if (typeof valor !== 'string' || !/^[1-9][0-9]{0,9}$/.test(valor) || Number(valor) > MAIOR_ID) {
+    throw new ErroHttp(400, mensagem);
+  }
+  return Number(valor);
+}
+
+/**
+ * Valida a query string do GET /ocorrencias. Todos os parâmetros são
+ * opcionais; parâmetros desconhecidos são ignorados. Tudo é validado antes de
+ * qualquer consulta ao banco.
+ * @param {Record<string, unknown>} [query] req.query
+ * @returns {{ estudanteId?: number, turmaId?: number, categoriaId?: number,
+ *   status?: string, inicio: Date | null, fim: Date | null,
+ *   profissionalResponsavelId?: number, pagina: number }}
+ * @throws {ErroHttp} 400
+ */
+export function validarFiltrosOcorrencias(query = {}) {
+  const q = query ?? {};
+  const estudanteId = inteiroPositivoOpcional(q.estudanteId, MENSAGEM_FILTRO_ESTUDANTE_INVALIDO);
+  const turmaId = inteiroPositivoOpcional(q.turmaId, MENSAGEM_FILTRO_TURMA_INVALIDO);
+  const categoriaId = inteiroPositivoOpcional(q.categoriaId, MENSAGEM_FILTRO_CATEGORIA_INVALIDO);
+  const profissionalResponsavelId = inteiroPositivoOpcional(
+    q.profissionalResponsavelId,
+    MENSAGEM_FILTRO_PROFISSIONAL_INVALIDO,
+  );
+
+  // Valores exatos do enum (sem trim nem minúsculas), como o ?perfil= de /usuarios.
+  const { status } = q;
+  if (status !== undefined && (typeof status !== 'string' || !STATUS_OCORRENCIA.includes(status))) {
+    throw new ErroHttp(400, MENSAGEM_FILTRO_STATUS_INVALIDO);
+  }
+
+  // Dias inteiros de São Paulo, pontas incluídas (regra compartilhada com a #88).
+  const { inicio, fim } = interpretarPeriodo({ dataInicio: q.dataInicio, dataFim: q.dataFim });
+
+  const pagina = inteiroPositivoOpcional(q.pagina, MENSAGEM_PAGINA_INVALIDA) ?? 1;
+
+  return { estudanteId, turmaId, categoriaId, status, inicio, fim, profissionalResponsavelId, pagina };
+}
+
+/**
+ * `where` do Prisma (modelo Ocorrencia) com os filtros do RF11, SEM a
+ * visibilidade — que listarOcorrencias sempre soma com
+ * `{ AND: [filtros, filtroVisibilidadeOcorrencias(usuario)] }`, para que
+ * nenhum filtro amplie o que o perfil vê (RN19). Filtro ausente não restringe;
+ * os presentes se combinam com E lógico.
+ * - estudanteId: ocorrências que envolvem o estudante;
+ * - turmaId: turma DA OCORRÊNCIA (turma de referência — RN14), e não a turma
+ *   atual do estudante;
+ * - profissionalResponsavelId: quem registrou a ocorrência (RN02);
+ * - inicio/fim: sobre a data/hora do fato (data_hora), pontas incluídas.
+ */
+export function condicoesFiltrosOcorrencias(filtros) {
+  const condicoes = {};
+  if (filtros.estudanteId !== undefined) {
+    condicoes.estudantes = { some: { estudante_id: filtros.estudanteId } };
+  }
+  if (filtros.turmaId !== undefined) condicoes.turma_id = filtros.turmaId;
+  if (filtros.categoriaId !== undefined) condicoes.categoria_id = filtros.categoriaId;
+  if (filtros.status !== undefined) condicoes.status = filtros.status;
+  if (filtros.profissionalResponsavelId !== undefined) {
+    condicoes.profissional_responsavel_id = filtros.profissionalResponsavelId;
+  }
+  if (filtros.inicio || filtros.fim) {
+    condicoes.data_hora = {
+      ...(filtros.inicio ? { gte: filtros.inicio } : {}),
+      ...(filtros.fim ? { lte: filtros.fim } : {}),
+    };
+  }
+  return condicoes;
+}
+
+/**
+ * Lê uma página de ocorrências e as relações em consultas SEQUENCIAIS (no
+ * máximo duas relações por consulta, como em lerOcorrenciaParaResposta), sem
+ * N+1: a contagem, as ocorrências da página, os profissionais e as
+ * associações com estudantes, qualquer que seja o tamanho da página.
+ * Total zero ou página além da última: só a contagem roda (assim o salto
+ * enviado ao banco nunca passa do total).
+ */
+async function lerListaOcorrencias(tx, filtro, pagina) {
+  const total = await tx.ocorrencia.count({ where: filtro });
+  const salto = (pagina - 1) * TAMANHO_PAGINA_OCORRENCIAS;
+  if (salto >= total) return { ocorrencias: [], total };
+
   const ocorrencias = await tx.ocorrencia.findMany({
     where: filtro,
     select: {
@@ -798,10 +908,12 @@ async function lerListaOcorrencias(tx, filtro) {
       turma: { select: SELECAO_TURMA_RESUMO },
       categoria: { select: { id: true, nome: true } },
     },
-    // Mais recente primeiro; id desc desempata fatos com a mesma data/hora.
+    // Mais recente primeiro; id desc desempata fatos com a mesma data/hora
+    // (ordem total: as páginas não repetem nem pulam itens).
     orderBy: [{ data_hora: 'desc' }, { id: 'desc' }],
+    skip: salto,
+    take: TAMANHO_PAGINA_OCORRENCIAS,
   });
-  if (ocorrencias.length === 0) return [];
 
   const idsProfissionais = [...new Set(ocorrencias.map((o) => o.profissional_responsavel_id))];
   const profissionais = await tx.usuario.findMany({
@@ -809,11 +921,10 @@ async function lerListaOcorrencias(tx, filtro) {
     select: { id: true, nome: true },
   });
 
-  // As associações vêm pelo MESMO filtro de visibilidade (e não por uma lista
-  // de ids, que cresceria com o número de ocorrências); a transação garante
-  // que as duas consultas enxergam o mesmo conjunto.
+  // Associações só das ocorrências desta página (no máximo 20 ids); a
+  // transação garante que as consultas enxergam o mesmo conjunto.
   const associacoes = await tx.ocorrenciaEstudante.findMany({
-    where: Object.keys(filtro).length > 0 ? { ocorrencia: filtro } : {},
+    where: { ocorrencia_id: { in: ocorrencias.map((o) => o.id) } },
     select: { ocorrencia_id: true, estudante: { select: { id: true, nome_completo: true } } },
     orderBy: [{ estudante: { nome_completo: 'asc' } }, { estudante_id: 'asc' }],
   });
@@ -824,11 +935,14 @@ async function lerListaOcorrencias(tx, filtro) {
     if (!estudantesPorOcorrencia.has(ocorrenciaId)) estudantesPorOcorrencia.set(ocorrenciaId, []);
     estudantesPorOcorrencia.get(ocorrenciaId).push(estudante);
   }
-  return ocorrencias.map((o) => ({
-    ...o,
-    profissional_responsavel: profissionalPorId.get(o.profissional_responsavel_id),
-    estudantes: estudantesPorOcorrencia.get(o.id) ?? [],
-  }));
+  return {
+    total,
+    ocorrencias: ocorrencias.map((o) => ({
+      ...o,
+      profissional_responsavel: profissionalPorId.get(o.profissional_responsavel_id),
+      estudantes: estudantesPorOcorrencia.get(o.id) ?? [],
+    })),
+  };
 }
 
 /**
@@ -893,17 +1007,33 @@ function emLeituraConsistente(db, operacao) {
 }
 
 /**
- * Lista as ocorrências visíveis ao usuário (RN19), da mais recente para a mais
- * antiga (data_hora desc, id desc), sem filtros (RF11 na Sprint 3) e sem
- * paginação. Itens no formato resumido.
+ * Lista paginada das ocorrências visíveis ao usuário (RN19) que atendem aos
+ * filtros do RF11 (Issue #86), da mais recente para a mais antiga (data_hora
+ * desc, id desc), com itens no formato resumido da #47 e 20 por página.
+ * Os filtros entram SEMPRE combinados com a visibilidade
+ * (`{ AND: [filtros, visibilidade] }`): profissionalResponsavelId é aceito
+ * para qualquer perfil, mas nunca amplia o que ele vê. Página além da última:
+ * itens vazio (200).
  * @param {{ id: number, perfil: string }} solicitante req.usuario
+ * @param {Record<string, unknown>} [query] req.query
  * @param {object} [deps]
  * @param {object} [deps.db] client Prisma (injetável em testes)
+ * @returns {Promise<{ itens: object[], total: number, pagina: number, tamanhoPagina: number }>}
+ * @throws {ErroHttp} 400 (parâmetro inválido)
  */
-export async function listarOcorrencias(solicitante, { db = prisma } = {}) {
-  const filtro = filtroVisibilidadeOcorrencias(solicitante);
-  const ocorrencias = await emLeituraConsistente(db, (tx) => lerListaOcorrencias(tx, filtro));
-  return ocorrencias.map(paraRespostaItemListaOcorrencia);
+export async function listarOcorrencias(solicitante, query = {}, { db = prisma } = {}) {
+  const visibilidade = filtroVisibilidadeOcorrencias(solicitante);
+  const filtros = validarFiltrosOcorrencias(query);
+  const filtro = { AND: [condicoesFiltrosOcorrencias(filtros), visibilidade] };
+  const { ocorrencias, total } = await emLeituraConsistente(db, (tx) =>
+    lerListaOcorrencias(tx, filtro, filtros.pagina),
+  );
+  return {
+    itens: ocorrencias.map(paraRespostaItemListaOcorrencia),
+    total,
+    pagina: filtros.pagina,
+    tamanhoPagina: TAMANHO_PAGINA_OCORRENCIAS,
+  };
 }
 
 /**
@@ -1637,11 +1767,8 @@ export async function listarHistoricoOcorrencia(idUrl, solicitante, { db = prism
 // O 409 ainda não traz o campo `codigo` estável (Seção 12, v1.8): ele depende
 // do padrão da Issue #72 (D1), ainda não implementado.
 
-/** Perfis que podem encerrar (Seção 4, RN22); o Tutor só se for o responsável. */
+/** Perfis que podem encerrar (Seção 4, RN22); o Tutor só se for o responsável. STATUS_OCORRENCIA fica na seção de filtros (#86). */
 export const PERFIS_ENCERRAMENTO = Object.freeze(['GESTAO', 'PEDAGOGICO', 'TUTOR']);
-
-/** Valores técnicos do status da ocorrência (Seção 11). */
-export const STATUS_OCORRENCIA = Object.freeze(['ABERTO', 'EM_ACOMPANHAMENTO', 'ENCERRADO']);
 
 /** Descrição fixa do histórico do encerramento (RN08, Seção 12). */
 export const DESCRICAO_HISTORICO_ACOMPANHAMENTO_PARA_ENCERRADO = 'De em acompanhamento para encerrado';

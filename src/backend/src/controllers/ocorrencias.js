@@ -10,9 +10,9 @@ import {
   registrarProvidencia,
 } from '../services/ocorrencias.js';
 
-/** GET /ocorrencias */
+/** GET /ocorrencias — filtros e paginação na query string (Issue #86). */
 export async function listar(req, res) {
-  const ocorrencias = await listarOcorrencias(req.usuario);
+  const ocorrencias = await listarOcorrencias(req.usuario, req.query);
   res.status(200).json(ocorrencias);
 }
 

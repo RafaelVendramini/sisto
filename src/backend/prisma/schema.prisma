@@ -209,6 +209,8 @@ model Ocorrencia {
   @@index([categoria_id])
   @@index([profissional_responsavel_id])
   @@index([responsavel_acompanhamento_id])
+  // Ordenação da lista (data/hora do fato desc) e filtro por período (Issue #86, RF11).
+  @@index([data_hora])
   @@map("ocorrencias")
 }
 

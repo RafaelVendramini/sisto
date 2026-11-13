@@ -177,7 +177,14 @@ function delegado(modelo, emTransacao) {
   return {
     findMany: async (args) => {
       anotar('findMany', args);
-      return buscar(args).map((r) => selecionar(modelo, r, args?.select));
+      // skip/take: paginação do GET /ocorrencias (Issue #86).
+      const inicio = args?.skip ?? 0;
+      const fim = args?.take === undefined ? undefined : inicio + args.take;
+      return buscar(args).slice(inicio, fim).map((r) => selecionar(modelo, r, args?.select));
+    },
+    count: async (args) => {
+      anotar('count', args);
+      return buscar(args).length;
     },
     findFirst: async (args) => {
       anotar('findFirst', args);
@@ -509,7 +516,7 @@ describe('Matriz de visibilidade por perfil (RN19)', () => {
     it(`${ROTULO[id]}: GET /ocorrencias devolve exatamente ${esperado.join(', ')}`, async () => {
       const res = await getLista(id);
       expect(res.status).toBe(200);
-      expect(res.body.map((o) => o.id)).toEqual(esperado);
+      expect(res.body.itens.map((o) => o.id)).toEqual(esperado);
     });
 
     it(`${ROTULO[id]}: GET /ocorrencias/{id} responde 200 nas visíveis e 404 nas demais`, async () => {
@@ -532,22 +539,22 @@ describe('Matriz de visibilidade por perfil (RN19)', () => {
 
   it('o tutor ATUAL desse estudante vê a ocorrência, inclusive anterior à troca', async () => {
     const res = await getLista(ID_TUTOR_NOVO);
-    expect(res.body.map((o) => o.id)).toEqual([6]);
+    expect(res.body.itens.map((o) => o.id)).toEqual([6]);
     expect((await getDetalhe(6, ID_TUTOR_NOVO)).status).toBe(200);
   });
 
   it('trocar o tutor do estudante muda a visibilidade na consulta seguinte', async () => {
     // O5 é visível ao tutor apenas pelo tutorado (não registrou, não recebeu nem acompanha).
     banco.estudantes.find((e) => e.id === ID_ESTUDANTE_TUTORADO).tutor_id = ID_TUTOR_NOVO;
-    expect((await getLista(ID_TUTOR)).body.map((o) => o.id)).toEqual([7, 4, 3]);
+    expect((await getLista(ID_TUTOR)).body.itens.map((o) => o.id)).toEqual([7, 4, 3]);
     expect((await getDetalhe(5, ID_TUTOR)).status).toBe(404);
-    expect((await getLista(ID_TUTOR_NOVO)).body.map((o) => o.id)).toEqual([5, 6]);
+    expect((await getLista(ID_TUTOR_NOVO)).body.itens.map((o) => o.id)).toEqual([5, 6]);
     expect((await getDetalhe(5, ID_TUTOR_NOVO)).status).toBe(200);
   });
 
   it('estudante desvinculado (tutor_id null) tira a ocorrência da visão do ex-tutor', async () => {
     banco.estudantes.find((e) => e.id === ID_ESTUDANTE_TUTORADO).tutor_id = null;
-    expect((await getLista(ID_TUTOR)).body.map((o) => o.id)).toEqual([7, 4, 3]);
+    expect((await getLista(ID_TUTOR)).body.itens.map((o) => o.id)).toEqual([7, 4, 3]);
   });
 
   it('ex-tutor que ainda acompanha a ocorrência continua vendo (outra condição da RN19)', async () => {
@@ -561,7 +568,7 @@ describe('Matriz de visibilidade por perfil (RN19)', () => {
       id: 99, ocorrencia_id: 2, destinatario_perfil: 'GESTAO', destinatario_usuario_id: ID_PROFESSOR,
       registrado_por_id: ID_OUTRO_PROFESSOR, data_hora: data('2026-10-11T10:00:00.000Z'), observacao: null,
     });
-    expect((await getLista(ID_PROFESSOR)).body.map((o) => o.id)).toEqual([2, 1]);
+    expect((await getLista(ID_PROFESSOR)).body.itens.map((o) => o.id)).toEqual([2, 1]);
   });
 });
 
@@ -572,7 +579,7 @@ describe('GET /ocorrencias — lista resumida', () => {
   it('itens no formato resumido (sem descrição, textos, encaminhamentos nem comunicações)', async () => {
     const res = await getLista(ID_GESTAO);
     expect(res.status).toBe(200);
-    for (const item of res.body) {
+    for (const item of res.body.itens) {
       expect(Object.keys(item).sort()).toEqual(
         ['categoria', 'dataHora', 'estudantes', 'id', 'local', 'profissionalResponsavel', 'status', 'turma'].sort(),
       );
@@ -585,7 +592,7 @@ describe('GET /ocorrencias — lista resumida', () => {
 
   it('conteúdo de um item (O5): datas em ISO 8601 UTC, turma, categoria, profissional e estudantes por nome', async () => {
     const res = await getLista(ID_GESTAO);
-    const o5 = res.body.find((o) => o.id === 5);
+    const o5 = res.body.itens.find((o) => o.id === 5);
     expect(o5).toEqual({
       id: 5,
       dataHora: '2026-10-08T12:00:00.000Z',
@@ -609,39 +616,52 @@ describe('GET /ocorrencias — lista resumida', () => {
 
   it('ordena por data/hora desc e desempata por id desc', async () => {
     const res = await getLista(ID_GESTAO);
-    expect(res.body.map((o) => o.id)).toEqual(TODAS);
-    const datas = res.body.map((o) => Date.parse(o.dataHora));
+    expect(res.body.itens.map((o) => o.id)).toEqual(TODAS);
+    const datas = res.body.itens.map((o) => Date.parse(o.dataHora));
     expect([...datas].sort((a, b) => b - a)).toEqual(datas);
   });
 
   it('estudantes com o mesmo nome são desempatados por id', async () => {
     banco.estudantes.find((e) => e.id === ID_ESTUDANTE_TUTORADO).nome_completo = 'Estudante Fictício Alfa';
-    const o5 = (await getLista(ID_GESTAO)).body.find((o) => o.id === 5);
+    const o5 = (await getLista(ID_GESTAO)).body.itens.find((o) => o.id === 5);
     expect(o5.estudantes.map((e) => e.id)).toEqual([1, 2]);
   });
 
-  it('usa 3 consultas sequenciais numa transação REPEATABLE READ, qualquer que seja o número de ocorrências (sem N+1)', async () => {
+  it('usa 4 consultas sequenciais (contagem + página) numa transação REPEATABLE READ, qualquer que seja o número de ocorrências (sem N+1)', async () => {
     await getLista(ID_GESTAO);
-    expect(consultasTx).toEqual(['ocorrencia.findMany', 'usuario.findMany', 'ocorrenciaEstudante.findMany']);
+    expect(consultasTx).toEqual([
+      'ocorrencia.count',
+      'ocorrencia.findMany',
+      'usuario.findMany',
+      'ocorrenciaEstudante.findMany',
+    ]);
     expect(mocks.$transaction).toHaveBeenCalledTimes(1);
     expect(mocks.$transaction.mock.calls[0][1]).toEqual({ isolationLevel: 'RepeatableRead' });
   });
 
-  it('sem ocorrências visíveis devolve [] com uma só consulta', async () => {
+  it('sem ocorrências visíveis devolve página vazia com uma só consulta (a contagem)', async () => {
     banco.ocorrencias = [];
     banco.ocorrenciasEstudantes = [];
     const res = await getLista(ID_GESTAO);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([]);
-    expect(consultasTx).toEqual(['ocorrencia.findMany']);
+    expect(res.body).toEqual({ itens: [], total: 0, pagina: 1, tamanhoPagina: 20 });
+    expect(consultasTx).toEqual(['ocorrencia.count']);
   });
 
-  it('ignora query string (filtros do RF11 ficam para a Sprint 3)', async () => {
+  it('sem query string: página 1 com o total visível (Issue #86 — novo contrato)', async () => {
+    const res = await getLista(ID_TUTOR);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 4, pagina: 1, tamanhoPagina: 20 });
+    expect(Object.keys(res.body).sort()).toEqual(['itens', 'pagina', 'tamanhoPagina', 'total']);
+  });
+
+  it('filtros não ampliam a visibilidade (Issue #86): o Tutor filtrando por turma e status só vê as dele', async () => {
     const res = await request(app)
-      .get('/ocorrencias?turmaId=2&status=ENCERRADO')
+      .get('/ocorrencias?turmaId=1&status=EM_ACOMPANHAMENTO')
       .set('Authorization', `Bearer ${token(ID_TUTOR)}`);
     expect(res.status).toBe(200);
-    expect(res.body.map((o) => o.id)).toEqual(ESPERADO_POR_USUARIO[ID_TUTOR]);
+    expect(res.body.itens.map((o) => o.id)).toEqual([5, 4]);
+    expect(res.body.total).toBe(2);
   });
 
   it('não grava histórico nem auditoria', async () => {
@@ -854,7 +874,7 @@ describe('GET /ocorrencias e /ocorrencias/{id} — autenticação', () => {
       expiresIn: '8h',
     });
     const res = await request(app).get('/ocorrencias').set('Authorization', `Bearer ${tokenGestao}`);
-    expect(res.body.map((o) => o.id)).toEqual(ESPERADO_POR_USUARIO[ID_PROFESSOR]);
+    expect(res.body.itens.map((o) => o.id)).toEqual(ESPERADO_POR_USUARIO[ID_PROFESSOR]);
   });
 });
 
@@ -900,6 +920,6 @@ describe('POST /ocorrencias continua com o mesmo 201 (Issue #45)', () => {
     expect(gestao.body.estudantes.map((e) => e.codigoEscolar)).toEqual(['TESTE-0002', 'TESTE-0001']);
 
     // E entra no topo da lista de quem registrou.
-    expect((await getLista(ID_TECNICO)).body.map((o) => o.id)).toEqual([post.body.id, 8]);
+    expect((await getLista(ID_TECNICO)).body.itens.map((o) => o.id)).toEqual([post.body.id, 8]);
   });
 });

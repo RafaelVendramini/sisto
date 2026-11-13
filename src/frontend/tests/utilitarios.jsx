@@ -36,6 +36,14 @@ export function respostaFalsa(status, corpo) {
   };
 }
 
+/**
+ * Corpo paginado do GET /ocorrencias (Issue #86): { itens, total, pagina, tamanhoPagina }.
+ * @param {object[]} itens
+ */
+export function paginaOcorrencias(itens, { total = itens.length, pagina = 1 } = {}) {
+  return { itens, total, pagina, tamanhoPagina: 20 };
+}
+
 export function renderizarApp(rota = '/') {
   return render(
     <MemoryRouter initialEntries={[rota]}>

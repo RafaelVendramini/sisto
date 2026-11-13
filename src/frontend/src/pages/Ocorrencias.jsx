@@ -7,8 +7,8 @@ import { listarOcorrencias } from '../services/ocorrencias.js';
 
 // Ocorrências (UC03, RF05, RN19): lista somente leitura das ocorrências que o
 // usuário pode ver, da mais recente para a mais antiga. Disponível aos 5
-// perfis; a visibilidade é decidida pelo back-end. Sem filtros nesta versão
-// (o RF11 é da Sprint 3).
+// perfis; a visibilidade é decidida pelo back-end. A API é paginada (#86);
+// a tela mostra a primeira página. Filtros e paginação na tela: Issue #87.
 export default function Ocorrencias() {
   useTituloPagina('Ocorrências');
   const [ocorrencias, setOcorrencias] = useState([]);
