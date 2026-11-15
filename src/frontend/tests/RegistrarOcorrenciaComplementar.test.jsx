@@ -493,7 +493,7 @@ describe('Tela de registro de ocorrência — testes complementares de QA (#46)'
       gravarSessaoFicticia();
       const mensagem =
         'Não foi possível registrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.';
-      mockarApi({ aoRegistrar: () => respostaFalsa(409, { erro: mensagem }) });
+      mockarApi({ aoRegistrar: () => respostaFalsa(409, { erro: mensagem, codigo: 'CONFLITO_CONCORRENTE' }) });
       await abrirPagina();
       const c = await preencherValido(usuario);
 

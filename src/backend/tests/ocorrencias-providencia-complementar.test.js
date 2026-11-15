@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -484,7 +485,7 @@ describe('QA — autenticação e perfil (RN01/RF14, RN09)', () => {
   it('troca de senha pendente vem antes do 400 do id e do corpo', async () => {
     const res = await providenciar('abc', {}, ID_TROCA_PENDENTE);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
   });
 
   it('Professor definido (por dado inconsistente) como responsável pelo acompanhamento continua com 403 (RN22)', async () => {
@@ -520,7 +521,7 @@ describe('QA — ordem das respostas de erro', () => {
     bancoInicial = structuredClone(banco);
     const res = await providenciar(O_ABERTA, corpo(), ID_TUTOR);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ABERTA_PROVIDENCIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ABERTA_PROVIDENCIA, codigo: CODIGOS_ERRO.OCORRENCIA_ABERTA });
     esperarNadaGravado();
   });
 
@@ -548,8 +549,11 @@ describe('QA — ordem das respostas de erro', () => {
       await providenciar(O_ENCERRADA, { descricao: texto }, ID_GESTAO), // 409
     ];
     expect(respostas.map((r) => r.status)).toEqual([404, 403, 409]);
+    expect(respostas[2].body.codigo).toBe(CODIGOS_ERRO.OCORRENCIA_ENCERRADA);
     for (const r of respostas) {
-      expect(Object.keys(r.body)).toEqual(['erro']);
+      // Só o 409 traz, além de `erro`, o código estável (#72, D1); o 403 por
+      // perfil (RN22) continua sem código.
+      expect(Object.keys(r.body)).toEqual(r.status === 409 ? ['erro', 'codigo'] : ['erro']);
       expect(JSON.stringify(r.body)).not.toMatch(/QA-123|Fictíci|TESTE-|Local fictício/);
     }
   });
@@ -738,7 +742,7 @@ describe('QA — conflito concorrente', () => {
     mocks.$transaction.mockRejectedValue(erroPrisma('P2034'));
     const res = await providenciar(O_ACOMPANHAMENTO, corpo());
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_PROVIDENCIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_PROVIDENCIA, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
     expect(res.body.erro).not.toBe(MENSAGEM_OCORRENCIA_ABERTA_PROVIDENCIA);
     expect(res.body.erro).not.toBe(MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA);
   });

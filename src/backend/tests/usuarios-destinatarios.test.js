@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
@@ -203,10 +204,11 @@ function put(id, corpo, token = tokenDe(ID_GESTAO)) {
   return request(app).put(`/usuarios/${id}`).set('Authorization', `Bearer ${token}`).send(corpo);
 }
 
-function esperarErro(res, status, mensagem) {
+// `codigo`: código estável do corpo de erro (todo 409 e o 403 da RN10 — #72, D1).
+function esperarErro(res, status, mensagem, codigo) {
   expect(res.status).toBe(status);
   expect(res.headers['content-type']).toMatch(/application\/json/);
-  expect(res.body).toEqual({ erro: mensagem });
+  expect(res.body).toEqual(codigo ? { erro: mensagem, codigo } : { erro: mensagem });
 }
 
 // ---------------------------------------------------------------------------
@@ -325,7 +327,7 @@ describe('GET /usuarios — demais perfis recebem a lista reduzida (RN20)', () =
 
     const res = await getUsuarios('PROFESSOR');
 
-    esperarErro(res, 403, MENSAGEM_TROCA_SENHA_OBRIGATORIA);
+    esperarErro(res, 403, MENSAGEM_TROCA_SENHA_OBRIGATORIA, CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA);
     expect(findMany).not.toHaveBeenCalled();
   });
 });
@@ -398,7 +400,7 @@ describe('PUT /usuarios/{id} — troca de perfil de Tutor com tutorados (RN13, 4
     async (novoPerfil) => {
       const res = await put(ID_TUTOR_COM_TUTORADOS, { perfil: novoPerfil });
 
-      esperarErro(res, 409, MENSAGEM_TUTOR_COM_TUTORADOS);
+      esperarErro(res, 409, MENSAGEM_TUTOR_COM_TUTORADOS, CODIGOS_ERRO.TUTOR_COM_TUTORADOS);
       expect(update).not.toHaveBeenCalled();
       expect(buscar(ID_TUTOR_COM_TUTORADOS).perfil).toBe('TUTOR');
     },
@@ -411,7 +413,7 @@ describe('PUT /usuarios/{id} — troca de perfil de Tutor com tutorados (RN13, 4
       status: 'BLOQUEADO',
     });
 
-    esperarErro(res, 409, MENSAGEM_TUTOR_COM_TUTORADOS);
+    esperarErro(res, 409, MENSAGEM_TUTOR_COM_TUTORADOS, CODIGOS_ERRO.TUTOR_COM_TUTORADOS);
     expect(buscar(ID_TUTOR_COM_TUTORADOS)).toMatchObject({
       nome: 'Ana Tutora Ficticia',
       perfil: 'TUTOR',
@@ -453,7 +455,7 @@ describe('PUT /usuarios/{id} — troca de perfil de Tutor com tutorados (RN13, 4
 
     const res = await put(ID_TUTOR_SEM_TUTORADOS, { perfil: 'PROFESSOR' });
 
-    esperarErro(res, 409, MENSAGEM_TUTOR_COM_TUTORADOS);
+    esperarErro(res, 409, MENSAGEM_TUTOR_COM_TUTORADOS, CODIGOS_ERRO.TUTOR_COM_TUTORADOS);
     expect($transaction).toHaveBeenCalledTimes(2);
   });
 
@@ -466,7 +468,7 @@ describe('PUT /usuarios/{id} — troca de perfil de Tutor com tutorados (RN13, 4
 
     const res = await put(ID_TUTOR_SEM_TUTORADOS, { perfil: 'PROFESSOR' });
 
-    esperarErro(res, 409, MENSAGEM_CONFLITO_CONCORRENTE);
+    esperarErro(res, 409, MENSAGEM_CONFLITO_CONCORRENTE, CODIGOS_ERRO.CONFLITO_CONCORRENTE);
   });
 });
 
@@ -507,7 +509,7 @@ describe('PUT /usuarios/{id} — o que continua permitido (RN13, RN07)', () => {
 
     const res = await put(ID_TUTOR_BLOQUEADO, { perfil: 'PROFESSOR' });
 
-    esperarErro(res, 409, MENSAGEM_TUTOR_COM_TUTORADOS);
+    esperarErro(res, 409, MENSAGEM_TUTOR_COM_TUTORADOS, CODIGOS_ERRO.TUTOR_COM_TUTORADOS);
   });
 
   it('promover outro perfil a TUTOR não consulta tutorados: 200', async () => {

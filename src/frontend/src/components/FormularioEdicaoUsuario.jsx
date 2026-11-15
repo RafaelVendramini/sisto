@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { ROTULOS_PERFIL } from '../services/perfis.js';
 import {
+  MENSAGEM_EMAIL_DUPLICADO,
   ehConflitoDeEmail,
   listaPodeEstarDesatualizada,
   mensagemErroAlteracaoUsuario,
@@ -105,7 +106,9 @@ export default function FormularioEdicaoUsuario({
       if (falha?.status === 401) return; // tratamento central: volta ao login com aviso
       if (listaPodeEstarDesatualizada(falha)) aoListaDesatualizada?.();
       if (ehConflitoDeEmail(falha)) {
-        const errosApi = { email: falha.message };
+        const errosApi = {
+          email: falha.doServidor && falha.message ? falha.message : MENSAGEM_EMAIL_DUPLICADO,
+        };
         setErrosCampos(errosApi);
         focarPrimeiroInvalido(errosApi);
       } else {

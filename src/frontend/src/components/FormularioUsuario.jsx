@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
-import { MENSAGEM_EMAIL_DUPLICADO } from '../services/mensagensUsuarios.js';
+import {
+  ehEmailDuplicadoNoCadastro,
+  MENSAGEM_EMAIL_DUPLICADO,
+} from '../services/mensagensUsuarios.js';
 import { ROTULOS_PERFIL } from '../services/perfis.js';
 import { cadastrarUsuario } from '../services/usuarios.js';
 import {
@@ -127,11 +130,11 @@ export default function FormularioUsuario({ aoCadastrar }) {
     } catch (falha) {
       const status = falha?.status;
       if (status === 401) return; // tratamento central: volta ao login com aviso
-      if (status === 409) {
+      if (ehEmailDuplicadoNoCadastro(falha)) {
         const errosApi = { email: MENSAGEM_EMAIL_DUPLICADO };
         setErrosCampos(errosApi);
         focarPrimeiroInvalido(errosApi);
-      } else if (status === 400 && falha?.doServidor && falha?.message) {
+      } else if ((status === 400 || status === 409) && falha?.doServidor && falha?.message) {
         setErro(falha.message);
       } else if (status === 403) {
         setErro(MENSAGEM_SEM_PERMISSAO);

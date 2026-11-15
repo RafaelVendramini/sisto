@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -481,7 +482,7 @@ describe('POST /ocorrencias/{id}/providencias — autenticação e perfis (Seç�
   it('troca de senha pendente responde 403 sem gravar', async () => {
     const res = await providenciar(O_ACOMPANHAMENTO, corpo(), ID_TROCA_PENDENTE);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.$transaction).not.toHaveBeenCalled();
     esperarNadaGravado();
   });
@@ -553,7 +554,7 @@ describe('RN19/RN22 — Tutor', () => {
   it('responsável por ocorrência ENCERRADO: 409 (passa da permissão e para no status)', async () => {
     const res = await providenciar(O_ENCERRADA, corpo(), ID_TUTOR);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
     esperarNadaGravado();
   });
 
@@ -726,14 +727,14 @@ describe('RN04 — só em "em acompanhamento"', () => {
     it(`ABERTO: 409 sem gravar (${rotulo})`, async () => {
       const res = await providenciar(O_ABERTA, corpo(), id);
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ABERTA_PROVIDENCIA });
+      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ABERTA_PROVIDENCIA, codigo: CODIGOS_ERRO.OCORRENCIA_ABERTA });
       esperarNadaGravado();
     });
 
     it(`ENCERRADO: 409 sem gravar (${rotulo})`, async () => {
       const res = await providenciar(O_ENCERRADA, corpo(), id);
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA });
+      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
       esperarNadaGravado();
     });
   }
@@ -976,7 +977,7 @@ describe('transação única SERIALIZABLE', () => {
     });
     const res = await providenciar(O_ACOMPANHAMENTO, corpo());
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
     expect(banco.providencias).toHaveLength(1);
     expect(banco.historicos).toHaveLength(0);
   });
@@ -999,7 +1000,7 @@ describe('transação única SERIALIZABLE', () => {
     mocks.$transaction.mockRejectedValue(erroPrisma('P2034'));
     const res = await providenciar(O_ACOMPANHAMENTO, corpo());
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_PROVIDENCIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_PROVIDENCIA, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
     expect(MENSAGEM_CONFLITO_CONCORRENTE_PROVIDENCIA).toMatch(/Tente novamente\.$/);
     expect(mocks.$transaction).toHaveBeenCalledTimes(3);
     esperarNadaGravado();

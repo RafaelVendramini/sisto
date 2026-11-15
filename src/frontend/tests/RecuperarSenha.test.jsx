@@ -194,7 +194,7 @@ describe('Recuperação de acesso (#18)', () => {
       const msgConflito =
         'A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.';
       gravarSessaoFicticia({ usuario: PROFESSOR_FICTICIO });
-      mockarApi({ 'PUT /conta/senha': () => respostaFalsa(409, { erro: msgConflito }) });
+      mockarApi({ 'PUT /conta/senha': () => respostaFalsa(409, { erro: msgConflito, codigo: 'CONFLITO_CONCORRENTE' }) });
       renderizarApp('/conta/senha');
 
       await preencherTroca();
@@ -373,7 +373,7 @@ describe('Recuperação de acesso (#18)', () => {
 
     it('o 403 de troca pendente em qualquer chamada leva à tela de troca', async () => {
       gravarSessaoFicticia();
-      mockarApi({ 'GET /usuarios': () => respostaFalsa(403, { erro: MSG_TROCA_PENDENTE }) });
+      mockarApi({ 'GET /usuarios': () => respostaFalsa(403, { erro: MSG_TROCA_PENDENTE, codigo: 'TROCA_SENHA_OBRIGATORIA' }) });
       renderizarApp('/usuarios');
 
       expect(
@@ -382,6 +382,44 @@ describe('Recuperação de acesso (#18)', () => {
       expect(screen.getByRole('note')).toHaveTextContent(MSG_TROCA_PENDENTE);
       expect(screen.queryByRole('navigation', { name: 'Menu principal' })).not.toBeInTheDocument();
       expect(JSON.parse(sessaoGravada()).trocaSenhaObrigatoria).toBe(true);
+    });
+
+    it('o 403 com código TROCA_SENHA_OBRIGATORIA leva à troca mesmo com outro texto (#72)', async () => {
+      gravarSessaoFicticia();
+      mockarApi({
+        'GET /usuarios': () =>
+          respostaFalsa(403, { erro: 'Texto fictício diferente.', codigo: 'TROCA_SENHA_OBRIGATORIA' }),
+      });
+      renderizarApp('/usuarios');
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Alterar minha senha' }),
+      ).toBeInTheDocument();
+      expect(JSON.parse(sessaoGravada()).trocaSenhaObrigatoria).toBe(true);
+    });
+
+    it('o 403 sem código cai na reserva pelo texto e leva à tela de troca (#72)', async () => {
+      gravarSessaoFicticia();
+      mockarApi({ 'GET /usuarios': () => respostaFalsa(403, { erro: MSG_TROCA_PENDENTE }) });
+      renderizarApp('/usuarios');
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'Alterar minha senha' }),
+      ).toBeInTheDocument();
+      expect(JSON.parse(sessaoGravada()).trocaSenhaObrigatoria).toBe(true);
+    });
+
+    it('o 403 com o texto da troca mas outro código não leva à tela de troca (#72)', async () => {
+      gravarSessaoFicticia();
+      mockarApi({
+        'GET /usuarios': () =>
+          respostaFalsa(403, { erro: MSG_TROCA_PENDENTE, codigo: 'OUTRO_CODIGO_FICTICIO' }),
+      });
+      renderizarApp('/usuarios');
+
+      expect(await screen.findByText('Acesso não permitido para o seu perfil.')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'Usuários' })).toBeInTheDocument();
+      expect(JSON.parse(sessaoGravada())).not.toHaveProperty('trocaSenhaObrigatoria');
     });
 
     it('outro 403 (perfil sem permissão) não leva à tela de troca', async () => {
@@ -505,7 +543,7 @@ describe('Recuperação de acesso (#18)', () => {
 
     it('409 (própria senha) mostra a mensagem clara no diálogo', async () => {
       gravarSessaoFicticia();
-      mockarUsuarios(() => respostaFalsa(409, { erro: MSG_PROPRIA_SENHA }));
+      mockarUsuarios(() => respostaFalsa(409, { erro: MSG_PROPRIA_SENHA, codigo: 'REDEFINIR_PROPRIA_SENHA' }));
       const dialogo = await abrirDialogo('Bruno Ficcional');
 
       await usuario.type(within(dialogo).getByLabelText('Nova senha temporária'), SENHA_TEMPORARIA);

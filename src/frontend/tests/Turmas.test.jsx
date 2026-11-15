@@ -314,7 +314,7 @@ describe('Tela de turmas (#41)', () => {
     });
 
     it('409 de turma repetida mostra a mensagem do servidor e marca os três campos', async () => {
-      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_DUPLICADA }) });
+      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_DUPLICADA, codigo: 'TURMA_DUPLICADA' }) });
       await abrirPagina();
 
       const c = formularioCadastro();
@@ -406,7 +406,7 @@ describe('Tela de turmas (#41)', () => {
     });
 
     it('o aviso de turma repetida (409) some ao alterar qualquer um dos três campos', async () => {
-      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_DUPLICADA }) });
+      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_DUPLICADA, codigo: 'TURMA_DUPLICADA' }) });
       await abrirPagina();
 
       const c = formularioCadastro();
@@ -502,7 +502,7 @@ describe('Tela de turmas (#41)', () => {
     });
 
     it('409 de turma repetida mostra mensagem clara e mantém o diálogo aberto', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUPLICADA }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUPLICADA, codigo: 'TURMA_DUPLICADA' }) });
       const dialogo = await abrirEdicao('1º B (Ensino Médio, 2026)');
 
       const nome = within(dialogo).getByLabelText('Nome');
@@ -540,7 +540,7 @@ describe('Tela de turmas (#41)', () => {
     });
 
     it('409 de alteração simultânea mostra aviso geral e recarrega a lista', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_CONCORRENCIA }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_CONCORRENCIA, codigo: 'CONFLITO_CONCORRENTE' }) });
       const dialogo = await abrirEdicao('1º B (Ensino Médio, 2026)');
 
       await usuario.type(within(dialogo).getByLabelText('Nome'), ' tarde');

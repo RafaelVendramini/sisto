@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const { findUnique, findMany, create, update, count, $transaction, criarLog } = vi.hoisted(() => ({
   criarLog: vi.fn(),
@@ -177,10 +178,13 @@ function esperarSemHash(res) {
   expect(texto).not.toContain('$2b$');
 }
 
-function esperarErro(res, status, mensagem) {
+// `codigo`: código estável do corpo de erro (todo 409 — #72, D1); sem ele,
+// o corpo tem só `erro`.
+function esperarErro(res, status, mensagem, codigo) {
   expect(res.status).toBe(status);
   expect(res.headers['content-type']).toMatch(/application\/json/);
-  expect(Object.keys(res.body)).toEqual(['erro']);
+  expect(Object.keys(res.body)).toEqual(codigo ? ['erro', 'codigo'] : ['erro']);
+  if (codigo) expect(res.body.codigo).toBe(codigo);
   if (mensagem instanceof RegExp) expect(res.body.erro).toMatch(mensagem);
   else if (mensagem) expect(res.body.erro).toBe(mensagem);
   else expect(res.body.erro.length).toBeGreaterThan(0);
@@ -489,7 +493,7 @@ describe('PUT /usuarios/{id} — e-mail duplicado (409)', () => {
   it('pré-checagem: e-mail de outro usuário (após normalizar)', async () => {
     const res = await put(ID_ALVO, { email: ' TUTOR.base@sisto.exemplo ' });
 
-    esperarErro(res, 409, MENSAGEM_EMAIL_DUPLICADO);
+    esperarErro(res, 409, MENSAGEM_EMAIL_DUPLICADO, CODIGOS_ERRO.EMAIL_DUPLICADO);
     expect(update).not.toHaveBeenCalled();
     expect(buscar(ID_ALVO).email).toBe(EMAIL_ALVO);
   });
@@ -506,7 +510,7 @@ describe('PUT /usuarios/{id} — e-mail duplicado (409)', () => {
       throw erroPrisma('P2002', 'Unique constraint failed on the fields: (`email`)');
     });
 
-    esperarErro(await put(ID_ALVO, { email: 'outro@sisto.exemplo' }), 409, MENSAGEM_EMAIL_DUPLICADO);
+    esperarErro(await put(ID_ALVO, { email: 'outro@sisto.exemplo' }), 409, MENSAGEM_EMAIL_DUPLICADO, CODIGOS_ERRO.EMAIL_DUPLICADO);
   });
 
   it('outro erro do banco: 500 genérico', async () => {
@@ -531,7 +535,7 @@ describe('PUT /usuarios/{id} — ao menos duas Gestões ativas (RN11, 409)', () 
     adicionarGestao(8);
     const res = await put(ID_GESTAO, corpo);
 
-    esperarErro(res, 409, MENSAGEM_ALTERAR_PROPRIO_ACESSO);
+    esperarErro(res, 409, MENSAGEM_ALTERAR_PROPRIO_ACESSO, CODIGOS_ERRO.ALTERAR_PROPRIO_ACESSO);
     expect(update).not.toHaveBeenCalled();
     expect(buscar(ID_GESTAO)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
   });
@@ -546,7 +550,7 @@ describe('PUT /usuarios/{id} — ao menos duas Gestões ativas (RN11, 409)', () 
     extras.forEach((id) => adicionarGestao(id));
     for (const corpo of [{ status: 'BLOQUEADO' }, { status: 'DESATIVADO' }, { perfil: 'PEDAGOGICO' }]) {
       const res = await put(ID_GESTAO, corpo);
-      esperarErro(res, 409, MENSAGEM_ALTERAR_PROPRIO_ACESSO);
+      esperarErro(res, 409, MENSAGEM_ALTERAR_PROPRIO_ACESSO, CODIGOS_ERRO.ALTERAR_PROPRIO_ACESSO);
     }
     expect(update).not.toHaveBeenCalled();
     expect(buscar(ID_GESTAO)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
@@ -587,7 +591,7 @@ describe('PUT /usuarios/{id} — ao menos duas Gestões ativas (RN11, 409)', () 
       adicionarGestao(7); // Gestões ativas: 3 (solicitante) e 7
       const res = await put(7, corpo);
 
-      esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS);
+      esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS, CODIGOS_ERRO.GESTAO_ATIVA_MINIMA);
       expect(update).not.toHaveBeenCalled();
       expect(buscar(7)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
       expect(count).toHaveBeenCalledWith({
@@ -616,7 +620,7 @@ describe('PUT /usuarios/{id} — ao menos duas Gestões ativas (RN11, 409)', () 
       adicionarGestao(8, statusInativo);
       const res = await put(7, { status: 'BLOQUEADO' });
 
-      esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS);
+      esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS, CODIGOS_ERRO.GESTAO_ATIVA_MINIMA);
       expect(update).not.toHaveBeenCalled();
     },
   );
@@ -628,7 +632,7 @@ describe('PUT /usuarios/{id} — ao menos duas Gestões ativas (RN11, 409)', () 
     expect((await put(7, { status: 'BLOQUEADO' })).status).toBe(200);
     const res = await put(8, { status: 'DESATIVADO' });
 
-    esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS);
+    esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS, CODIGOS_ERRO.GESTAO_ATIVA_MINIMA);
     expect(buscar(8)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
   });
 
@@ -712,7 +716,7 @@ describe('PUT /usuarios/{id} — concorrência (transação serializável)', () 
       throw erroPrisma('P2034', 'Transaction failed due to a write conflict or a deadlock.');
     });
 
-    esperarErro(await put(ID_ALVO, { nome: 'Docente Editado' }), 409, MENSAGEM_CONFLITO_CONCORRENTE);
+    esperarErro(await put(ID_ALVO, { nome: 'Docente Editado' }), 409, MENSAGEM_CONFLITO_CONCORRENTE, CODIGOS_ERRO.CONFLITO_CONCORRENTE);
     expect($transaction).toHaveBeenCalledTimes(3);
   });
 });

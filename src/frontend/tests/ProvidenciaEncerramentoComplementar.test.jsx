@@ -154,13 +154,17 @@ describe('Providência e encerramento — complementares do QA (#84)', () => {
 
   describe('409 do encerramento com as mensagens reais do back-end (#82)', () => {
     it.each([
-      ['sem providência (outra pessoa apagou/corrida)', API_ENCERRAR_SEM_PROVIDENCIA],
-      ['ocorrência ainda aberta', API_ENCERRAR_ABERTA],
-      ['já encerrada', API_JA_ENCERRADA],
-      ['conflito concorrente', API_CONFLITO_ENCERRAMENTO],
-    ])('%s: mostra o texto do back-end e oferece "Atualizar a ocorrência"', async (_, mensagem) => {
+      [
+        'sem providência (outra pessoa apagou/corrida)',
+        API_ENCERRAR_SEM_PROVIDENCIA,
+        'ENCERRAMENTO_SEM_PROVIDENCIA',
+      ],
+      ['ocorrência ainda aberta', API_ENCERRAR_ABERTA, 'OCORRENCIA_ABERTA'],
+      ['já encerrada', API_JA_ENCERRADA, 'OCORRENCIA_ENCERRADA'],
+      ['conflito concorrente', API_CONFLITO_ENCERRAMENTO, 'CONFLITO_CONCORRENTE'],
+    ])('%s: mostra o texto do back-end e oferece "Atualizar a ocorrência"', async (_, mensagem, codigo) => {
       const dialogo = await abrirEncerramento({
-        encerrar: () => respostaFalsa(409, { erro: mensagem }),
+        encerrar: () => respostaFalsa(409, { erro: mensagem, codigo }),
       });
       await confirmarEncerramento(dialogo);
       const alerta = await within(dialogo).findByRole('alert');
@@ -175,7 +179,10 @@ describe('Providência e encerramento — complementares do QA (#84)', () => {
       let consultas = 0;
       const dialogo = await abrirEncerramento({
         detalhe: () => respostaFalsa(200, ++consultas === 1 ? BASE : SEM_PROVIDENCIA),
-        encerrar: () => respostaFalsa(409, { erro: API_ENCERRAR_SEM_PROVIDENCIA }),
+        encerrar: () => respostaFalsa(409, {
+          erro: API_ENCERRAR_SEM_PROVIDENCIA,
+          codigo: 'ENCERRAMENTO_SEM_PROVIDENCIA',
+        }),
       });
       await confirmarEncerramento(dialogo);
       const alerta = await within(dialogo).findByRole('alert');
@@ -204,7 +211,7 @@ describe('Providência e encerramento — complementares do QA (#84)', () => {
   describe('409 da providência com as mensagens reais do back-end (#81)', () => {
     it('ocorrência ainda aberta: texto do back-end e "Atualizar a ocorrência"', async () => {
       const dialogo = await abrirProvidencia({
-        providencia: () => respostaFalsa(409, { erro: API_PROVIDENCIA_ABERTA }),
+        providencia: () => respostaFalsa(409, { erro: API_PROVIDENCIA_ABERTA, codigo: 'OCORRENCIA_ABERTA' }),
       });
       await usuario.type(within(dialogo).getByLabelText('Descrição da providência'), 'Texto fictício.');
       await usuario.click(within(dialogo).getByRole('button', { name: 'Registrar' }));

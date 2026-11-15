@@ -1,13 +1,15 @@
 // Mensagens, rótulos e validação da tela de estudantes (RF15, RF16, RN13,
 // RN18, RNF02): nada técnico aparece na tela. Para 400/404/409 o texto vem do
 // back-end (campo `erro`).
+import { CODIGOS_ERRO, falhaTemCodigo } from './codigosErro.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from './mensagens.js';
 
 // Limites técnicos do back-end (Issue #42), após remover espaços nas pontas.
 export const TAMANHO_MAXIMO_NOME_ESTUDANTE = 150;
 export const TAMANHO_MAXIMO_CODIGO_ESCOLAR = 150;
 
-// Textos do contrato do back-end (POST/PUT /estudantes).
+// Textos do contrato do back-end (POST/PUT /estudantes). O tipo do 409 é
+// identificado pelo `codigo` (Issue #72); o texto só é reserva sem código.
 export const MENSAGEM_CODIGO_ESCOLAR_DUPLICADO =
   'Já existe um estudante cadastrado com este código escolar.';
 export const MENSAGEM_ALTERACAO_SIMULTANEA_ESTUDANTE =
@@ -60,11 +62,19 @@ export function validarEstudante({ nomeCompleto, codigoEscolar, turmaId }) {
 }
 
 /**
- * Indica se o 409 é de código escolar repetido (RN18). O outro 409 possível
- * é o de alteração simultânea.
+ * Indica se o 409 é de código escolar repetido (RN18 — codigo
+ * CODIGO_ESCOLAR_DUPLICADO). O outro 409 possível é o de alteração
+ * simultânea. Sem código, vale a reserva pelo texto.
  */
 export function ehCodigoDuplicado(falha) {
-  return falha?.status === 409 && falha?.message !== MENSAGEM_ALTERACAO_SIMULTANEA_ESTUDANTE;
+  return (
+    falha?.status === 409 &&
+    falhaTemCodigo(
+      falha,
+      CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO,
+      (f) => f.message !== MENSAGEM_ALTERACAO_SIMULTANEA_ESTUDANTE,
+    )
+  );
 }
 
 /** Mensagem do 409 de código repetido (texto do back-end, ou o mesmo texto fixo). */
@@ -79,7 +89,14 @@ export function mensagemCodigoDuplicado(falha) {
  */
 export function listaPodeEstarDesatualizada(falha) {
   if (falha?.status === 404) return true;
-  return falha?.status === 409 && falha?.message === MENSAGEM_ALTERACAO_SIMULTANEA_ESTUDANTE;
+  return (
+    falha?.status === 409 &&
+    falhaTemCodigo(
+      falha,
+      CODIGOS_ERRO.CONFLITO_CONCORRENTE,
+      (f) => f.message === MENSAGEM_ALTERACAO_SIMULTANEA_ESTUDANTE,
+    )
+  );
 }
 
 /**

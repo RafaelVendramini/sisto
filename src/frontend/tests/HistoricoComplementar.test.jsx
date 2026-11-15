@@ -317,7 +317,7 @@ describe('Histórico no detalhe — complementar do QA (#85)', () => {
     mockarApi({
       detalhe: () => respostaFalsa(200, ++consultas === 1 ? DETALHE : DETALHE_ENCERRADO),
       historico: (n) => respostaFalsa(200, n === 0 ? HISTORICO_CURTO : HISTORICO_ENCERRADA),
-      encerrar: () => respostaFalsa(409, { erro: 'A ocorrência já foi encerrada.' }),
+      encerrar: () => respostaFalsa(409, { erro: 'A ocorrência já foi encerrada.', codigo: 'OCORRENCIA_ENCERRADA' }),
     });
     renderizarApp('/ocorrencias/12');
     await itens(2);

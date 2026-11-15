@@ -4,8 +4,9 @@ export const MENSAGEM_SEM_CONEXAO =
   'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 
 // Texto do 403 do back-end enquanto a troca de senha obrigatória está pendente
-// (RN10, Issue #18). O contrato não traz um código próprio para esse caso:
-// o front-end reconhece o 403 por esta mensagem e leva o usuário à troca.
+// (RN10, Issue #18). Desde a #72 (D1), o 403 é reconhecido pelo código
+// TROCA_SENHA_OBRIGATORIA (codigosErro.js); este texto é exibido na tela de
+// troca e serve de reserva quando a resposta vem sem código.
 export const MENSAGEM_TROCA_SENHA_PENDENTE =
   'Você precisa trocar a sua senha temporária para continuar usando o sistema.';
 

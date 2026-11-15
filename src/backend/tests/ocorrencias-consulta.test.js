@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -856,7 +857,7 @@ describe('GET /ocorrencias e /ocorrencias/{id} — autenticação', () => {
   it('403 com troca de senha pendente (mesmo sendo Gestão)', async () => {
     for (const res of [await getLista(ID_TROCA_PENDENTE), await getDetalhe(1, ID_TROCA_PENDENTE)]) {
       expect(res.status).toBe(403);
-      expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+      expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     }
     expect(mocks.$transaction).not.toHaveBeenCalled();
   });

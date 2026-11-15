@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   usuarioFindUnique: vi.fn(),
@@ -246,7 +247,7 @@ describe('GET /turmas', () => {
       .get('/turmas')
       .set('Authorization', `Bearer ${tokenDoUsuario(ID_TROCA_PENDENTE)}`);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.turmaFindMany).not.toHaveBeenCalled();
   });
 });
@@ -313,7 +314,7 @@ describe('POST /turmas', () => {
       .set('Authorization', `Bearer ${tokenDoUsuario(ID_TROCA_PENDENTE)}`)
       .send(TURMA_VALIDA);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.turmaCreate).not.toHaveBeenCalled();
   });
 
@@ -395,7 +396,7 @@ describe('POST /turmas', () => {
   ])('turma duplicada no mesmo ano (%s) responde 409 (RN18) e nada é gravado', async (_caso, nome, etapa) => {
     const res = await postTurmas({ nome, etapa, anoLetivo: 2026 });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_TURMA_DUPLICADA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TURMA_DUPLICADA, codigo: CODIGOS_ERRO.TURMA_DUPLICADA });
     expect(mocks.turmaCreate).not.toHaveBeenCalled();
     expect(logs).toHaveLength(0);
   });
@@ -509,7 +510,7 @@ describe('PUT /turmas/{id}', () => {
   ])('trio de outra turma no mesmo ano (%s) responde 409 (RN18)', async (_caso, nome) => {
     const res = await putTurma(2, { nome, etapa: EM, anoLetivo: 2026 });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_TURMA_DUPLICADA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TURMA_DUPLICADA, codigo: CODIGOS_ERRO.TURMA_DUPLICADA });
     expect(mocks.turmaUpdate).not.toHaveBeenCalled();
     expect(logs).toHaveLength(0);
   });
@@ -541,7 +542,7 @@ describe('PUT /turmas/{id}', () => {
       .set('Authorization', `Bearer ${tokenDoUsuario(ID_TROCA_PENDENTE)}`)
       .send(TURMA_VALIDA);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.turmaUpdate).not.toHaveBeenCalled();
   });
 });
@@ -585,7 +586,7 @@ describe('Concorrência no cadastro de turmas', () => {
     });
     const res = await postTurmas({ nome: '3º c', etapa: EM, anoLetivo: 2026 });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_TURMA_DUPLICADA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TURMA_DUPLICADA, codigo: CODIGOS_ERRO.TURMA_DUPLICADA });
     expect(mocks.$transaction).toHaveBeenCalledTimes(2);
   });
 
@@ -607,7 +608,7 @@ describe('Concorrência no cadastro de turmas', () => {
     mocks.$transaction.mockRejectedValue(erroPrisma('P2034'));
     const res = await postTurmas(TURMA_VALIDA);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_TURMA });
+    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_TURMA, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
     expect(mocks.$transaction).toHaveBeenCalledTimes(3);
   });
 

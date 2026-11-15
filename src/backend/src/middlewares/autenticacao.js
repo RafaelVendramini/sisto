@@ -2,7 +2,7 @@
 // A regra (token válido + usuário ativo no banco, RN09) fica em
 // services/sessao.js; aqui só há a parte HTTP.
 import { Perfil } from '@prisma/client';
-import { ErroHttp } from '../lib/erros.js';
+import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
 import { erroNaoAutenticado, verificarSessao } from '../services/sessao.js';
 
 /** Mensagem do 403 enquanto a troca de senha obrigatória estiver pendente (RN10). */
@@ -53,7 +53,9 @@ export function bloquearComTrocaDeSenhaPendente(req, res, next) {
     throw erroNaoAutenticado();
   }
   if (req.usuario.trocaSenhaObrigatoria) {
-    throw new ErroHttp(403, MENSAGEM_TROCA_SENHA_OBRIGATORIA);
+    throw new ErroHttp(403, MENSAGEM_TROCA_SENHA_OBRIGATORIA, {
+      codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA,
+    });
   }
   next();
 }

@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
@@ -387,7 +388,7 @@ describe('PUT /usuarios/{id} — RN13: ordem e transação', () => {
     const res = await put(ID.TUTOR_COM_TUTORADOS, { perfil: 'PROFESSOR' });
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_TUTOR_COM_TUTORADOS });
+    expect(res.body).toEqual({ erro: MENSAGEM_TUTOR_COM_TUTORADOS, codigo: CODIGOS_ERRO.TUTOR_COM_TUTORADOS });
     expect(estudanteCountTx).toHaveBeenCalledWith({ where: { tutor_id: ID.TUTOR_COM_TUTORADOS } });
     expect(estudanteCountGlobal).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
@@ -415,7 +416,7 @@ describe('PUT /usuarios/{id} — RN13: ordem e transação', () => {
     });
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO });
+    expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO, codigo: CODIGOS_ERRO.EMAIL_DUPLICADO });
     expect(update).not.toHaveBeenCalled();
   });
 
@@ -423,7 +424,7 @@ describe('PUT /usuarios/{id} — RN13: ordem e transação', () => {
     const res = await put(ID.TUTOR_DESATIVADO, { perfil: 'PEDAGOGICO' });
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_TUTOR_COM_TUTORADOS });
+    expect(res.body).toEqual({ erro: MENSAGEM_TUTOR_COM_TUTORADOS, codigo: CODIGOS_ERRO.TUTOR_COM_TUTORADOS });
     expect(buscar(ID.TUTOR_DESATIVADO).perfil).toBe('TUTOR');
   });
 

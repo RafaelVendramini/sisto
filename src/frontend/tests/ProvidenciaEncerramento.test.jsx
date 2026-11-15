@@ -500,7 +500,8 @@ describe('Providência e encerramento no detalhe da ocorrência (#84)', () => {
       it('409: mensagem do back-end e "Atualizar a ocorrência" recarrega sem os botões', async () => {
         const mensagemApi = 'Ocorrência encerrada não recebe providências.';
         let consultas = 0;
-        const { alerta } = await enviarComErro(() => respostaFalsa(409, { erro: mensagemApi }), {
+        const conflito = { erro: mensagemApi, codigo: 'OCORRENCIA_ENCERRADA' };
+        const { alerta } = await enviarComErro(() => respostaFalsa(409, conflito), {
           detalhe: () =>
             respostaFalsa(200, ++consultas === 1 ? DETALHE_COM_PROVIDENCIA : DETALHE_ENCERRADO),
         });
@@ -516,7 +517,9 @@ describe('Providência e encerramento no detalhe da ocorrência (#84)', () => {
       it('409 de conflito concorrente: mensagem do back-end com "Atualizar a ocorrência"', async () => {
         const mensagemApi =
           'Não foi possível registrar a providência por causa de outra operação ao mesmo tempo. Tente novamente.';
-        const { alerta } = await enviarComErro(() => respostaFalsa(409, { erro: mensagemApi }));
+        const { alerta } = await enviarComErro(() =>
+          respostaFalsa(409, { erro: mensagemApi, codigo: 'CONFLITO_CONCORRENTE' }),
+        );
         expect(alerta).toHaveTextContent(mensagemApi);
         expect(
           within(alerta).getByRole('button', { name: 'Atualizar a ocorrência' }),
@@ -675,7 +678,8 @@ describe('Providência e encerramento no detalhe da ocorrência (#84)', () => {
       it('409 (já encerrada por outra pessoa): mensagem do back-end e "Atualizar a ocorrência"', async () => {
         const mensagemApi = 'A ocorrência já está encerrada.';
         let consultas = 0;
-        const { alerta } = await encerrarComErro(() => respostaFalsa(409, { erro: mensagemApi }), {
+        const conflito = { erro: mensagemApi, codigo: 'OCORRENCIA_ENCERRADA' };
+        const { alerta } = await encerrarComErro(() => respostaFalsa(409, conflito), {
           detalhe: () =>
             respostaFalsa(200, ++consultas === 1 ? DETALHE_COM_PROVIDENCIA : DETALHE_ENCERRADO),
         });

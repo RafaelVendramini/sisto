@@ -1,6 +1,7 @@
 // Módulo base para chamadas à API do Sisto.
 // A URL vem da variável de ambiente VITE_API_URL (ver .env.example); nunca fica fixa no código.
 
+import { CODIGOS_ERRO, falhaTemCodigo } from './codigosErro.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_TROCA_SENHA_PENDENTE } from './mensagens.js';
 
 const MENSAGEM_PADRAO = 'Não foi possível concluir a ação. Tente novamente.';
@@ -11,12 +12,15 @@ export class ErroApi extends Error {
    * @param {string} mensagem
    * @param {number} status - 0 quando não houve resposta (sem conexão)
    * @param {boolean} [doServidor=false] - true se a mensagem veio do campo `erro` da API
+   * @param {string | null} [codigo=null] - código estável do campo `codigo` da API
+   *   (ver codigosErro.js — Issue #72), ou null quando a resposta não trouxe
    */
-  constructor(mensagem, status, doServidor = false) {
+  constructor(mensagem, status, doServidor = false, codigo = null) {
     super(mensagem);
     this.name = 'ErroApi';
     this.status = status;
     this.doServidor = doServidor;
+    this.codigo = codigo;
   }
 }
 
@@ -41,8 +45,9 @@ export function definirAoNaoAutenticado(callback) {
 }
 
 // Troca de senha obrigatória pendente (RN10): quando uma chamada autenticada
-// recebe o 403 específico desse caso, o app é avisado para levar o usuário à
-// tela de troca. Os demais 403 (perfil sem permissão) seguem para a tela.
+// recebe o 403 específico desse caso (codigo TROCA_SENHA_OBRIGATORIA; sem
+// código, pela mensagem), o app é avisado para levar o usuário à tela de
+// troca. Os demais 403 (perfil sem permissão) seguem para a tela.
 let aoTrocaSenhaPendente = null;
 
 /**
@@ -126,17 +131,22 @@ export async function requisicao(
       aoNaoAutenticado();
     }
     const doServidor = Boolean(dados && typeof dados.erro === 'string' && dados.erro);
+    const codigo = dados && typeof dados.codigo === 'string' && dados.codigo ? dados.codigo : null;
+    const mensagem = doServidor ? dados.erro : MENSAGEM_PADRAO;
+    const falha = new ErroApi(mensagem, resposta.status, doServidor, codigo);
     if (
       resposta.status === 403 &&
       exigeSessao &&
-      doServidor &&
-      dados.erro === MENSAGEM_TROCA_SENHA_PENDENTE &&
-      aoTrocaSenhaPendente
+      aoTrocaSenhaPendente &&
+      falhaTemCodigo(
+        falha,
+        CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA,
+        (f) => f.doServidor && f.message === MENSAGEM_TROCA_SENHA_PENDENTE,
+      )
     ) {
       aoTrocaSenhaPendente();
     }
-    const mensagem = doServidor ? dados.erro : MENSAGEM_PADRAO;
-    throw new ErroApi(mensagem, resposta.status, doServidor);
+    throw falha;
   }
 
   return dados;

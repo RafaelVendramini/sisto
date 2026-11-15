@@ -324,7 +324,7 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
     });
 
     it('409 de e-mail já cadastrado aparece junto ao campo E-mail', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_EMAIL_DUPLICADO }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_EMAIL_DUPLICADO, codigo: 'EMAIL_DUPLICADO' }) });
       await abrirPagina();
       await usuario.click(screen.getByRole('button', { name: 'Editar Bruno Ficcional' }));
       const dialogo = screen.getByRole('dialog', { name: 'Editar usuário' });
@@ -344,7 +344,7 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
     });
 
     it('409 da RN11 (mínimo de dois usuários Gestão ativos) mostra a mensagem do back-end', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUAS_GESTOES }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUAS_GESTOES, codigo: 'GESTAO_ATIVA_MINIMA' }) });
       await abrirPagina();
       await usuario.click(screen.getByRole('button', { name: 'Editar Bruno Ficcional' }));
       const dialogo = screen.getByRole('dialog', { name: 'Editar usuário' });
@@ -511,7 +511,7 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
     });
 
     it('409 da RN11 mostra a mensagem do back-end e mantém o status', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_PROPRIO_USUARIO }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_PROPRIO_USUARIO, codigo: 'ALTERAR_PROPRIO_ACESSO' }) });
       await abrirPagina();
 
       await usuario.click(screen.getByRole('button', { name: 'Desativar Bruno Ficcional' }));
@@ -526,8 +526,11 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
     });
 
     it('409 de mínimo de duas Gestões ativas e de alteração simultânea mostram a mensagem do back-end', async () => {
-      const respostas = [MSG_DUAS_GESTOES, MSG_CONCORRENCIA];
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: respostas.shift() }) });
+      const respostas = [
+        { erro: MSG_DUAS_GESTOES, codigo: 'GESTAO_ATIVA_MINIMA' },
+        { erro: MSG_CONCORRENCIA, codigo: 'CONFLITO_CONCORRENTE' },
+      ];
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, respostas.shift()) });
       await abrirPagina();
 
       await usuario.click(screen.getByRole('button', { name: 'Bloquear Bruno Ficcional' }));
@@ -548,7 +551,7 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
         ...USUARIOS_FICTICIOS,
         { id: 5, nome: 'Joana Exemplo', email: 'joana@sisto.exemplo', perfil: 'GESTAO', status: 'ATIVO' },
       ];
-      mockarApi({ lista, aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUAS_GESTOES }) });
+      mockarApi({ lista, aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUAS_GESTOES, codigo: 'GESTAO_ATIVA_MINIMA' }) });
       await abrirPagina();
 
       await usuario.click(screen.getByRole('button', { name: 'Desativar Joana Exemplo' }));
@@ -765,7 +768,7 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
     it('após 409 de alteração simultânea ou 404, recarrega a lista em segundo plano', async () => {
       let versao = 0;
       const respostas = [
-        respostaFalsa(409, { erro: MSG_CONCORRENCIA }),
+        respostaFalsa(409, { erro: MSG_CONCORRENCIA, codigo: 'CONFLITO_CONCORRENTE' }),
         respostaFalsa(404, { erro: 'Usuário não encontrado.' }),
       ];
       mockarApi({
@@ -798,7 +801,7 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
     });
 
     it('409 de regra (RN11) não recarrega a lista', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUAS_GESTOES }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUAS_GESTOES, codigo: 'GESTAO_ATIVA_MINIMA' }) });
       await abrirPagina();
       await usuario.click(screen.getByRole('button', { name: 'Bloquear Bruno Ficcional' }));
       const dialogo = screen.getByRole('alertdialog', { name: 'Bloquear usuário' });

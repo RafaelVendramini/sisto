@@ -497,7 +497,10 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
 
     it('409 de código repetido na edição: só o 409 não-concorrente marca o campo', async () => {
       mockarApi({
-        aoAtualizar: () => respostaFalsa(409, { erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO }),
+        aoAtualizar: () => respostaFalsa(409, {
+          erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO,
+          codigo: 'CODIGO_ESCOLAR_DUPLICADO',
+        }),
       });
       await abrirPagina();
       await usuario.click(screen.getByRole('button', { name: 'Editar Estudante Fictício 03' }));

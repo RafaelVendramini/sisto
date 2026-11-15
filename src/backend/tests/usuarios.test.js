@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const { findUnique, findMany, create, criarLog, $transaction } = vi.hoisted(() => ({
   findUnique: vi.fn(),
@@ -241,7 +242,7 @@ describe('POST /usuarios — cadastro pela Gestão (201)', () => {
         .get(caminho)
         .set('Authorization', `Bearer ${login.body.token}`);
       expect(res.status).toBe(403);
-      expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+      expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     }
   });
 
@@ -398,7 +399,7 @@ describe('POST /usuarios — e-mail duplicado (409)', () => {
     const res = await postUsuarios(corpoValido({ email: ' PROFESSOR.base@sisto.exemplo ' }));
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO });
+    expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO, codigo: CODIGOS_ERRO.EMAIL_DUPLICADO });
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -407,7 +408,7 @@ describe('POST /usuarios — e-mail duplicado (409)', () => {
     const res = await postUsuarios(corpoValido({ nome: 'Outro Nome' }));
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO });
+    expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO, codigo: CODIGOS_ERRO.EMAIL_DUPLICADO });
   });
 
   it('corrida: violação de unicidade do Prisma (P2002) no create vira 409, não 500', async () => {
@@ -427,7 +428,7 @@ describe('POST /usuarios — e-mail duplicado (409)', () => {
     const res = await postUsuarios(corpoValido());
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO });
+    expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO, codigo: CODIGOS_ERRO.EMAIL_DUPLICADO });
   });
 
   it('outro erro do banco no create: 500 genérico', async () => {

@@ -26,7 +26,7 @@
 // (P2034) é repetido e, esgotadas as tentativas, responde 409.
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
-import { ErroHttp } from '../lib/erros.js';
+import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { paraRespostaTurma } from './turmas.js';
 
@@ -234,7 +234,9 @@ async function garantirCodigoDisponivel(tx, codigoEscolar, idIgnorado) {
     select: { id: true },
   });
   if (existente && existente.id !== idIgnorado) {
-    throw new ErroHttp(409, MENSAGEM_CODIGO_ESCOLAR_DUPLICADO);
+    throw new ErroHttp(409, MENSAGEM_CODIGO_ESCOLAR_DUPLICADO, {
+      codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO,
+    });
   }
 }
 
@@ -253,10 +255,14 @@ async function emTransacaoSerializavel(db, operacao) {
       if (erro instanceof ErroHttp) throw erro;
       if (erro?.code === 'P2034') {
         if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_ESTUDANTE);
+        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_ESTUDANTE, {
+          codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
+        });
       }
       if (erro?.code === 'P2002') {
-        throw new ErroHttp(409, MENSAGEM_CODIGO_ESCOLAR_DUPLICADO);
+        throw new ErroHttp(409, MENSAGEM_CODIGO_ESCOLAR_DUPLICADO, {
+          codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO,
+        });
       }
       throw erro;
     }

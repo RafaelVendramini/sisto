@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   usuarioFindUnique: vi.fn(),
@@ -216,7 +217,7 @@ describe('GET /categorias', () => {
       .get('/categorias')
       .set('Authorization', `Bearer ${tokenDoUsuario(ID_TROCA_PENDENTE)}`);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.categoriaFindMany).not.toHaveBeenCalled();
   });
 });
@@ -287,7 +288,7 @@ describe('POST /categorias', () => {
       .set('Authorization', `Bearer ${tokenDoUsuario(ID_TROCA_PENDENTE)}`)
       .send({ nome: 'Evasão' });
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.categoriaCreate).not.toHaveBeenCalled();
   });
 
@@ -337,7 +338,7 @@ describe('POST /categorias', () => {
   ])('nome duplicado (%s) responde 409 (RN18) e nada é gravado', async (_caso, nome) => {
     const res = await postCategorias({ nome });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CATEGORIA_DUPLICADA });
+    expect(res.body).toEqual({ erro: MENSAGEM_CATEGORIA_DUPLICADA, codigo: CODIGOS_ERRO.CATEGORIA_DUPLICADA });
     expect(mocks.categoriaCreate).not.toHaveBeenCalled();
     expect(logs).toHaveLength(0);
   });
@@ -433,7 +434,7 @@ describe('PUT /categorias/{id}', () => {
     async (nome) => {
       const res = await putCategoria(1, { nome });
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_CATEGORIA_DUPLICADA });
+      expect(res.body).toEqual({ erro: MENSAGEM_CATEGORIA_DUPLICADA, codigo: CODIGOS_ERRO.CATEGORIA_DUPLICADA });
       expect(mocks.categoriaUpdate).not.toHaveBeenCalled();
       expect(logs).toHaveLength(0);
     },
@@ -481,7 +482,7 @@ describe('Concorrência no cadastro de categorias', () => {
     });
     const res = await postCategorias({ nome: 'EVASÃO' });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CATEGORIA_DUPLICADA });
+    expect(res.body).toEqual({ erro: MENSAGEM_CATEGORIA_DUPLICADA, codigo: CODIGOS_ERRO.CATEGORIA_DUPLICADA });
     expect(mocks.$transaction).toHaveBeenCalledTimes(2);
   });
 
@@ -496,7 +497,7 @@ describe('Concorrência no cadastro de categorias', () => {
     mocks.$transaction.mockRejectedValue(erroPrisma('P2034'));
     const res = await postCategorias({ nome: 'Evasão' });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_CATEGORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_CATEGORIA, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
     expect(mocks.$transaction).toHaveBeenCalledTimes(3);
   });
 
@@ -524,7 +525,7 @@ describe('QA — complementos da Issue #38', () => {
       .set('Authorization', `Bearer ${tokenDoUsuario(ID_TROCA_PENDENTE)}`)
       .send({ nome: 'Evasão' });
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.categoriaUpdate).not.toHaveBeenCalled();
     expect(logs).toHaveLength(0);
   });
@@ -556,7 +557,7 @@ describe('QA — complementos da Issue #38', () => {
     expect(criada.status).toBe(201);
     const duplicada = await postCategorias({ nome: '  AGRESSÕES ' });
     expect(duplicada.status).toBe(409);
-    expect(duplicada.body).toEqual({ erro: MENSAGEM_CATEGORIA_DUPLICADA });
+    expect(duplicada.body).toEqual({ erro: MENSAGEM_CATEGORIA_DUPLICADA, codigo: CODIGOS_ERRO.CATEGORIA_DUPLICADA });
     expect(logs).toHaveLength(1);
   });
 

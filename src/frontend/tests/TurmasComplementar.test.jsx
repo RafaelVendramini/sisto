@@ -346,7 +346,7 @@ describe('Tela de turmas (#41) — complementar QA', () => {
     });
 
     it('409 de duplicidade na edição marca os três campos e aponta para o aviso (acessibilidade)', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUPLICADA }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUPLICADA, codigo: 'TURMA_DUPLICADA' }) });
       renderizarApp('/turmas');
       await screen.findByRole('table');
       await usuario.click(

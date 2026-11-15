@@ -1,12 +1,14 @@
 // Mensagens e validação da tela de categorias (RF07, RN18, RNF02): nada
 // técnico aparece na tela. Para 400/404/409 o texto vem do back-end (campo `erro`).
+import { CODIGOS_ERRO, falhaTemCodigo } from './codigosErro.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from './mensagens.js';
 
 // Limites técnicos do back-end (Issue #38), após remover espaços nas pontas.
 export const TAMANHO_MAXIMO_NOME_CATEGORIA = 150;
 export const TAMANHO_MAXIMO_DESCRICAO_CATEGORIA = 1000;
 
-// Textos do contrato do back-end (POST/PUT /categorias — 409).
+// Textos do contrato do back-end (POST/PUT /categorias — 409). O tipo do 409 é
+// identificado pelo `codigo` (Issue #72); o texto só é reserva sem código.
 export const MENSAGEM_CATEGORIA_DUPLICADA = 'Já existe uma categoria cadastrada com este nome.';
 export const MENSAGEM_ALTERACAO_SIMULTANEA_CATEGORIA =
   'A categoria foi alterada por outra operação ao mesmo tempo. Tente novamente.';
@@ -43,11 +45,19 @@ export function validarCategoria({ nome, descricao }) {
 }
 
 /**
- * Indica se o 409 é de nome repetido (RN18): a mensagem vai junto ao campo Nome.
- * O outro 409 possível é o de alteração simultânea, exibido como erro geral.
+ * Indica se o 409 é de nome repetido (RN18 — codigo CATEGORIA_DUPLICADA): a
+ * mensagem vai junto ao campo Nome. O outro 409 possível é o de alteração
+ * simultânea, exibido como erro geral. Sem código, vale a reserva pelo texto.
  */
 export function ehConflitoDeNome(falha) {
-  return falha?.status === 409 && falha?.message !== MENSAGEM_ALTERACAO_SIMULTANEA_CATEGORIA;
+  return (
+    falha?.status === 409 &&
+    falhaTemCodigo(
+      falha,
+      CODIGOS_ERRO.CATEGORIA_DUPLICADA,
+      (f) => f.message !== MENSAGEM_ALTERACAO_SIMULTANEA_CATEGORIA,
+    )
+  );
 }
 
 /** Mensagem do 409 de nome repetido (texto do back-end, ou o mesmo texto fixo). */
@@ -62,7 +72,14 @@ export function mensagemNomeDuplicado(falha) {
  */
 export function listaPodeEstarDesatualizada(falha) {
   if (falha?.status === 404) return true;
-  return falha?.status === 409 && falha?.message === MENSAGEM_ALTERACAO_SIMULTANEA_CATEGORIA;
+  return (
+    falha?.status === 409 &&
+    falhaTemCodigo(
+      falha,
+      CODIGOS_ERRO.CONFLITO_CONCORRENTE,
+      (f) => f.message === MENSAGEM_ALTERACAO_SIMULTANEA_CATEGORIA,
+    )
+  );
 }
 
 /**

@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 let banco;
 /** Operações feitas no client ("modelo.operacao"), em ordem. */
@@ -385,7 +386,7 @@ describe('GET /relatorios — permissões', () => {
   it('troca de senha pendente (mesmo Gestão) → 403', async () => {
     const resposta = await getRelatorio({ tipo: 'periodo', ...PERIODO_OUTUBRO }, ID_TROCA_PENDENTE);
     expect(resposta.status).toBe(403);
-    expect(resposta.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(resposta.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(operacoesDoRelatorio()).toEqual([]);
   });
 });
