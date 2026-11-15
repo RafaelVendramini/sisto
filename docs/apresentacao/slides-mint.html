@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Sisto — MINT 2026.2</title>
+<style>
+  /* Mesmo visual dos slides do SeNAS (slides.html) */
+  :root {
+    --primaria: #88185d;
+    --primaria-2: #6d1249;
+    --destaque: #e6371e;
+    --cinza: #5b6575;
+    --claro: #f8f1f5;
+    --linha: #d9dee8;
+    --texto: #1b2433;
+    --ok: #1f7a4d;
+  }
+  @page { size: 1280px 720px; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--texto);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .slide {
+    width: 1280px; height: 720px; position: relative; overflow: hidden;
+    padding: 48px 72px 56px; page-break-after: always; break-after: page;
+    background: #fff;
+  }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+  .slide::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 14px;
+    background: linear-gradient(var(--primaria) 0 78%, var(--destaque) 78% 100%);
+  }
+  .rodape {
+    position: absolute; left: 72px; right: 72px; bottom: 20px;
+    display: flex; justify-content: space-between;
+    font-size: 13px; color: var(--cinza); border-top: 1px solid var(--linha); padding-top: 8px;
+  }
+  .kicker { font-size: 15px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--destaque); margin: 0 0 6px; }
+  h2 { font-size: 40px; margin: 0 0 28px; color: var(--primaria); line-height: 1.1; }
+  p { margin: 0; }
+  svg text { font-family: "Segoe UI", Arial, sans-serif; }
+
+  /* ---------- Capa ---------- */
+  .capa { background: var(--primaria); color: #fff; padding: 0; }
+  .capa::before { display: none; }
+  .capa .topo {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 17px 72px; background: #fff; height: 130px;
+  }
+  .logos { display: flex; align-items: center; gap: 22px; }
+  .logo-ies { width: 96px; height: 96px; border-radius: 6px; display: block; }
+  .logo-ltd {
+    height: 72px; padding: 0 18px; border: 2px solid var(--primaria); border-radius: 10px;
+    display: flex; flex-direction: column; justify-content: center; color: var(--primaria);
+  }
+  .logo-ltd b { font-size: 30px; letter-spacing: .08em; line-height: 1; }
+  .logo-ltd span { font-size: 11px; letter-spacing: .04em; margin-top: 3px; }
+  .capa .evento { font-size: 16px; color: var(--primaria); font-weight: 600; text-align: right; line-height: 1.35; }
+  .capa .evento b { display: block; font-size: 26px; letter-spacing: .06em; color: var(--destaque); }
+  .capa .centro { padding: 56px 72px 0; }
+  .capa .marca { display: flex; align-items: center; gap: 18px; margin-left: -8px; }
+  .capa h1 { font-size: 72px; margin: 0; letter-spacing: -.01em; }
+  .capa h1 span { color: #ff8a6b; }
+  .capa .nome { font-size: 28px; margin-top: 4px; color: #f3dce9; }
+  .capa .sub { font-size: 20px; margin-top: 18px; color: #e2bdd3; max-width: 900px; line-height: 1.4; }
+  .capa .barra { width: 90px; height: 6px; background: var(--destaque); margin: 28px 0 0; }
+  .capa .info {
+    position: absolute; left: 72px; right: 72px; bottom: 40px;
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; font-size: 16px;
+  }
+  .capa .info small { display: block; text-transform: uppercase; letter-spacing: .1em; font-size: 12px; color: #d7a6c3; margin-bottom: 4px; }
+
+  /* ---------- Problema ---------- */
+  .fluxo { display: flex; align-items: stretch; margin-bottom: 32px; }
+  .passo {
+    flex: 1; background: var(--claro); border-radius: 10px; padding: 16px 18px;
+    font-size: 16px; line-height: 1.35; border-top: 4px solid var(--primaria);
+  }
+  .passo b { display: block; color: var(--primaria); font-size: 17px; margin-bottom: 4px; }
+  .passo.dor { border-top-color: var(--destaque); }
+  .seta { width: 38px; display: flex; align-items: center; justify-content: center; color: var(--cinza); font-size: 26px; }
+  .problema-grid { display: grid; grid-template-columns: 300px 1fr; gap: 40px; align-items: start; }
+  .destaque { background: var(--primaria); color: #fff; border-radius: 12px; padding: 26px; }
+  .destaque .num { font-size: 76px; font-weight: 700; line-height: 1; }
+  .destaque .num small { font-size: 26px; font-weight: 600; }
+  .destaque p { font-size: 17px; margin-top: 8px; color: #ecc9dd; line-height: 1.4; }
+  .dores { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; list-style: none; padding: 0; margin: 0; }
+  .dores li { font-size: 19px; padding-left: 26px; position: relative; line-height: 1.35; }
+  .dores li::before { content: ""; position: absolute; left: 0; top: 8px; width: 12px; height: 12px; border-radius: 3px; background: var(--destaque); }
+
+  /* ---------- Escopo entregue ---------- */
+  .numeros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .numero { background: var(--primaria); color: #fff; border-radius: 12px; padding: 14px 18px; }
+  .numero b { display: block; font-size: 38px; line-height: 1.05; }
+  .numero span { font-size: 15px; color: #ecc9dd; }
+  .duas { display: grid; grid-template-columns: 1.5fr 1fr; gap: 28px; }
+  .caixa { border-radius: 12px; padding: 18px 24px; }
+  .caixa h3 { margin: 0 0 10px; font-size: 20px; }
+  .caixa ul { margin: 0; padding-left: 20px; }
+  .caixa li { font-size: 16.5px; line-height: 1.36; margin-bottom: 5px; }
+  .inclui { background: var(--claro); border-left: 6px solid var(--primaria); }
+  .inclui h3 { color: var(--primaria); }
+  .exclui { background: #fff; border: 1px solid var(--linha); border-left: 6px solid var(--destaque); }
+  .exclui h3 { color: var(--destaque); }
+  .exclui li { color: var(--cinza); }
+
+  /* ---------- Requisitos ---------- */
+  .modulos { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; }
+  .modulo { border: 1px solid var(--linha); border-radius: 12px; padding: 14px 20px; }
+  .modulo h3 { margin: 0 0 8px; font-size: 18px; color: var(--primaria); display: flex; align-items: center; gap: 10px; }
+  .modulo h3 i { font-style: normal; background: var(--ok); color: #fff; font-size: 12px; border-radius: 20px; padding: 2px 10px; }
+  .rf { display: flex; gap: 10px; font-size: 15px; line-height: 1.3; margin-bottom: 5px; }
+  .rf code { font-family: Consolas, monospace; font-size: 13px; color: var(--destaque); font-weight: 700; min-width: 40px; padding-top: 1px; }
+  .rf::after { content: "✔"; color: var(--ok); font-weight: 700; margin-left: auto; padding-left: 8px; }
+  .faixa { margin-top: 16px; background: var(--claro); border-radius: 10px; padding: 10px 18px; font-size: 15px; color: var(--cinza); }
+  .faixa b { color: var(--primaria); }
+
+  /* ---------- Diferencial ---------- */
+  .cartoes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .cartao { border-radius: 12px; padding: 20px 20px 18px; background: var(--claro); border-top: 5px solid var(--primaria); }
+  .cartao .ic { font-size: 30px; line-height: 1; }
+  .cartao h3 { margin: 12px 0 10px; font-size: 21px; color: var(--primaria); line-height: 1.2; }
+  .cartao ul { margin: 0; padding-left: 18px; }
+  .cartao li { font-size: 17px; line-height: 1.38; margin-bottom: 8px; }
+  .prova {
+    margin-top: 22px; display: grid; grid-template-columns: 220px 1fr; gap: 22px; align-items: center;
+    background: var(--primaria); color: #fff; border-radius: 12px; padding: 16px 24px;
+  }
+  .prova b { font-size: 46px; line-height: 1; }
+  .prova b small { display: block; font-size: 14px; font-weight: 500; color: #ecc9dd; margin-top: 4px; }
+  .prova p { font-size: 19px; line-height: 1.4; color: #f3dce9; }
+
+  /* ---------- IA ---------- */
+  .agentes { display: flex; align-items: center; gap: 0; margin-bottom: 22px; }
+  .agentes div {
+    flex: 1; text-align: center; font-size: 15.5px; line-height: 1.3; padding: 14px 6px;
+    border: 1px solid var(--linha); border-radius: 10px; background: #fff;
+  }
+  .agentes div b { display: block; color: var(--primaria); font-size: 17px; }
+  .agentes div.lead { background: var(--primaria); color: #f3dce9; border-color: var(--primaria); }
+  .agentes div.lead b { color: #fff; }
+  .agentes span { width: 22px; text-align: center; color: var(--destaque); font-size: 18px; }
+  .ia { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+  .ia .caixa h3 { display: flex; gap: 8px; align-items: center; font-size: 23px; margin-bottom: 14px; }
+  .ia .caixa { padding: 24px 28px; }
+  .ia .caixa li { font-size: 19px; line-height: 1.4; margin-bottom: 12px; }
+  .beneficio { background: #eef7f2; border-left: 6px solid var(--ok); }
+  .beneficio h3 { color: var(--ok); }
+  .problema { background: #fdf1ee; border-left: 6px solid var(--destaque); }
+  .problema h3 { color: var(--destaque); }
+  .problema li b, .beneficio li b { color: var(--texto); }
+  .regra { margin-top: 22px; font-size: 18px; color: var(--cinza); }
+  .regra b { color: var(--texto); }
+
+  /* ---------- Vídeo ---------- */
+  .video { display: grid; grid-template-columns: 1fr 300px; gap: 28px; }
+  .tela {
+    width: 100%; height: 460px; border-radius: 12px; background: #1b2433; overflow: hidden;
+    display: flex; align-items: center; justify-content: center; color: #c9cfdb; font-size: 18px;
+  }
+  .tela video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .cenas { list-style: none; counter-reset: c; padding: 0; margin: 0; }
+  .cenas li { counter-increment: c; font-size: 15.5px; line-height: 1.3; padding: 8px 0 8px 38px; position: relative; border-bottom: 1px solid var(--linha); }
+  .cenas li::before {
+    content: counter(c); position: absolute; left: 0; top: 7px; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--primaria); color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ---------- Melhorias ---------- */
+  .linha-tempo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .etapa { border-radius: 12px; padding: 18px 22px; border: 1px solid var(--linha); position: relative; }
+  .etapa .quando { font-size: 13px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--destaque); }
+  .etapa h3 { margin: 4px 0 10px; font-size: 21px; color: var(--primaria); }
+  .etapa ul { margin: 0; padding-left: 18px; }
+  .etapa li { font-size: 15.5px; line-height: 1.38; margin-bottom: 6px; }
+  .etapa.agora { background: var(--claro); border: 2px solid var(--primaria); }
+  .obrigado { margin-top: 26px; text-align: center; font-size: 26px; color: var(--primaria); font-weight: 700; }
+  .obrigado small { display: block; font-size: 16px; color: var(--cinza); font-weight: 500; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<!-- ============ 1. CAPA ============ -->
+<section class="slide capa">
+  <div class="topo">
+    <div class="logos">
+      <img class="logo-ies" src="unimetrocamp.logo.png" alt="Unimetrocamp Wyden">
+      <!-- Logo do LTD: trocar por <img src="ltd.logo.png"> quando tivermos o arquivo oficial -->
+      <div class="logo-ltd"><b>LTD</b><span>Laboratório de Transformação Digital</span></div>
+    </div>
+    <div class="evento"><b>MINT</b>Mostra de Inovação e<br>Negócios em Tecnologia</div>
+  </div>
+  <div class="centro">
+    <div class="marca">
+      <svg viewBox="0 0 120 120" width="104" height="104" aria-hidden="true">
+        <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#ffffff"/>
+        <rect x="38" y="30" width="44" height="58" rx="6" fill="#88185d"/>
+        <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+        <line x1="46" y1="45" x2="74" y2="45" stroke="#c27aa5" stroke-width="4" stroke-linecap="round"/>
+        <line x1="46" y1="54" x2="66" y2="54" stroke="#c27aa5" stroke-width="4" stroke-linecap="round"/>
+        <path d="M47 69 L56 78 L74 60" fill="none" stroke="#ff8a6b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1>Sisto<span>.</span></h1>
+    </div>
+    <div class="nome">Sistema de gestão de ocorrências de alunos</div>
+    <div class="sub">Do papel ao digital: registro, encaminhamento e acompanhamento seguro das ocorrências escolares — MVP 1.0.</div>
+    <div class="barra"></div>
+  </div>
+  <div class="info">
+    <div><small>Cliente</small>Escola Estadual José Carlos Nogueira Reverendo – Professor</div>
+    <div><small>Integrantes</small>Rafael Vendramini<br>Gabriel Luna</div>
+    <div><small>Orientador</small>Prof. Kesede Julio<br><span style="color:#d7a6c3;font-size:14px">LTD.2026.2-006 · 2026.2</span></div>
+  </div>
+</section>
+
+<!-- ============ 2. PROBLEMA ============ -->
+<section class="slide">
+  <p class="kicker">Problema</p>
+  <h2>A dor do cliente: ocorrências registradas em papel</h2>
+  <div class="fluxo">
+    <div class="passo"><b>1. Ocorrência</b>Indisciplina, conflito, bullying, evasão, sofrimento emocional…</div>
+    <div class="seta">→</div>
+    <div class="passo dor"><b>2. Formulário impresso</b>Preenchido à mão por professores e equipes</div>
+    <div class="seta">→</div>
+    <div class="passo dor"><b>3. Organização manual</b>Equipe pedagógica junta e organiza os papéis</div>
+    <div class="seta">→</div>
+    <div class="passo dor"><b>4. Transcrição</b>Tudo é digitado novamente na Plataforma Conviva</div>
+  </div>
+  <div class="problema-grid">
+    <div class="destaque">
+      <div class="num">~50<small> /dia</small></div>
+      <p>ocorrências escolares registradas na EE José Carlos Nogueira</p>
+    </div>
+    <ul class="dores">
+      <li>Alto consumo de papel</li>
+      <li>Risco de perda ou extravio dos registros</li>
+      <li>Retrabalho e erros de transcrição</li>
+      <li>Demora no encaminhamento</li>
+      <li>Difícil localizar registros anteriores</li>
+      <li>Sem histórico digital integrado</li>
+      <li>Dados sensíveis de menores sem controle de acesso</li>
+      <li>Menos agilidade na proteção dos estudantes</li>
+    </ul>
+  </div>
+  <div class="rodape"><span>Sisto · MINT 2026.2</span><span>2</span></div>
+</section>
+
+<!-- ============ 3. ESCOPO ENTREGUE ============ -->
+<section class="slide">
+  <p class="kicker">Escopo entregue — MVP 1.0</p>
+  <h2>O que foi feito para resolver a dor</h2>
+  <div class="numeros">
+    <div class="numero"><b>3</b><span>Sprints (out–nov/2026)</span></div>
+    <div class="numero"><b>16/16</b><span>requisitos funcionais</span></div>
+    <div class="numero"><b>60</b><span>Pull Requests aprovados</span></div>
+    <div class="numero"><b>3.613</b><span>testes automatizados</span></div>
+  </div>
+  <div class="duas">
+    <div class="caixa inclui">
+      <h3>✔ Entregue e publicado (homologação)</h3>
+      <ul>
+        <li>Login individual com 5 perfis e troca obrigatória da senha temporária</li>
+        <li>Cadastro de usuários, turmas, estudantes, tutores e categorias</li>
+        <li>Registro digital da ocorrência, com vários estudantes de uma vez</li>
+        <li>Encaminhamento, comunicações, providência e encerramento</li>
+        <li>Histórico completo de cada ocorrência</li>
+        <li>Consulta com filtros e relatórios por período, turma e categoria</li>
+        <li>Web responsivo: computador, tablet e celular</li>
+      </ul>
+    </div>
+    <div class="caixa exclui">
+      <h3>✘ Fora do MVP</h3>
+      <ul>
+        <li>Integração com a Plataforma Conviva</li>
+        <li>Notificações automáticas às famílias</li>
+        <li>Exportação em PDF ou planilha</li>
+        <li>Aplicativo nativo e dashboard analítico</li>
+        <li>Editar uma ocorrência já registrada</li>
+      </ul>
+    </div>
+  </div>
+  <div class="rodape"><span>Sisto · MINT 2026.2</span><span>3</span></div>
+</section>
+
+<!-- ============ 4. REQUISITOS IMPLEMENTADOS ============ -->
+<section class="slide">
+  <p class="kicker">Requisitos Funcionais implementados</p>
+  <h2>Os 16 requisitos do SSD estão no ar</h2>
+  <div class="modulos">
+    <div class="modulo">
+      <h3>Acesso e usuários <i>4/4</i></h3>
+      <div class="rf"><code>RF01</code>Cadastro de usuários com perfil e senha temporária</div>
+      <div class="rf"><code>RF02</code>Login individual por e-mail e senha, e logout</div>
+      <div class="rf"><code>RF03</code>Redefinição de senha pela Gestão e troca da própria</div>
+      <div class="rf"><code>RF04</code>Bloqueio, desativação e reativação</div>
+    </div>
+    <div class="modulo">
+      <h3>Cadastros de apoio <i>3/3</i></h3>
+      <div class="rf"><code>RF07</code>Categorias de ocorrência</div>
+      <div class="rf"><code>RF15</code>Turmas e estudantes</div>
+      <div class="rf"><code>RF16</code>Vínculo do estudante com o professor tutor</div>
+    </div>
+    <div class="modulo">
+      <h3>Ocorrências <i>6/6</i></h3>
+      <div class="rf"><code>RF05</code>Registro com todos os campos do formulário</div>
+      <div class="rf"><code>RF06</code>Vários estudantes na mesma ocorrência</div>
+      <div class="rf"><code>RF08</code>Encaminhamento a tutor, pedagógico ou gestão</div>
+      <div class="rf"><code>RF09</code>Comunicações com família e rede de proteção</div>
+      <div class="rf"><code>RF10</code>Status: aberto → em acompanhamento → encerrado</div>
+      <div class="rf"><code>RF12</code>Histórico de alterações</div>
+    </div>
+    <div class="modulo">
+      <h3>Consultas e relatórios <i>3/3</i></h3>
+      <div class="rf"><code>RF11</code>Consulta por estudante, turma, período, categoria e responsável</div>
+      <div class="rf"><code>RF13</code>Relatórios por período, turma e categoria</div>
+      <div class="rf"><code>RF14</code>Acesso por perfil em registros e relatórios</div>
+    </div>
+  </div>
+  <div class="faixa">Além dos RFs: <b>22 regras de negócio</b> e <b>6 requisitos não funcionais</b> (responsivo, auditoria, backup, LGPD) — tudo rastreado no SSD 1.10.</div>
+  <div class="rodape"><span>Sisto · MINT 2026.2</span><span>4</span></div>
+</section>
+
+<!-- ============ 5. ARQUITETURA ============ -->
+<section class="slide">
+  <p class="kicker">Arquitetura do Sistema</p>
+  <h2>JavaScript de ponta a ponta, publicado na nuvem</h2>
+  <svg viewBox="0 0 1136 500" width="1136" height="500" aria-label="Diagrama da arquitetura do Sisto">
+    <defs>
+      <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="#e6371e"/>
+      </marker>
+      <style>
+        .zona { fill: none; stroke: #d9dee8; stroke-width: 1.5; stroke-dasharray: 6 5; }
+        .zt { font-size: 13px; font-weight: 700; fill: #5b6575; letter-spacing: .08em; }
+        .bx { fill: #f8f1f5; stroke: #88185d; stroke-width: 2; }
+        .bx-c { fill: #88185d; }
+        .bx-d { fill: #fdebe7; stroke: #e6371e; stroke-width: 2; }
+        .bx-s { fill: #fff; stroke: #d9dee8; stroke-width: 1.5; }
+        .t { font-size: 20px; font-weight: 700; fill: #88185d; }
+        .t-c { font-size: 20px; font-weight: 700; fill: #fff; }
+        .t-d { font-size: 20px; font-weight: 700; fill: #9a2a14; }
+        .f { font-size: 14px; fill: #5b6575; }
+        .f-c { font-size: 14px; fill: #ecc9dd; }
+        .f-d { font-size: 14px; fill: #9a2a14; }
+        .cam { font-size: 14px; font-weight: 600; fill: #88185d; }
+        .ln { stroke: #e6371e; stroke-width: 2.5; fill: none; }
+        .ln2 { stroke: #8a94a6; stroke-width: 2; fill: none; stroke-dasharray: 6 5; }
+        .lb { font-size: 13.5px; fill: #5b6575; font-style: italic; }
+      </style>
+    </defs>
+
+    <!-- Usuários -->
+    <rect class="bx-s" x="0" y="100" width="180" height="170" rx="12"/>
+    <text x="90" y="160" text-anchor="middle" font-size="40">💻📱</text>
+    <text class="t" x="90" y="205" text-anchor="middle">Navegador</text>
+    <text class="f" x="90" y="228" text-anchor="middle">computador, tablet</text>
+    <text class="f" x="90" y="246" text-anchor="middle">e celular</text>
+
+    <!-- Render -->
+    <rect class="zona" x="230" y="20" width="560" height="460" rx="16"/>
+    <text class="zt" x="250" y="46">RENDER · HTTPS AUTOMÁTICO</text>
+
+    <rect class="bx" x="260" y="70" width="500" height="100" rx="12"/>
+    <text class="t" x="285" y="105">Front-end · React + Vite</text>
+    <text class="f" x="285" y="130">Site estático: telas de registro, consulta e relatórios</text>
+    <text class="f" x="285" y="150">sisto.onrender.com · sem segredos no navegador</text>
+
+    <rect class="bx-c" x="260" y="230" width="500" height="225" rx="12"/>
+    <text class="t-c" x="285" y="265">API REST · Node.js + Express</text>
+    <text class="f-c" x="285" y="288">sisto-api.onrender.com</text>
+    <rect x="285" y="305" width="450" height="32" rx="6" fill="#a8457f"/>
+    <text x="300" y="327" font-size="14.5" fill="#fff"><tspan font-weight="700">Routes</tspan> → endpoints REST (JSON)</text>
+    <rect x="285" y="341" width="450" height="32" rx="6" fill="#a8457f"/>
+    <text x="300" y="363" font-size="14.5" fill="#fff"><tspan font-weight="700">Middlewares</tspan> → JWT, usuário ativo, permissão por perfil</text>
+    <rect x="285" y="377" width="450" height="32" rx="6" fill="#a8457f"/>
+    <text x="300" y="399" font-size="14.5" fill="#fff"><tspan font-weight="700">Controllers</tspan> → entrada e saída HTTP</text>
+    <rect x="285" y="413" width="450" height="32" rx="6" fill="#a8457f"/>
+    <text x="300" y="435" font-size="14.5" fill="#fff"><tspan font-weight="700">Services</tspan> → 22 regras de negócio, histórico, auditoria</text>
+
+    <!-- Neon -->
+    <rect class="zona" x="840" y="210" width="296" height="270" rx="16"/>
+    <text class="zt" x="860" y="236">NEON · SÃO PAULO</text>
+    <rect class="bx-d" x="866" y="258" width="246" height="130" rx="12"/>
+    <text class="t-d" x="989" y="295" text-anchor="middle">PostgreSQL 18</text>
+    <text class="f-d" x="989" y="320" text-anchor="middle">usuários, turmas, estudantes,</text>
+    <text class="f-d" x="989" y="340" text-anchor="middle">ocorrências, histórico, auditoria</text>
+    <text class="f-d" x="989" y="368" text-anchor="middle">restauração + cópia semanal</text>
+
+    <!-- GitHub -->
+    <rect class="bx-s" x="866" y="40" width="246" height="110" rx="12"/>
+    <text class="t" x="989" y="76" text-anchor="middle">GitHub</text>
+    <text class="f" x="989" y="100" text-anchor="middle">PR aprovado pelo Dev</text>
+    <text class="f" x="989" y="120" text-anchor="middle">→ deploy automático</text>
+    <text class="f" x="989" y="138" text-anchor="middle">da branch developer</text>
+
+    <!-- ligações -->
+    <path class="ln" d="M180 125 H258" marker-end="url(#seta)"/>
+    <text class="lb" x="190" y="115">abre</text>
+    <path class="ln" d="M180 250 H222 Q242 250 242 270 V330 H258" marker-end="url(#seta)"/>
+    <text class="lb" x="184" y="300">HTTPS</text>
+    <text class="lb" x="184" y="316">+ JWT</text>
+    <path class="ln" d="M760 343 H864" marker-end="url(#seta)"/>
+    <text class="cam" x="775" y="333">Prisma ORM</text>
+    <path class="ln2" d="M866 95 H780 V120 H762" marker-end="url(#seta)"/>
+    <path class="ln2" d="M866 130 H800 V265 H762" marker-end="url(#seta)"/>
+  </svg>
+  <div class="rodape"><span>Sisto · MINT 2026.2</span><span>5</span></div>
+</section>
+
+<!-- ============ 6. DIFERENCIAL ============ -->
+<section class="slide">
+  <p class="kicker">Diferencial</p>
+  <h2>Segurança e LGPD desde a primeira linha</h2>
+  <div class="cartoes">
+    <div class="cartao">
+      <div class="ic">🛡️</div>
+      <h3>Cada perfil vê só o que precisa</h3>
+      <ul>
+        <li>5 perfis, regra garantida pela API, não só pela tela</li>
+        <li>Professor vê as que registrou; tutor, as dos tutorados</li>
+        <li>Dados reduzidos para quem não é Gestão</li>
+      </ul>
+    </div>
+    <div class="cartao">
+      <div class="ic">📜</div>
+      <h3>Tudo fica registrado</h3>
+      <ul>
+        <li>Histórico de cada ocorrência: quem, o quê e quando</li>
+        <li>Auditoria de cadastros, senhas e encerramentos</li>
+        <li>Nada é apagado; ocorrência encerrada não reabre</li>
+      </ul>
+    </div>
+    <div class="cartao">
+      <div class="ic">🔐</div>
+      <h3>Acesso protegido</h3>
+      <ul>
+        <li>Senhas com hash (bcrypt) e sessão de até 8 h</li>
+        <li>Bloqueio corta o acesso na hora</li>
+        <li>5 tentativas erradas em 15 min → espera</li>
+        <li>Troca de senha encerra todas as sessões</li>
+      </ul>
+    </div>
+    <div class="cartao">
+      <div class="ic">🏫</div>
+      <h3>Dados de menores tratados com cuidado</h3>
+      <ul>
+        <li>Banco hospedado no Brasil (São Paulo)</li>
+        <li>Só dados fictícios até a autorização da escola</li>
+        <li>Fora dos buscadores; política de privacidade (a validar com a escola)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="prova">
+    <b>350<small>testes de ponta a ponta</small></b>
+    <p>Contra um banco real, incluindo a matriz de permissões inteira: cada perfil, em cada rota, recebe exatamente o que pode — e é recusado no resto.</p>
+  </div>
+  <div class="rodape"><span>Sisto · MINT 2026.2</span><span>6</span></div>
+</section>
+
+<!-- ============ 7. IA ============ -->
+<section class="slide">
+  <p class="kicker">IA: metodologia de uso</p>
+  <h2>Uma equipe de agentes de IA, com o Dev no comando</h2>
+  <div class="agentes">
+    <div class="lead"><b>Dev + Tech Lead</b>decide e aprova</div><span>→</span>
+    <div><b>Analista</b>SSD → Issues</div><span>→</span>
+    <div><b>Dev back</b>API e banco</div><span>→</span>
+    <div><b>Dev front</b>telas React</div><span>→</span>
+    <div><b>QA</b>testes</div><span>→</span>
+    <div><b>Revisor</b>segurança e LGPD</div>
+  </div>
+  <div class="ia">
+    <div class="caixa beneficio">
+      <h3>✔ Benefícios</h3>
+      <ul>
+        <li><b>Velocidade:</b> agentes em paralelo, uma Issue cada</li>
+        <li><b>Qualidade:</b> todo código chega com testes e revisão</li>
+        <li><b>Rastreabilidade:</b> cada entrega ligada a RF, RN e Issue</li>
+        <li><b>Documentação viva:</b> SSD atualizado a cada Sprint</li>
+      </ul>
+    </div>
+    <div class="caixa problema">
+      <h3>⚠ Problemas e como resolvemos</h3>
+      <ul>
+        <li><b>Inventar requisito</b> → o SSD é a única fonte de verdade</li>
+        <li><b>Conflitos entre agentes</b> → uma branch por Issue</li>
+        <li><b>Limite de uso da IA</b> → trabalho em lotes menores</li>
+        <li><b>Risco com segredos</b> → regra que bloqueia a IA de ler o <code>.env</code>; só dados fictícios</li>
+      </ul>
+    </div>
+  </div>
+  <p class="regra"><b>Regra de ouro (protocolo AIP):</b> a IA propõe, o Dev decide — nenhum commit, PR ou merge sem aprovação humana.</p>
+  <div class="rodape"><span>Sisto · MINT 2026.2</span><span>7</span></div>
+</section>
+
+<!-- ============ 8. VÍDEO ============ -->
+<section class="slide">
+  <p class="kicker">Resultado</p>
+  <h2>O Sisto funcionando</h2>
+  <div class="video">
+    <div class="tela">
+      <!-- Vídeo sem áudio, gravado em ambiente local com os dados fictícios do seed (RN05) -->
+      <video src="demo-mint.webm" controls muted preload="metadata">Vídeo demonstrativo (demo-mint.webm)</video>
+    </div>
+    <ol class="cenas">
+      <li><b>0:00</b> Professor entra no sistema</li>
+      <li><b>0:07</b> Registra ocorrência com dois estudantes e encaminha ao tutor</li>
+      <li><b>0:32</b> Vê só as ocorrências que registrou</li>
+      <li><b>0:37</b> Gestão encaminha e define o responsável</li>
+      <li><b>0:59</b> Comunicação com a família</li>
+      <li><b>1:12</b> Providência e encerramento</li>
+      <li><b>1:27</b> Histórico completo</li>
+      <li><b>1:34</b> Relatório por categoria</li>
+    </ol>
+  </div>
+  <div class="rodape"><span>Sisto · MINT 2026.2</span><span>8</span></div>
+</section>
+
+<!-- ============ 9. MELHORIAS FUTURAS ============ -->
+<section class="slide">
+  <p class="kicker">Próximos passos</p>
+  <h2>Melhorias futuras e plano de implementação</h2>
+  <div class="linha-tempo">
+    <div class="etapa agora">
+      <div class="quando">Agora</div>
+      <h3>Homologação na escola</h3>
+      <ul>
+        <li>Validar a matriz de permissões com a direção</li>
+        <li>Validar textos de privacidade e termos</li>
+        <li>Autorização formal para dados reais</li>
+      </ul>
+    </div>
+    <div class="etapa">
+      <div class="quando">Curto prazo</div>
+      <h3>Uso real</h3>
+      <ul>
+        <li>Plano pago: API sempre ligada e restauração por mais tempo</li>
+        <li>Tutor visível no detalhe da ocorrência</li>
+        <li>Recuperação de senha por e-mail</li>
+        <li>Editar ocorrência já registrada</li>
+      </ul>
+    </div>
+    <div class="etapa">
+      <div class="quando">Médio prazo</div>
+      <h3>Menos retrabalho</h3>
+      <ul>
+        <li>Integração com a Plataforma Conviva</li>
+        <li>Exportação em PDF e planilha</li>
+        <li>Dashboard com indicadores</li>
+        <li>Avisos às famílias</li>
+      </ul>
+    </div>
+  </div>
+  <div class="obrigado">Obrigado!<small>Rafael Vendramini · Gabriel Luna — sisto.onrender.com</small></div>
+  <div class="rodape"><span>Sisto · MINT 2026.2</span><span>9</span></div>
+</section>
+
+</body>
+</html>
