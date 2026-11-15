@@ -3,6 +3,7 @@ import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
 import { linkTelefone, NOME_ESCOLA, TELEFONE_ESCOLA } from '../services/escola.js';
 import {
   podeConsultarOcorrencias,
+  podeGerarRelatorios,
   podeGerenciarCategorias,
   podeGerenciarEstudantes,
   podeGerenciarTurmas,
@@ -28,6 +29,7 @@ export default function Layout({ children }) {
   const veCategorias = podeGerenciarCategorias(usuario?.perfil);
   const veRegistroOcorrencia = podeRegistrarOcorrencia(usuario?.perfil);
   const veOcorrencias = podeConsultarOcorrencias(usuario?.perfil);
+  const veRelatorios = podeGerarRelatorios(usuario?.perfil);
   // "Ocorrências" fica marcado na lista e no detalhe, mas não no registro,
   // que tem item próprio no menu.
   const noRegistro = Boolean(useMatch('/ocorrencias/nova'));
@@ -74,6 +76,11 @@ export default function Layout({ children }) {
               {veCategorias && (
                 <NavLink to="/categorias" className="layout__menu-item">
                   Categorias
+                </NavLink>
+              )}
+              {veRelatorios && (
+                <NavLink to="/relatorios" className="layout__menu-item">
+                  Relatórios
                 </NavLink>
               )}
             </nav>
