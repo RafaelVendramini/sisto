@@ -72,6 +72,10 @@ function mockarApi({
     if (opcoes.method === 'GET' && url === `${URL_API}/ocorrencias`) return lista();
     const get = url.match(/\/ocorrencias\/([^/]+)$/);
     if (opcoes.method === 'GET' && get) return obter(decodeURIComponent(get[1]));
+    // #85: o detalhe também busca o histórico (lista vazia aqui).
+    if (opcoes.method === 'GET' && /\/ocorrencias\/[^/]+\/historico$/.test(url)) {
+      return respostaFalsa(200, []);
+    }
     throw new Error(`Chamada inesperada: ${opcoes.method} ${url}`);
   });
 }
@@ -667,6 +671,10 @@ describe('Registro -> detalhe -> lista, ponta a ponta (#46 + #48)', () => {
       if (m === 'GET' && get) {
         const o = registradas.find((r) => r.id === Number(get[1]));
         return o ? respostaFalsa(200, o) : respostaFalsa(404, { erro: 'Ocorrência não encontrada.' });
+      }
+      // #85: o detalhe também busca o histórico (lista vazia aqui).
+      if (opcoes.method === 'GET' && /\/ocorrencias\/[^/]+\/historico$/.test(url)) {
+        return respostaFalsa(200, []);
       }
       throw new Error(`Chamada inesperada: ${m} ${url}`);
     });

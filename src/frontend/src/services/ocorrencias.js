@@ -206,3 +206,19 @@ export function encerrarOcorrencia(id) {
     corpo: { status: 'ENCERRADO' },
   });
 }
+
+/**
+ * Histórico de alterações de uma ocorrência (GET /ocorrencias/{id}/historico —
+ * RF12, RN08, RN19). Os 5 perfis, limitados à visibilidade: inexistente ou
+ * fora da visibilidade respondem 404, como o detalhe; id inválido: 400.
+ * @param {number | string} id - como veio da URL
+ * @returns {Promise<Array<{ id: number, acao: string, descricao: string | null,
+ *   dataHora: string, usuario: { id: number, nome: string } }>>} do mais antigo
+ *   para o mais novo, na ordem da API
+ */
+export async function listarHistoricoOcorrencia(id) {
+  const dados = await requisicaoAutenticada(
+    `/ocorrencias/${encodeURIComponent(String(id))}/historico`,
+  );
+  return Array.isArray(dados) ? dados : [];
+}
