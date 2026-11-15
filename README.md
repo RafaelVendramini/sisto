@@ -90,14 +90,14 @@ Arquivos complementares da equipe:
 | ---------------- | ----------------------------------- |
 | **Sprint Atual** | Sprint 3 (03/11/2026 a 16/11/2026)  |
 | **Versão**       | MVP 1.0                             |
-| **Situação**     | Em entrega: homologação publicada no Render e no Neon (#79) |
+| **Situação**     | Em entrega: homologação publicada no Render e no Neon; aguardando a passagem para a `main` (#96) |
 
 ### Sprint 3
 
 | Situação | Issues |
 | -------- | ------ |
-| **Entregues (Done)** | #56, #77, #78, #80, #81, #82, #83, #84, #85, #86, #87, #88, #89, #90, #91, #92, #94, #113 e #115 (46 pontos; a #113 e a #115 foram criadas durante a sprint) |
-| **Em andamento** | #79: deploy da homologação publicado no Render e no Neon (fechamento em revisão); #93: testes de ponta a ponta escritos, aguardando o banco de testes para serem executados |
+| **Entregues (Done)** | #56, #77, #78, #79, #80, #81, #82, #83, #84, #85, #86, #87, #88, #89, #90, #91, #92, #93, #94, #113 e #115 (52 pontos; a #113 e a #115 foram criadas durante a sprint) |
+| **Em andamento** | #96: entrega do MVP (passagem da `developer` para a `main`) |
 | **Em espera** | #95: homologação com a escola (data a definir) |
 | **Cortadas** | #71 e #72 (exceto o item D1, entregue na Subtask #115), pela ordem de corte da Sprint 3 (ver [Limitações conhecidas](#limitações-conhecidas)) |
 
@@ -142,7 +142,7 @@ Na pasta `src/frontend`:
 ### Testes
 
 - Em `src/backend` e em `src/frontend`: `npm test`.
-- Banco de testes, usado pelos testes de ponta a ponta (#93); o `npm test` não precisa dele: crie o arquivo `src/backend/.env.test` (também fora do repositório) só com a `DATABASE_URL` apontando para um banco separado, `sisto_test`, e rode `npm run db:test:reset` para recriá-lo e aplicar as migrations. Assim o banco de desenvolvimento não é afetado (o `db:test:reset` recusa qualquer banco cujo nome não termine em `_test`).
+- Banco de testes, usado pelos testes de ponta a ponta (#93); o `npm test` não precisa dele: crie o arquivo `src/backend/.env.test` (também fora do repositório) só com a `DATABASE_URL` apontando para um banco separado, `sisto_test`, e rode `npm run db:test:reset` para recriá-lo e aplicar as migrations. Depois, rode os testes de ponta a ponta com `npm run test:e2e`. Assim o banco de desenvolvimento não é afetado (o `db:test:reset` recusa qualquer banco cujo nome não termine em `_test`).
 
 ---
 
@@ -192,7 +192,6 @@ Observações:
 - `PUT /ocorrencias/{id}` (editar uma ocorrência já registrada) fica fora do MVP.
 - Os textos da Política de privacidade e dos Termos de uso são provisórios e ainda serão validados com a escola.
 - Os prints de evidência das telas da Sprint 3 ainda estão pendentes.
-- Os testes de ponta a ponta (#93) ainda não foram executados contra um banco real.
 - O script de recuperação da Gestão (#80) ainda não foi testado contra o banco do Neon; o teste fica para antes da homologação com a escola (#95).
 - No plano gratuito do Render, a API dorme depois de 15 minutos sem uso; o primeiro acesso seguinte leva cerca de 1 minuto.
 
