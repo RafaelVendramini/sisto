@@ -99,7 +99,7 @@ Arquivos complementares da equipe:
 | Recurso        | Link |
 | -------------- | ---- |
 | GitHub Project | A definir |
-| Swagger        | A definir |
+| Swagger        | [docs/openapi.yaml](docs/openapi.yaml) (OpenAPI 3, sem Swagger UI exposta) |
 | Deploy         | A definir |
 
 ---
