@@ -90,15 +90,15 @@ Arquivos complementares da equipe:
 | ---------------- | ----------------------------------- |
 | **Sprint Atual** | Sprint 3 (03/11/2026 a 16/11/2026)  |
 | **Versão**       | MVP 1.0                             |
-| **Situação**     | Em entrega: 46 pontos da Sprint 3 entregues; o sistema roda localmente |
+| **Situação**     | Em entrega: homologação publicada no Render e no Neon (#79) |
 
 ### Sprint 3
 
 | Situação | Issues |
 | -------- | ------ |
 | **Entregues (Done)** | #56, #77, #78, #80, #81, #82, #83, #84, #85, #86, #87, #88, #89, #90, #91, #92, #94, #113 e #115 (46 pontos; a #113 e a #115 foram criadas durante a sprint) |
-| **Em andamento** | #93: testes de ponta a ponta escritos, aguardando o banco de testes para serem executados |
-| **Em espera** | #79: deploy da homologação. Por decisão do Rafael, o projeto roda localmente por enquanto. #95: homologação com a escola, que depende da #79 |
+| **Em andamento** | #79: deploy da homologação publicado no Render e no Neon (fechamento em revisão); #93: testes de ponta a ponta escritos, aguardando o banco de testes para serem executados |
+| **Em espera** | #95: homologação com a escola (data a definir) |
 | **Cortadas** | #71 e #72 (exceto o item D1, entregue na Subtask #115), pela ordem de corte da Sprint 3 (ver [Limitações conhecidas](#limitações-conhecidas)) |
 
 ---
@@ -109,8 +109,8 @@ Arquivos complementares da equipe:
 | -------------- | ---- |
 | GitHub Project | A definir |
 | Swagger        | [docs/openapi.yaml](docs/openapi.yaml) (OpenAPI 3, sem Swagger UI exposta) |
-| Deploy         | Em espera (homologação ainda não publicada — #79) |
-| Guia de deploy | [docs/deploy.md](docs/deploy.md): por enquanto, só o script de recuperação da Gestão (RN11). O passo a passo do deploy no Render e no Neon, as variáveis e o backup entram na #79 |
+| Deploy         | Front-end: <https://sisto.onrender.com> · API: <https://sisto-api.onrender.com> (homologação, somente dados fictícios — RN05) |
+| Guia de deploy | [docs/deploy.md](docs/deploy.md): deploy no Render e no Neon, variáveis (sem valores), backup e script de recuperação da Gestão (RN11) |
 
 ---
 
@@ -193,7 +193,8 @@ Observações:
 - Os textos da Política de privacidade e dos Termos de uso são provisórios e ainda serão validados com a escola.
 - Os prints de evidência das telas da Sprint 3 ainda estão pendentes.
 - Os testes de ponta a ponta (#93) ainda não foram executados contra um banco real.
-- A homologação (#79 e #95) ainda não foi publicada: o sistema roda só localmente.
+- O script de recuperação da Gestão (#80) ainda não foi testado contra o banco do Neon; o teste fica para antes da homologação com a escola (#95).
+- No plano gratuito do Render, a API dorme depois de 15 minutos sem uso; o primeiro acesso seguinte leva cerca de 1 minuto.
 
 ---
 
