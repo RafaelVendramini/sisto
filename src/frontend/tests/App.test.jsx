@@ -42,4 +42,15 @@ describe('App (componente raiz)', () => {
       screen.getByRole('heading', { level: 1, name: 'Olá, Maria Fictícia' }),
     ).toBeInTheDocument();
   });
+
+  it('a tela inicial orienta pelo menu, sem o texto provisório (#123)', () => {
+    gravarSessaoFicticia();
+    renderizarApp('/');
+
+    expect(
+      screen.getByText(/Use o menu acima para acessar o que o seu perfil permite\./),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/use o botão “Sair” no topo da página\./)).toBeInTheDocument();
+    expect(screen.queryByText(/liberadas aos poucos/)).not.toBeInTheDocument();
+  });
 });
