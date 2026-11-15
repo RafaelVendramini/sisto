@@ -239,7 +239,7 @@ export default function FormularioUsuario({ aoCadastrar }) {
             inputRef={refs.senha}
             id="usuario-senha"
             name="senha"
-            autoComplete="off"
+            autoComplete="new-password"
             value={dados.senha}
             onChange={alterar('senha')}
             mostrar={mostrarSenha}

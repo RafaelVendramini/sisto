@@ -128,7 +128,7 @@ export default function RedefinirSenhaUsuario({
             inputRef={senhaRef}
             id="redefinir-senha"
             name="novaSenha"
-            autoComplete="off"
+            autoComplete="new-password"
             value={senha}
             readOnly={enviando}
             onChange={(e) => {

@@ -268,7 +268,7 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
       expect(c.nome).toHaveAttribute('type', 'text');
       expect(c.email).toHaveAttribute('type', 'email');
       expect(c.senha).toHaveAttribute('type', 'password');
-      expect(c.senha).toHaveAttribute('autocomplete', 'off');
+      expect(c.senha).toHaveAttribute('autocomplete', 'new-password');
       expect(c.cadastrar).toBeEnabled();
     });
 
