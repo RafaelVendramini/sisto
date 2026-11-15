@@ -123,3 +123,24 @@ export const PERFIS_COMUNICACAO_OCORRENCIA = Object.freeze(['TUTOR', 'GESTAO', '
 export function podeRegistrarComunicacao(perfil) {
   return PERFIS_COMUNICACAO_OCORRENCIA.includes(perfil);
 }
+
+// Perfis que registram providência e encerram QUALQUER ocorrência em
+// acompanhamento (RN04, RN22, matriz da Seção 4: "Atualizar/encerrar
+// ocorrência"). Além deles, o responsável pelo acompanhamento da ocorrência.
+export const PERFIS_ATUALIZACAO_OCORRENCIA = Object.freeze(['GESTAO', 'PEDAGOGICO']);
+
+/**
+ * Indica se o usuário logado vê os botões "Registrar providência" e "Encerrar
+ * ocorrência" (RN04, RN22): só com a ocorrência "Em acompanhamento", para a
+ * Gestão, o Pedagógico e quem é o responsável pelo acompanhamento
+ * (`responsavelAcompanhamento.id`). É só usabilidade: a proteção real é do
+ * back-end (403/409).
+ * @param {{ id: number, perfil: string } | null} usuario - usuário logado
+ * @param {object | null} ocorrencia - detalhe da ocorrência
+ */
+export function podeAtualizarOcorrencia(usuario, ocorrencia) {
+  if (!usuario || ocorrencia?.status !== 'EM_ACOMPANHAMENTO') return false;
+  if (PERFIS_ATUALIZACAO_OCORRENCIA.includes(usuario.perfil)) return true;
+  const responsavelId = ocorrencia.responsavelAcompanhamento?.id;
+  return responsavelId !== undefined && responsavelId !== null && responsavelId === usuario.id;
+}

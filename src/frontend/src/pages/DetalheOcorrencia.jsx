@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import EncaminharOcorrencia from '../components/EncaminharOcorrencia.jsx';
+import EncerrarOcorrencia from '../components/EncerrarOcorrencia.jsx';
 import RegistrarComunicacao from '../components/RegistrarComunicacao.jsx';
+import RegistrarProvidencia from '../components/RegistrarProvidencia.jsx';
 import { SeloStatusOcorrencia } from '../components/ListaOcorrencias.jsx';
 import { useSessao } from '../components/Sessao.jsx';
 import { useTituloPagina } from '../components/useTituloPagina.js';
@@ -9,6 +11,9 @@ import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import {
   MENSAGEM_COMUNICACAO_REGISTRADA,
   MENSAGEM_ENCAMINHAMENTO_REGISTRADO,
+  MENSAGEM_ENCERRAR_SEM_PROVIDENCIA,
+  MENSAGEM_OCORRENCIA_ENCERRADA,
+  MENSAGEM_PROVIDENCIA_REGISTRADA,
   MENSAGEM_SEM_COMUNICACOES,
   MENSAGEM_SEM_ENCAMINHAMENTOS,
   MENSAGEM_SEM_PROVIDENCIAS,
@@ -18,9 +23,14 @@ import {
   mensagemErroDetalheOcorrencia,
   mensagemOcorrenciaRegistrada,
   rotuloDestinatario,
+  temProvidencia,
 } from '../services/mensagensOcorrencias.js';
 import { obterOcorrencia } from '../services/ocorrencias.js';
-import { podeEncaminharOcorrencia, podeRegistrarComunicacao } from '../services/perfis.js';
+import {
+  podeAtualizarOcorrencia,
+  podeEncaminharOcorrencia,
+  podeRegistrarComunicacao,
+} from '../services/perfis.js';
 
 const ID_SUCESSO = 'ocorrencia-registrada';
 
@@ -232,6 +242,12 @@ function ConteudoOcorrencia({ ocorrencia }) {
 // comunicação" (RF09, RN16, RN17); o detalhe também é substituído pela
 // resposta da API, já com a comunicação na lista. Para o Tutor, a API só
 // aceita ocorrências que ele pode ver (RN19): fora disso, 404.
+// Providência e encerramento (#84): com a ocorrência "Em acompanhamento", a
+// Gestão, o Pedagógico e o responsável pelo acompanhamento veem "Registrar
+// providência" e "Encerrar ocorrência" (UC04, RN04, RN22). Encerrar pede
+// confirmação; sem providência, a tela orienta (RN04) e não envia. O detalhe
+// é substituído pela resposta da API (lista de providências, selo "Encerrado"
+// e data de encerramento). Encerrada, a ocorrência não mostra nenhuma ação.
 function Detalhe({ id }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -248,9 +264,14 @@ function Detalhe({ id }) {
 
   const [encaminhando, setEncaminhando] = useState(false);
   const [comunicando, setComunicando] = useState(false);
+  const [registrandoProvidencia, setRegistrandoProvidencia] = useState(false);
+  const [encerrando, setEncerrando] = useState(false);
+  // RN04: aviso exibido ao tentar encerrar sem providência registrada.
+  const [avisoEncerramento, setAvisoEncerramento] = useState('');
 
   const montado = useRef(true);
   const refSucesso = useRef(null);
+  const refAviso = useRef(null);
   const refTitulo = useRef(null);
 
   useEffect(() => {
@@ -268,6 +289,10 @@ function Detalhe({ id }) {
   useEffect(() => {
     if (sucesso) refSucesso.current?.focus();
   }, [sucesso]);
+
+  useEffect(() => {
+    if (avisoEncerramento) refAviso.current?.focus();
+  }, [avisoEncerramento]);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -295,6 +320,7 @@ function Detalhe({ id }) {
 
   function abrirEncaminhamento() {
     setSucesso('');
+    setAvisoEncerramento('');
     setEncaminhando(true);
   }
 
@@ -309,6 +335,7 @@ function Detalhe({ id }) {
 
   function abrirComunicacao() {
     setSucesso('');
+    setAvisoEncerramento('');
     setComunicando(true);
   }
 
@@ -320,32 +347,93 @@ function Detalhe({ id }) {
     setSucesso(MENSAGEM_COMUNICACAO_REGISTRADA);
   }
 
+  function abrirProvidencia() {
+    setSucesso('');
+    setAvisoEncerramento('');
+    setRegistrandoProvidencia(true);
+  }
+
+  // Sucesso: a resposta 201 já é o detalhe completo, com a nova providência.
+  function concluirProvidencia(detalhe) {
+    setRegistrandoProvidencia(false);
+    if (detalhe) setOcorrencia(detalhe);
+    else carregar(); // resposta sem corpo (fora do contrato): busca de novo
+    setSucesso(MENSAGEM_PROVIDENCIA_REGISTRADA);
+  }
+
+  // RN04: sem providência registrada, orienta e não abre a confirmação.
+  function abrirEncerramento() {
+    setSucesso('');
+    if (!temProvidencia(ocorrencia)) {
+      setAvisoEncerramento(MENSAGEM_ENCERRAR_SEM_PROVIDENCIA);
+      return;
+    }
+    setAvisoEncerramento('');
+    setEncerrando(true);
+  }
+
+  // Sucesso: a resposta 200 já é o detalhe completo, com o status "Encerrado"
+  // e a data de encerramento; os botões de ação somem.
+  function concluirEncerramento(detalhe) {
+    setEncerrando(false);
+    if (detalhe) setOcorrencia(detalhe);
+    else carregar(); // resposta sem corpo (fora do contrato): busca de novo
+    setSucesso(MENSAGEM_OCORRENCIA_ENCERRADA);
+  }
+
   // 404/409 no envio: a ocorrência mudou (ex.: encerrada por outra pessoa).
   function atualizarAposConflito() {
     setEncaminhando(false);
     setComunicando(false);
+    setRegistrandoProvidencia(false);
+    setEncerrando(false);
+    setAvisoEncerramento('');
     carregar();
   }
 
   const naoEncerrada = Boolean(ocorrencia) && ocorrencia.status !== 'ENCERRADO';
   const podeEncaminhar = naoEncerrada && podeEncaminharOcorrencia(usuario?.perfil);
   const podeComunicar = naoEncerrada && podeRegistrarComunicacao(usuario?.perfil);
+  // Só "Em acompanhamento" (RN04) e Gestão, Pedagógico ou o responsável (RN22).
+  const podeAtualizar = podeAtualizarOcorrencia(usuario, ocorrencia);
 
   function acoes() {
-    if (!podeEncaminhar && !podeComunicar) return null;
+    if (!podeEncaminhar && !podeComunicar && !podeAtualizar) return null;
     return (
-      <section className="detalhe-ocorrencia__acoes" aria-label="Ações sobre a ocorrência">
-        {podeEncaminhar && (
-          <button type="button" className="botao botao--primario" onClick={abrirEncaminhamento}>
-            Encaminhar
-          </button>
+      <>
+        <section className="detalhe-ocorrencia__acoes" aria-label="Ações sobre a ocorrência">
+          {podeEncaminhar && (
+            <button type="button" className="botao botao--primario" onClick={abrirEncaminhamento}>
+              Encaminhar
+            </button>
+          )}
+          {podeComunicar && (
+            <button type="button" className="botao botao--secundario" onClick={abrirComunicacao}>
+              Registrar comunicação
+            </button>
+          )}
+          {podeAtualizar && (
+            <button type="button" className="botao botao--secundario" onClick={abrirProvidencia}>
+              Registrar providência
+            </button>
+          )}
+          {podeAtualizar && (
+            <button type="button" className="botao botao--alerta" onClick={abrirEncerramento}>
+              Encerrar ocorrência
+            </button>
+          )}
+        </section>
+        {podeAtualizar && avisoEncerramento && (
+          <p
+            ref={refAviso}
+            tabIndex={-1}
+            role="alert"
+            className="mensagem mensagem--aviso detalhe-ocorrencia__aviso"
+          >
+            {avisoEncerramento}
+          </p>
         )}
-        {podeComunicar && (
-          <button type="button" className="botao botao--secundario" onClick={abrirComunicacao}>
-            Registrar comunicação
-          </button>
-        )}
-      </section>
+      </>
     );
   }
 
@@ -420,6 +508,26 @@ function Detalhe({ id }) {
           ocorrencia={ocorrencia}
           aoConcluir={concluirComunicacao}
           aoCancelar={() => setComunicando(false)}
+          aoAtualizarOcorrencia={atualizarAposConflito}
+          aoRestaurarFoco={() => refTitulo.current?.focus()}
+        />
+      )}
+
+      {registrandoProvidencia && ocorrencia && (
+        <RegistrarProvidencia
+          ocorrencia={ocorrencia}
+          aoConcluir={concluirProvidencia}
+          aoCancelar={() => setRegistrandoProvidencia(false)}
+          aoAtualizarOcorrencia={atualizarAposConflito}
+          aoRestaurarFoco={() => refTitulo.current?.focus()}
+        />
+      )}
+
+      {encerrando && ocorrencia && (
+        <EncerrarOcorrencia
+          ocorrencia={ocorrencia}
+          aoConcluir={concluirEncerramento}
+          aoCancelar={() => setEncerrando(false)}
           aoAtualizarOcorrencia={atualizarAposConflito}
           aoRestaurarFoco={() => refTitulo.current?.focus()}
         />
