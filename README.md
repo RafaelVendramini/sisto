@@ -90,14 +90,14 @@ Arquivos complementares da equipe:
 | ---------------- | ----------------------------------- |
 | **Sprint Atual** | Sprint 3 (03/11/2026 a 16/11/2026)  |
 | **Versão**       | MVP 1.0                             |
-| **Situação**     | Em entrega: homologação publicada no Render e no Neon; aguardando a passagem para a `main` (#96) |
+| **Situação**     | MVP 1.0 entregue na `main` (#96); homologação publicada no Render e no Neon (#79) |
 
 ### Sprint 3
 
 | Situação | Issues |
 | -------- | ------ |
-| **Entregues (Done)** | #56, #77, #78, #79, #80, #81, #82, #83, #84, #85, #86, #87, #88, #89, #90, #91, #92, #93, #94, #113 e #115 (52 pontos; a #113 e a #115 foram criadas durante a sprint) |
-| **Em andamento** | #96: entrega do MVP (passagem da `developer` para a `main`) |
+| **Entregues (Done)** | #56, #77, #78, #79, #80, #81, #82, #83, #84, #85, #86, #87, #88, #89, #90, #91, #92, #93, #94, #96, #113, #115, #122 e #123 (58 pontos; a #113, a #115, a #122 e a #123 foram criadas durante a sprint) |
+| **Em andamento** | — |
 | **Em espera** | #95: homologação com a escola (data a definir) |
 | **Cortadas** | #71 e #72 (exceto o item D1, entregue na Subtask #115), pela ordem de corte da Sprint 3 (ver [Limitações conhecidas](#limitações-conhecidas)) |
 
@@ -148,7 +148,7 @@ Na pasta `src/frontend`:
 
 ## Perfis e permissões
 
-Resumo da matriz de permissões da Seção 4 do [SSD](docs/SSD.md) (versão 1.9). **A matriz ainda é uma proposta e será validada com a escola na homologação (#95).**
+Resumo da matriz de permissões da Seção 4 do [SSD](docs/SSD.md) (versão 1.10). **A matriz ainda é uma proposta e será validada com a escola na homologação (#95).**
 
 | Ação | Professor | Tutor | Gestão | Pedagógico | Técnico-adm. |
 | ---- | :-------: | :---: | :----: | :--------: | :----------: |

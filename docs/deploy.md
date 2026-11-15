@@ -114,6 +114,7 @@ Serviços criados em 15/11/2026: API `sisto-api` (<https://sisto-api.onrender.co
 - [x] `/robots.txt` abre como arquivo de texto (`curl -I <front>/robots.txt` mostra `content-type: text/plain`).
 - [x] Nenhum segredo no repositório nem no build do front-end (conferido em 15/11/2026: busca no repositório e nos arquivos `.js` publicados em https://sisto.onrender.com, que só contêm o endereço da API).
 - [ ] Script de recuperação (#80) testado contra o banco do Neon (seção 9), com uma Gestão fictícia. **Pendente:** não executado no primeiro deploy (15/11/2026); o script tem testes automatizados com banco simulado e deve ser testado no Neon antes da homologação com a escola (#95).
+- [ ] `trust proxy` conferido no Render (o limite de tentativas identifica o IP real do cliente, e não o IP do proxy). **Pendente:** não executado no primeiro deploy (15/11/2026); conferir antes da homologação com a escola (#95).
 - [x] Endereços registrados no README (Links do Projeto, linha "Deploy").
 
 ## 7. Lista de variáveis (resumo, sem valores)
