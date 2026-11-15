@@ -125,6 +125,10 @@ function mockarApi({
     }
     const get = url.match(/\/ocorrencias\/([^/]+)$/);
     if (method === 'GET' && get) return detalhe(decodeURIComponent(get[1]));
+    // #85: o detalhe também busca o histórico (lista vazia aqui).
+    if (opcoes.method === 'GET' && /\/ocorrencias\/[^/]+\/historico$/.test(url)) {
+      return respostaFalsa(200, []);
+    }
     throw new Error(`Chamada inesperada: ${method} ${url}`);
   });
 }

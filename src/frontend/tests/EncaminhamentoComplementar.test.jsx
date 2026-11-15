@@ -113,6 +113,10 @@ function mockarApi({
     }
     const get = url.match(/\/ocorrencias\/([^/]+)$/);
     if (method === 'GET' && get) return detalhe(decodeURIComponent(get[1]));
+    // #85: o detalhe também busca o histórico (lista vazia aqui).
+    if (opcoes.method === 'GET' && /\/ocorrencias\/[^/]+\/historico$/.test(url)) {
+      return respostaFalsa(200, []);
+    }
     throw new Error(`Chamada inesperada: ${method} ${url}`);
   });
 }
@@ -123,7 +127,9 @@ function sessao(perfil = 'GESTAO') {
 
 function chamadas(metodo, trecho) {
   return fetch.mock.calls.filter(
-    ([url, opcoes = {}]) => opcoes.method === metodo && url.includes(trecho),
+    ([url, opcoes = {}]) => opcoes.method === metodo && url.includes(trecho) &&
+      // #85: o GET do histórico não conta como GET do detalhe.
+      (trecho.includes('/historico') || !url.includes('/historico')),
   );
 }
 

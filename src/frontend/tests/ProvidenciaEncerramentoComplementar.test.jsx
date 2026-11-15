@@ -89,6 +89,10 @@ function mockarApi({
     if (method === 'POST' && /\/ocorrencias\/33\/providencias$/.test(url)) return providencia();
     if (method === 'PATCH' && /\/ocorrencias\/33\/status$/.test(url)) return encerrar();
     if (method === 'GET' && /\/ocorrencias\/33$/.test(url)) return detalhe();
+    // #85: o detalhe também busca o histórico (lista vazia aqui).
+    if (opcoes.method === 'GET' && /\/ocorrencias\/[^/]+\/historico$/.test(url)) {
+      return respostaFalsa(200, []);
+    }
     throw new Error(`Chamada inesperada: ${method} ${url}`);
   });
 }

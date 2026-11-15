@@ -671,3 +671,39 @@ export function mensagemErroProvidencia(falha) {
 export function mensagemErroEncerramento(falha) {
   return mensagemErroAtualizacao(falha, MENSAGEM_GENERICA_ENCERRAMENTO);
 }
+
+// ---------------------------------------------------------------------------
+// Histórico de alterações no detalhe (RF12, RN08, RN17 — #85)
+// ---------------------------------------------------------------------------
+
+export const MENSAGEM_SEM_HISTORICO = 'Nenhuma alteração registrada.';
+
+const MENSAGEM_GENERICA_HISTORICO = 'Não foi possível carregar o histórico agora.';
+
+/**
+ * Ação do histórico como aparece na tela: o texto fixo da API (RN08), com a
+ * primeira letra maiúscula (ex.: "Encaminhamento registrado").
+ */
+export function rotuloAcaoHistorico(acao) {
+  const texto = String(acao ?? '').trim();
+  return texto ? texto.charAt(0).toLocaleUpperCase('pt-BR') + texto.slice(1) : '';
+}
+
+/**
+ * A falha do histórico indica que a ocorrência não existe para o usuário (404:
+ * inexistente ou fora da visibilidade — RN19; 400: id inválido): a tela mostra
+ * o mesmo "não encontrada" do detalhe.
+ */
+export function historicoNaoEncontrado(falha) {
+  return [400, 404].includes(falha?.status);
+}
+
+/**
+ * Converte a falha do GET /ocorrencias/{id}/historico em mensagem para a
+ * seção. O 401 não chega aqui na prática: o tratamento central leva ao login.
+ */
+export function mensagemErroHistorico(falha) {
+  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
+  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
+  return MENSAGEM_GENERICA_HISTORICO;
+}
