@@ -1371,3 +1371,103 @@ a.botao {
     color: #000000;
   }
 }
+
+/* Filtros e paginação da lista de ocorrências (Issue #87, RNF01) */
+.filtros-ocorrencias {
+  margin-top: 1rem;
+}
+
+.filtros-ocorrencias__alternar {
+  width: 100%;
+}
+
+.filtros-ocorrencias__painel {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background-color: var(--cor-superficie);
+  border: 1px solid #e3d6de;
+  border-radius: var(--raio);
+}
+
+.filtros-ocorrencias__campos {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.filtros-ocorrencias__grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid #e3d6de;
+  border-radius: var(--raio);
+}
+
+.filtros-ocorrencias__grupo legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+
+.filtros-ocorrencias__periodo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.filtros-ocorrencias__periodo .campo {
+  min-width: 0;
+}
+
+.filtros-ocorrencias__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.resumo-ocorrencias {
+  margin: 1rem 0 0;
+  font-weight: 600;
+}
+
+.resumo-ocorrencias:empty {
+  display: none;
+}
+
+.resumo-ocorrencias:focus {
+  outline: none;
+}
+
+.paginacao-ocorrencias {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.paginacao-ocorrencias__posicao {
+  font-weight: 600;
+}
+
+@media (min-width: 600px) {
+  .filtros-ocorrencias__alternar {
+    width: auto;
+  }
+
+  .filtros-ocorrencias__campos {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filtros-ocorrencias__grupo {
+    grid-column: 1 / -1;
+  }
+
+  .filtros-ocorrencias__acoes {
+    flex-direction: row;
+  }
+}

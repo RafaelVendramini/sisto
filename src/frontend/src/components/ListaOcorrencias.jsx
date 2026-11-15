@@ -14,7 +14,7 @@ export function SeloStatusOcorrencia({ status }) {
   return <span className={`selo selo-ocorrencia selo-ocorrencia--${modificador}`}>{rotulo}</span>;
 }
 
-function CartaoOcorrencia({ ocorrencia }) {
+function CartaoOcorrencia({ ocorrencia, buscaLista }) {
   const nomes = (ocorrencia.estudantes ?? []).map((e) => e.nomeCompleto).join(', ');
   const idTitulo = `ocorrencia-${ocorrencia.id}-titulo`;
   return (
@@ -23,7 +23,12 @@ function CartaoOcorrencia({ ocorrencia }) {
         <div className="cartao-ocorrencia__topo">
           <h2 id={idTitulo} className="cartao-ocorrencia__titulo">
             {/* O link cobre o cartão inteiro (CSS), com área de toque grande (RNF01). */}
-            <Link to={`/ocorrencias/${ocorrencia.id}`} className="cartao-ocorrencia__link">
+            {/* buscaLista: filtros e página atuais, para o "Voltar para a lista" (#87). */}
+            <Link
+              to={`/ocorrencias/${ocorrencia.id}`}
+              state={buscaLista ? { buscaLista } : undefined}
+              className="cartao-ocorrencia__link"
+            >
               Ocorrência nº {ocorrencia.id}
             </Link>
           </h2>
@@ -57,8 +62,18 @@ function CartaoOcorrencia({ ocorrencia }) {
  * no computador. Mostra data e hora (São Paulo), categoria, turma, estudantes
  * e status com rótulo amigável; cada cartão leva ao detalhe. A ordem é a da
  * API (mais recente primeiro) e o conteúdo é o que o back-end permite (RN19).
+ * `mensagemVazia` troca o texto da lista vazia (ex.: com filtros — #87) e
+ * `buscaLista` (query string da lista, ex.: '?status=ABERTO') vai para o
+ * detalhe, para o "Voltar para a lista" manter a busca.
  */
-export default function ListaOcorrencias({ ocorrencias, carregando, erro, aoTentarNovamente }) {
+export default function ListaOcorrencias({
+  ocorrencias,
+  carregando,
+  erro,
+  aoTentarNovamente,
+  mensagemVazia = MENSAGEM_SEM_OCORRENCIAS,
+  buscaLista = '',
+}) {
   if (carregando) {
     return (
       <p className="texto-secundario" role="status">
@@ -79,13 +94,13 @@ export default function ListaOcorrencias({ ocorrencias, carregando, erro, aoTent
   }
 
   if (ocorrencias.length === 0) {
-    return <p className="texto-secundario">{MENSAGEM_SEM_OCORRENCIAS}</p>;
+    return <p className="texto-secundario">{mensagemVazia}</p>;
   }
 
   return (
     <ul className="lista-ocorrencias" aria-label="Ocorrências">
       {ocorrencias.map((ocorrencia) => (
-        <CartaoOcorrencia key={ocorrencia.id} ocorrencia={ocorrencia} />
+        <CartaoOcorrencia key={ocorrencia.id} ocorrencia={ocorrencia} buscaLista={buscaLista} />
       ))}
     </ul>
   );
