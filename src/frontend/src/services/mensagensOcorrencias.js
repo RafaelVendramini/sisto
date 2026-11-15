@@ -88,14 +88,23 @@ export const MENSAGEM_SEM_ENCAMINHAMENTOS = 'Nenhum encaminhamento registrado.';
 export const MENSAGEM_SEM_COMUNICACOES = 'Nenhuma comunicação registrada.';
 export const MENSAGEM_SEM_PROVIDENCIAS = 'Nenhuma providência registrada.';
 
+// Filtros e paginação da lista (RF11 — Issue #87).
+export const MENSAGEM_SEM_OCORRENCIAS_FILTRO = 'Nenhuma ocorrência encontrada com esses filtros.';
+export const MENSAGEM_PERIODO_INVALIDO =
+  'A data "De" não pode ser depois da data "Até". Corrija o período.';
+export const MENSAGEM_FILTROS_INVALIDOS =
+  'Não foi possível aplicar os filtros. Confira os valores escolhidos e tente novamente.';
+
 const MENSAGEM_GENERICA_LISTA = 'Não foi possível carregar as ocorrências agora.';
 const MENSAGEM_GENERICA_DETALHE = 'Não foi possível carregar a ocorrência agora.';
 
 /**
  * Converte a falha do GET /ocorrencias em mensagem para a tela.
  * O 401 não chega aqui na prática: o tratamento central leva ao login.
+ * O 400 (filtro recusado pela API) não mostra o texto técnico do back-end.
  */
 export function mensagemErroListaOcorrencias(falha) {
+  if (falha?.status === 400) return MENSAGEM_FILTROS_INVALIDOS;
   if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
   if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
   return MENSAGEM_GENERICA_LISTA;

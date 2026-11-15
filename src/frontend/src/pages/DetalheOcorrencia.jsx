@@ -226,6 +226,15 @@ function ConteudoOcorrencia({ ocorrencia }) {
   );
 }
 
+/**
+ * Filtros e página da lista de onde o usuário veio (#87), recebidos pelo state
+ * da navegação: só uma query string simples ('?...'), sem outro caminho.
+ */
+function buscaDaLista(state) {
+  const busca = state?.buscaLista;
+  return typeof busca === 'string' && /^\?[^#/]*$/.test(busca) ? busca : '';
+}
+
 // Detalhe da ocorrência (RF05, UC03, RN19, RN20), somente leitura e aos 5
 // perfis. O que aparece é o que a API devolve: fora da visibilidade do
 // usuário, a API responde 404 como se a ocorrência não existisse.
@@ -476,7 +485,7 @@ function Detalhe({ id }) {
   return (
     <div className="pagina-ocorrencia detalhe-ocorrencia">
       <p className="detalhe-ocorrencia__voltar">
-        <Link to="/ocorrencias">Voltar para a lista</Link>
+        <Link to={`/ocorrencias${buscaDaLista(location.state)}`}>Voltar para a lista</Link>
       </p>
 
       <div role="status" aria-live="polite">

@@ -51,22 +51,69 @@ export function registrarOcorrencia({
   });
 }
 
+/** Tamanho fixo da página da lista (SSD, Seção 12 — Issue #86). */
+export const TAMANHO_PAGINA_OCORRENCIAS = 20;
+
+// Parâmetros aceitos pelo GET /ocorrencias (Issue #86), na ordem em que vão
+// para a query string.
+const PARAMETROS_LISTA = Object.freeze([
+  'turmaId',
+  'categoriaId',
+  'status',
+  'estudanteId',
+  'dataInicio',
+  'dataFim',
+  'profissionalResponsavelId',
+]);
+
 /**
- * Lista as ocorrências que o usuário pode ver (GET /ocorrencias — UC03, RN19).
- * A visibilidade é decidida pelo back-end; a lista já vem resumida e ordenada
- * da mais recente para a mais antiga. Desde a Issue #86 a API responde
- * paginada ({ itens, total, pagina, tamanhoPagina }, 20 por página); aqui são
- * lidos só os itens da primeira página — filtros e paginação na tela ficam
- * para a Issue #87.
- * @returns {Promise<Array<{ id: number, dataHora: string, local: string, status: string,
+ * Monta a query string do GET /ocorrencias. A API recusa parâmetro vazio
+ * (400): filtros não preenchidos ficam FORA da query. A página 1 também é
+ * omitida (é o padrão da API).
+ * @returns {string} ex.: '?turmaId=1&pagina=2' ou '' sem nada
+ */
+export function montarQueryListaOcorrencias(filtros = {}) {
+  const params = new URLSearchParams();
+  for (const nome of PARAMETROS_LISTA) {
+    const valor = filtros[nome];
+    if (valor === undefined || valor === null) continue;
+    const texto = String(valor).trim();
+    if (texto) params.set(nome, texto);
+  }
+  const pagina = Number(filtros.pagina);
+  if (Number.isInteger(pagina) && pagina > 1) params.set('pagina', String(pagina));
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+/**
+ * Lista uma página das ocorrências que o usuário pode ver (GET /ocorrencias —
+ * UC03, RF11, RN19). A visibilidade é decidida pelo back-end: os filtros
+ * nunca ampliam o que o perfil vê. A lista vem resumida, da mais recente para
+ * a mais antiga, 20 por página (Issue #86).
+ * @param {{ turmaId?: number | string, categoriaId?: number | string, status?: string,
+ *   estudanteId?: number | string, dataInicio?: string, dataFim?: string,
+ *   profissionalResponsavelId?: number | string, pagina?: number }} [filtros]
+ *   ids inteiros, status com o valor técnico e datas AAAA-MM-DD; vazios são omitidos
+ * @returns {Promise<{ itens: Array<{ id: number, dataHora: string, local: string, status: string,
  *   turma: { id: number, nome: string, etapa: string, anoLetivo: number },
  *   categoria: { id: number, nome: string },
  *   profissionalResponsavel: { id: number, nome: string },
- *   estudantes: Array<{ id: number, nomeCompleto: string }> }>>}
+ *   estudantes: Array<{ id: number, nomeCompleto: string }> }>,
+ *   total: number, pagina: number, tamanhoPagina: number }>}
  */
-export async function listarOcorrencias() {
-  const dados = await requisicaoAutenticada('/ocorrencias');
-  return Array.isArray(dados?.itens) ? dados.itens : [];
+export async function listarOcorrencias(filtros = {}) {
+  const dados = await requisicaoAutenticada(`/ocorrencias${montarQueryListaOcorrencias(filtros)}`);
+  // Resposta fora do formato paginado não quebra a tela: vira lista vazia.
+  const itens = Array.isArray(dados?.itens) ? dados.itens : [];
+  const inteiro = (valor, padrao) => (Number.isInteger(valor) && valor >= 0 ? valor : padrao);
+  const paginaPedida = Number(filtros.pagina) > 1 ? Number(filtros.pagina) : 1;
+  return {
+    itens,
+    total: inteiro(dados?.total, itens.length),
+    pagina: inteiro(dados?.pagina, paginaPedida) || paginaPedida,
+    tamanhoPagina: inteiro(dados?.tamanhoPagina, TAMANHO_PAGINA_OCORRENCIAS) || TAMANHO_PAGINA_OCORRENCIAS,
+  };
 }
 
 /**

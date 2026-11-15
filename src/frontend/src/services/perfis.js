@@ -102,6 +102,17 @@ export function podeConsultarOcorrencias(perfil) {
   return PERFIS_CONSULTA_OCORRENCIAS.includes(perfil);
 }
 
+// Perfis que filtram a lista de ocorrências pelo profissional responsável
+// (quem registrou — RF11, Issue #87): só a Gestão, que já recebe a lista
+// completa de usuários. Esconder o filtro é só usabilidade: o back-end sempre
+// soma os filtros à visibilidade do perfil (RN19).
+export const PERFIS_FILTRO_PROFISSIONAL = Object.freeze(['GESTAO']);
+
+/** Indica se o perfil vê o filtro "Profissional responsável" na lista. */
+export function podeFiltrarPorProfissional(perfil) {
+  return PERFIS_FILTRO_PROFISSIONAL.includes(perfil);
+}
+
 // Perfis que encaminham uma ocorrência já registrada (UC02, RF08, RN15,
 // matriz da Seção 4): Gestão e Equipe Pedagógica. Usado para mostrar o botão
 // "Encaminhar" no detalhe; a proteção real é do back-end (403).
