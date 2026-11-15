@@ -176,6 +176,7 @@ describe('Tela de estudantes (#43)', () => {
         'Turmas',
         'Estudantes',
         'Categorias',
+        'Relatórios',
       ]);
       await usuario.click(within(menu).getByRole('link', { name: 'Estudantes' }));
 

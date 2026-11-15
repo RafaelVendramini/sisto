@@ -13,6 +13,7 @@ import Ocorrencias from './pages/Ocorrencias.jsx';
 import PaginaNaoEncontrada from './pages/PaginaNaoEncontrada.jsx';
 import PoliticaPrivacidade from './pages/PoliticaPrivacidade.jsx';
 import RegistrarOcorrencia from './pages/RegistrarOcorrencia.jsx';
+import Relatorios from './pages/Relatorios.jsx';
 import TermosUso from './pages/TermosUso.jsx';
 import Turmas from './pages/Turmas.jsx';
 import Usuarios from './pages/Usuarios.jsx';
@@ -24,6 +25,7 @@ import {
   PERFIS_GESTAO_TURMAS,
   PERFIS_GESTAO_USUARIOS,
   PERFIS_REGISTRO_OCORRENCIA,
+  PERFIS_RELATORIOS,
 } from './services/perfis.js';
 import { ROTA_PRIVACIDADE, ROTA_TERMOS } from './services/rotasPublicas.js';
 
@@ -67,6 +69,9 @@ export default function App() {
             </Route>
             <Route element={<RotaPorPerfil perfis={PERFIS_GESTAO_CATEGORIAS} />}>
               <Route path="/categorias" element={<Categorias />} />
+            </Route>
+            <Route element={<RotaPorPerfil perfis={PERFIS_RELATORIOS} />}>
+              <Route path="/relatorios" element={<Relatorios />} />
             </Route>
           </Route>
           {/* Endereço inexistente: página 404, fora de RotaProtegida (vale logado ou não). */}

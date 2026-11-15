@@ -144,3 +144,13 @@ export function podeAtualizarOcorrencia(usuario, ocorrencia) {
   const responsavelId = ocorrencia.responsavelAcompanhamento?.id;
   return responsavelId !== undefined && responsavelId !== null && responsavelId === usuario.id;
 }
+
+// Perfis que geram e imprimem relatórios de quantidade de ocorrências (UC05,
+// RF13, matriz da Seção 4): Gestão e Equipe Pedagógica. Usado no menu e na
+// rota; a proteção real é do back-end (403).
+export const PERFIS_RELATORIOS = Object.freeze(['GESTAO', 'PEDAGOGICO']);
+
+/** Indica se o perfil pode ver a página de relatórios. */
+export function podeGerarRelatorios(perfil) {
+  return PERFIS_RELATORIOS.includes(perfil);
+}
