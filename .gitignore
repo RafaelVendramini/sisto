@@ -45,6 +45,19 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
+# Node.js
+node_modules/
+npm-debug.log*
+coverage/
+
+# Variáveis de ambiente (manter apenas os .env.example versionados)
+.env
+.env.*
+!.env.example
+
 # Sistema Operacional
 .DS_Store
 Thumbs.db
+
+# Ferramentas locais (Playwright MCP)
+.playwright-mcp/

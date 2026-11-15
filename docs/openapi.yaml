@@ -1,0 +1,2761 @@
+openapi: 3.0.3
+info:
+  title: Sisto — API de gestão de ocorrências escolares
+  version: "1.8"
+  description: |
+    Documentação da API REST (JSON) do Sisto, fiel à Seção 12 do SSD 1.8
+    (`docs/SSD.md`) e ao código em `src/backend/src`. Este arquivo é a única
+    documentação da API: não há Swagger UI exposta (SSD 1.8, Seção 10).
+
+    **Autenticação.** Todas as rotas, exceto `/auth/*`, exigem o cabeçalho
+    `Authorization: Bearer <token>`, com o JWT (HS256, validade de 8 horas,
+    sem refresh — RNF03) devolvido pelo `POST /auth/login`. A cada requisição
+    a API confere no banco se o usuário está `ATIVO` (RN09) e se o token foi
+    emitido depois da última troca de senha (RN12); caso contrário, responde
+    **401** com `WWW-Authenticate: Bearer` e a mesma mensagem genérica. Não há
+    endpoint de logout: o front-end descarta o token (RF02).
+
+    **Troca de senha obrigatória (RN10).** Enquanto o usuário tiver uma senha
+    temporária, todas as rotas protegidas respondem **403**, exceto
+    `PUT /conta/senha`. Esse 403 traz `codigo: "TROCA_SENHA_OBRIGATORIA"`
+    (Issue #72), para o front-end distinguir o caso do 403 de perfil sem
+    permissão.
+
+    **Permissões.** Cada operação indica os perfis permitidos (matriz da
+    Seção 4 do SSD). Perfil sem permissão recebe **403**
+    (`Acesso não permitido para o seu perfil.`). A visibilidade das
+    ocorrências segue a RN19: ocorrência fora da visibilidade do usuário é
+    tratada como inexistente (**404**). Dados reduzidos para quem não é Gestão
+    seguem a RN20.
+
+    **Convenções de corpo.**
+    * Os corpos JSON usam camelCase; o banco usa snake_case (Seção 11).
+    * Identificadores e números chegam como número JSON; texto (ex.: `"3"`) é
+      recusado com **400**.
+    * Campos fora do contrato são ignorados (ex.: `status` ou
+      `profissionalResponsavelId` no registro da ocorrência).
+    * Textos são gravados sem os espaços das pontas (normalização NFC); o
+      tamanho é medido depois disso, em unidades UTF-16. Texto opcional vazio
+      ou só com espaços é gravado como `null`. A senha não tem os espaços
+      retirados.
+    * Nos textos de ocorrência, encaminhamento, comunicação e providência, o
+      caractere nulo (U+0000) é recusado com **400**.
+    * `dataHora` informada (ocorrência e comunicação — RN17) segue ISO 8601
+      com fuso obrigatório (`Z` ou `±hh:mm`, ex.: `2026-10-20T14:30:00-03:00`),
+      anos 0001 a 9999 em UTC, e aceita no máximo 5 minutos à frente do
+      relógio do servidor. Datas devolvidas pela API estão em UTC
+      (ex.: `2026-10-20T17:30:00.000Z`); a exibição é no horário de São Paulo.
+    * Parâmetros de período na query (`dataInicio`, `dataFim`) usam
+      `AAAA-MM-DD` e valem como dias inteiros no fuso `America/Sao_Paulo`,
+      com as duas pontas incluídas.
+    * Ids de URL e de query aceitam apenas inteiro positivo em notação decimal
+      simples (sem sinal, zeros à esquerda ou espaços), até 2147483647; fora
+      disso, **400**. Parâmetro de query repetido (ex.: `?turmaId=1&turmaId=2`)
+      também é **400**.
+
+    **Erros.** Toda resposta de erro tem o formato `{ "erro": "mensagem" }`
+    (esquema `Erro`). Todas as respostas **409** e o **403** de troca de
+    senha obrigatória (RN10) trazem também o campo `codigo`, um código
+    estável (Issue #72) que o front-end usa para identificar o caso sem
+    depender do texto da mensagem; os valores e o significado de cada um
+    estão no esquema `Erro`. As demais respostas de erro trazem só `erro`.
+    Status HTTP usados:
+    * **400** entrada inválida, inclusive referência inexistente no corpo
+      (turma, estudante, categoria ou usuário) e JSON malformado
+      (`JSON inválido no corpo da requisição`);
+    * **401** não autenticado;
+    * **403** perfil sem permissão (inclusive RN22) ou troca de senha pendente;
+    * **404** recurso da URL inexistente ou fora da visibilidade (RN19), e rota
+      inexistente (`Rota não encontrada`);
+    * **409** duplicidade (RN18), operação recusada pelo estado da ocorrência
+      ou pelas regras de usuários e tutoria (RN04, RN11, RN13, RN15, RN16) e
+      conflito concorrente (transação serializável repetida sem sucesso —
+      mensagem para tentar de novo);
+    * **429** limite de tentativas do login ou da troca de senha excedido;
+    * **500** `{ "erro": "Erro interno do servidor" }`, sem detalhes.
+
+    Nota técnica: o corpo JSON é lido pelo `express.json()` com o limite
+    padrão de 100 kB; acima dele a resposta é 413, no mesmo formato `Erro`.
+
+    **Exemplos.** Todos os nomes, e-mails e códigos dos exemplos são
+    fictícios (RN05 / LGPD).
+  contact:
+    name: Equipe Sisto (LTD)
+servers:
+  - url: http://localhost:3000
+    description: Desenvolvimento local (porta padrão do back-end, variável PORT)
+tags:
+  - name: Autenticação
+  - name: Conta
+  - name: Usuários
+  - name: Turmas
+  - name: Estudantes
+  - name: Categorias
+  - name: Ocorrências
+  - name: Relatórios
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autenticar usuário
+      operationId: login
+      security: []
+      description: |
+        Rota pública (sem JWT). Recebe e-mail e senha e devolve o JWT
+        (validade de 8 horas, sem refresh — RNF03). Somente usuários `ATIVO`
+        autenticam (RN09). O e-mail é comparado sem espaços nas pontas e em
+        minúsculas. A mesma mensagem genérica é usada para e-mail inexistente,
+        senha incorreta e usuário bloqueado ou desativado (RNF06).
+
+        O token é emitido mesmo com a troca de senha pendente: é ele que
+        autoriza o `PUT /conta/senha`. Quando `trocaSenhaObrigatoria` for
+        `true`, o front-end leva o usuário direto à troca de senha (RN10).
+
+        **Limite de tentativas (SSD 1.8, Issue #90):** até 5 tentativas com
+        falha (respostas 401) em 15 minutos, contadas por IP + e-mail
+        informado. Acima disso, **429** com `Retry-After`. O 400 de corpo
+        incompleto e os logins bem-sucedidos não contam. O limite não altera o
+        status da conta (RN07). O contador fica em memória e zera quando a API
+        reinicia.
+
+        Perfis: público.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginEntrada'
+            example:
+              email: gestao.um@escola.exemplo
+              senha: SenhaFicticia123
+      responses:
+        '200':
+          description: Autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResposta'
+              example:
+                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.exemplo.assinatura
+                usuario:
+                  id: 1
+                  nome: Gestora Fictícia Um
+                  perfil: GESTAO
+                trocaSenhaObrigatoria: false
+        '400':
+          description: E-mail ou senha ausentes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Informe email e senha (texto não vazio).
+        '401':
+          description: |
+            Credenciais inválidas ou usuário sem acesso (mensagem única).
+            Diferente das rotas protegidas, esta resposta não traz
+            `WWW-Authenticate`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: E-mail ou senha inválidos.
+        '429':
+          $ref: '#/components/responses/MuitasTentativas'
+
+  /auth/recuperar-senha:
+    post:
+      tags: [Autenticação]
+      summary: Reservado para etapa futura — não implementado
+      operationId: recuperarSenha
+      deprecated: true
+      security: []
+      description: |
+        **Reservado — fora do MVP atual.** Redefinição de senha por link
+        enviado ao e-mail, dependente do Spike #19 e de nova decisão (SSD 1.8,
+        Seção 12). A rota não existe no código: qualquer chamada responde 404
+        (`Rota não encontrada`). No MVP, a recuperação de acesso é feita pela
+        Gestão (`PUT /usuarios/{id}/senha`).
+      responses:
+        '404':
+          description: Rota não implementada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Rota não encontrada
+
+  /conta/senha:
+    put:
+      tags: [Conta]
+      summary: Trocar a própria senha
+      operationId: trocarPropriaSenha
+      description: |
+        O usuário logado troca a própria senha informando a atual (RF03).
+        Única rota liberada enquanto a troca de senha obrigatória estiver
+        pendente (RN10). A nova senha segue a política da RN10 (mínimo de 8
+        caracteres, máximo de 72 bytes em UTF-8) e não pode ser igual à atual.
+        Senha atual incorreta ou nova igual à atual respondem **400** (não
+        401, que o front-end trata como sessão expirada).
+
+        Após a troca, `troca_senha_obrigatoria` volta a `false`, e todos os
+        tokens emitidos antes, inclusive o usado aqui, deixam de valer (RN12):
+        o usuário precisa fazer login de novo. Não devolve token novo. A troca
+        é registrada no LogAuditoria, sem a senha (RNF04).
+
+        **Limite de tentativas (SSD 1.8, Issue #90):** até 5 tentativas com
+        falha (respostas 400) em 15 minutos, contadas por IP + usuário logado.
+        Acima disso, **429** com `Retry-After`. O limite não altera o status
+        da conta (RN07).
+
+        Perfis: todos (PROFESSOR, TUTOR, GESTAO, PEDAGOGICO,
+        TECNICO_ADMINISTRATIVO).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrocaSenhaEntrada'
+            example:
+              senhaAtual: SenhaTemporaria1
+              novaSenha: NovaSenhaFicticia2
+      responses:
+        '204':
+          description: Senha trocada. Sem corpo; é preciso entrar de novo.
+        '400':
+          description: Corpo inválido, senha fora da política, senha atual incorreta ou nova igual à atual.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                senhaAtualIncorreta:
+                  value:
+                    erro: A senha atual está incorreta.
+                novaIgualAtual:
+                  value:
+                    erro: A nova senha deve ser diferente da senha atual.
+                politica:
+                  value:
+                    erro: A senha deve ter no mínimo 8 caracteres.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '409':
+          description: Conflito concorrente com outra troca de senha do mesmo usuário (`CONFLITO_CONCORRENTE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
+        '429':
+          $ref: '#/components/responses/MuitasTentativas'
+
+  /usuarios:
+    get:
+      tags: [Usuários]
+      summary: Listar usuários
+      operationId: listarUsuarios
+      description: |
+        Lista ordenada por nome e depois por id (RN20, Issue #44).
+
+        * **Gestão:** lista completa (`id`, `nome`, `email`, `perfil`,
+          `status`) de todos os usuários, de qualquer status. O filtro
+          `?perfil=` é ignorado.
+        * **Demais perfis:** apenas `id`, `nome` e `perfil` dos usuários
+          `ATIVO` com perfil `TUTOR`, `PEDAGOGICO` ou `GESTAO` (possíveis
+          destinatários de encaminhamento e responsáveis pelo acompanhamento).
+          Aceita `?perfil=` com um desses três valores.
+
+        Perfis: todos.
+      parameters:
+        - name: perfil
+          in: query
+          required: false
+          description: |
+            Só para quem não é Gestão. Valor exato do enum; fora de
+            `TUTOR`, `PEDAGOGICO`, `GESTAO`, vazio ou repetido responde 400.
+          schema:
+            type: string
+            enum: [TUTOR, PEDAGOGICO, GESTAO]
+      responses:
+        '200':
+          description: |
+            Lista de usuários. Para a Gestão, itens `UsuarioCompleto`; para os
+            demais perfis, itens `UsuarioReduzido`.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - $ref: '#/components/schemas/UsuarioCompleto'
+                    - $ref: '#/components/schemas/UsuarioReduzido'
+              examples:
+                gestao:
+                  summary: Consultado pela Gestão
+                  value:
+                    - id: 1
+                      nome: Gestora Fictícia Um
+                      email: gestao.um@escola.exemplo
+                      perfil: GESTAO
+                      status: ATIVO
+                    - id: 4
+                      nome: Tutor Fictício Quatro
+                      email: tutor.quatro@escola.exemplo
+                      perfil: TUTOR
+                      status: BLOQUEADO
+                demaisPerfis:
+                  summary: Consultado por outro perfil
+                  value:
+                    - id: 1
+                      nome: Gestora Fictícia Um
+                      perfil: GESTAO
+                    - id: 3
+                      nome: Tutora Fictícia Três
+                      perfil: TUTOR
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+    post:
+      tags: [Usuários]
+      summary: Cadastrar usuário
+      operationId: cadastrarUsuario
+      description: |
+        Cadastra um usuário com status `ATIVO` e a senha temporária definida
+        pela Gestão (RF01, RN10). O usuário é criado com troca de senha
+        obrigatória no primeiro login. O e-mail é gravado sem espaços nas
+        pontas e em minúsculas e precisa ser único. Outros campos do corpo
+        (ex.: `status`, `id`) são ignorados. Gera LogAuditoria
+        "usuário criado".
+
+        Perfis: GESTAO.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioCadastroEntrada'
+            example:
+              nome: Professora Fictícia Cinco
+              email: professora.cinco@escola.exemplo
+              perfil: PROFESSOR
+              senha: SenhaTemporaria1
+      responses:
+        '201':
+          description: Usuário cadastrado (sem senha nem hash).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioCompleto'
+              example:
+                id: 5
+                nome: Professora Fictícia Cinco
+                email: professora.cinco@escola.exemplo
+                perfil: PROFESSOR
+                status: ATIVO
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '409':
+          description: E-mail já cadastrado (`EMAIL_DUPLICADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Já existe um usuário cadastrado com este e-mail.
+                codigo: EMAIL_DUPLICADO
+
+  /usuarios/{id}:
+    put:
+      tags: [Usuários]
+      summary: Editar usuário (inclui bloqueio, desativação e reativação)
+      operationId: editarUsuario
+      description: |
+        Edição parcial: cada campo é opcional, mas ao menos um de `nome`,
+        `email`, `perfil` e `status` deve vir; os presentes seguem as regras
+        do cadastro. Outros campos são ignorados (a senha não é alterada
+        aqui). Status `ATIVO`, `BLOQUEADO` ou `DESATIVADO` (RF04, RN07);
+        reativar é voltar a `ATIVO`. O bloqueio ou a desativação corta o
+        acesso na requisição seguinte (RN09). Gera LogAuditoria
+        "usuário editado".
+
+        Respostas **409** (com o `codigo` de cada caso):
+        * a Gestão tenta bloquear, desativar ou alterar o próprio perfil
+          (RN11) — `ALTERAR_PROPRIO_ACESSO`; editar o próprio nome/e-mail é
+          permitido;
+        * a edição deixaria menos de dois usuários Gestão ativos (RN11) —
+          `GESTAO_ATIVA_MINIMA`;
+        * troca de perfil de um Tutor com estudantes vinculados (RN13) —
+          `TUTOR_COM_TUTORADOS`;
+        * e-mail já usado por outro usuário — `EMAIL_DUPLICADO`;
+        * conflito concorrente — `CONFLITO_CONCORRENTE`.
+
+        Perfis: GESTAO.
+      parameters:
+        - $ref: '#/components/parameters/IdUsuario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioEdicaoEntrada'
+            example:
+              status: BLOQUEADO
+      responses:
+        '200':
+          description: Usuário atualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioCompleto'
+              example:
+                id: 5
+                nome: Professora Fictícia Cinco
+                email: professora.cinco@escola.exemplo
+                perfil: PROFESSOR
+                status: BLOQUEADO
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          description: Usuário não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Usuário não encontrado.
+        '409':
+          description: |
+            Recusado pelas regras RN11/RN13 (`ALTERAR_PROPRIO_ACESSO`,
+            `GESTAO_ATIVA_MINIMA`, `TUTOR_COM_TUTORADOS`), e-mail duplicado
+            (`EMAIL_DUPLICADO`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                proprioAcesso:
+                  value:
+                    erro: Você não pode bloquear, desativar ou alterar o perfil do seu próprio usuário.
+                    codigo: ALTERAR_PROPRIO_ACESSO
+                minimoGestoes:
+                  value:
+                    erro: O sistema precisa de ao menos dois usuários Gestão ativos. Cadastre ou reative outro usuário Gestão antes de bloquear, desativar ou alterar o perfil deste.
+                    codigo: GESTAO_ATIVA_MINIMA
+                tutorComTutorados:
+                  value:
+                    erro: Este usuário Tutor tem estudantes vinculados. Desvincule os estudantes (ou troque o tutor deles) antes de alterar o perfil.
+                    codigo: TUTOR_COM_TUTORADOS
+                emailDuplicado:
+                  value:
+                    erro: Já existe um usuário cadastrado com este e-mail.
+                    codigo: EMAIL_DUPLICADO
+                concorrente:
+                  value:
+                    erro: O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
+
+  /usuarios/{id}/senha:
+    put:
+      tags: [Usuários]
+      summary: Redefinir a senha de outro usuário
+      operationId: redefinirSenhaUsuario
+      description: |
+        A Gestão define uma nova senha temporária para outro usuário (RF03,
+        RN10). Depois dela, o usuário é obrigado a trocar a senha no próximo
+        login, e todos os tokens anteriores deixam de valer (RN12). A regra de
+        nova senha diferente da atual não se aplica aqui. É permitida para
+        usuário bloqueado ou desativado, que continua sem acesso até ser
+        reativado (RN09). Registrada no LogAuditoria, sem a senha.
+
+        **409** quando a Gestão tenta redefinir a própria senha por este
+        caminho (ela usa `PUT /conta/senha`) — `REDEFINIR_PROPRIA_SENHA` — e
+        em conflito concorrente — `CONFLITO_CONCORRENTE`.
+
+        Perfis: GESTAO.
+      parameters:
+        - $ref: '#/components/parameters/IdUsuario'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedefinicaoSenhaEntrada'
+            example:
+              novaSenha: SenhaTemporaria9
+      responses:
+        '204':
+          description: Senha redefinida. Sem corpo.
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          description: Usuário não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Usuário não encontrado.
+        '409':
+          description: Redefinição da própria senha (`REDEFINIR_PROPRIA_SENHA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                propriaSenha:
+                  value:
+                    erro: Você não pode redefinir a sua própria senha por aqui. Use a opção "Alterar minha senha".
+                    codigo: REDEFINIR_PROPRIA_SENHA
+                concorrente:
+                  value:
+                    erro: A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
+
+  /turmas:
+    get:
+      tags: [Turmas]
+      summary: Listar turmas
+      operationId: listarTurmas
+      description: |
+        Todas as turmas, do ano letivo mais recente para o mais antigo, depois
+        por etapa, nome e id. Mesma resposta para todos os perfis (RN20).
+
+        Perfis: todos.
+      responses:
+        '200':
+          description: Lista de turmas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Turma'
+              example:
+                - id: 1
+                  nome: 1º A
+                  etapa: Ensino Médio
+                  anoLetivo: 2026
+                - id: 2
+                  nome: 9º B
+                  etapa: Ensino Fundamental II
+                  anoLetivo: 2026
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+    post:
+      tags: [Turmas]
+      summary: Cadastrar turma
+      operationId: cadastrarTurma
+      description: |
+        O trio (nome, etapa, ano letivo) é único; a comparação ignora
+        maiúsculas/minúsculas e espaços nas pontas (RN18). A mesma turma em
+        outro ano letivo é aceita. Gera LogAuditoria "turma criada".
+
+        Perfis: GESTAO.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurmaEntrada'
+            example:
+              nome: 1º A
+              etapa: Ensino Médio
+              anoLetivo: 2026
+      responses:
+        '201':
+          description: Turma cadastrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+              example:
+                id: 1
+                nome: 1º A
+                etapa: Ensino Médio
+                anoLetivo: 2026
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '409':
+          $ref: '#/components/responses/ConflitoTurma'
+
+  /turmas/{id}:
+    put:
+      tags: [Turmas]
+      summary: Editar turma
+      operationId: editarTurma
+      description: |
+        Os três campos são obrigatórios também na edição. Manter o próprio
+        trio (inclusive com outra caixa) não é duplicidade. A edição não muda
+        as ocorrências já registradas (RN14). Não há exclusão (RN21). Gera
+        LogAuditoria "turma editada".
+
+        Perfis: GESTAO.
+      parameters:
+        - $ref: '#/components/parameters/IdTurma'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurmaEntrada'
+            example:
+              nome: 1º A
+              etapa: Ensino Médio
+              anoLetivo: 2027
+      responses:
+        '200':
+          description: Turma atualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turma'
+              example:
+                id: 1
+                nome: 1º A
+                etapa: Ensino Médio
+                anoLetivo: 2027
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          description: Turma não encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Turma não encontrada.
+        '409':
+          $ref: '#/components/responses/ConflitoTurma'
+
+  /estudantes:
+    get:
+      tags: [Estudantes]
+      summary: Listar estudantes
+      operationId: listarEstudantes
+      description: |
+        Lista ordenada por nome completo e depois por id, opcionalmente de uma
+        turma (turma atual do estudante). Turma inexistente no filtro devolve
+        lista vazia.
+
+        * **Gestão:** `EstudanteCompleto` (com `codigoEscolar` e tutor com
+          `email` e `status`, para a Gestão ver tutor bloqueado/desativado —
+          RN13).
+        * **Demais perfis (RN20):** `EstudanteReduzido` — só `id`,
+          `nomeCompleto`, `turma` e `tutor` (`{ id, nome }` ou `null`).
+
+        Perfis: todos.
+      parameters:
+        - name: turmaId
+          in: query
+          required: false
+          description: Turma atual do estudante. Inteiro positivo; vazio, repetido ou fora do formato responde 400.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+      responses:
+        '200':
+          description: Lista de estudantes (formato conforme o perfil).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - $ref: '#/components/schemas/EstudanteCompleto'
+                    - $ref: '#/components/schemas/EstudanteReduzido'
+              examples:
+                gestao:
+                  summary: Consultado pela Gestão
+                  value:
+                    - id: 10
+                      nomeCompleto: Aluno Fictício Dez
+                      codigoEscolar: EXEMPLO-0010
+                      turma:
+                        id: 1
+                        nome: 1º A
+                        etapa: Ensino Médio
+                        anoLetivo: 2026
+                      tutor:
+                        id: 3
+                        nome: Tutora Fictícia Três
+                        email: tutora.tres@escola.exemplo
+                        status: ATIVO
+                demaisPerfis:
+                  summary: Consultado por outro perfil
+                  value:
+                    - id: 10
+                      nomeCompleto: Aluno Fictício Dez
+                      turma:
+                        id: 1
+                        nome: 1º A
+                        etapa: Ensino Médio
+                        anoLetivo: 2026
+                      tutor:
+                        id: 3
+                        nome: Tutora Fictícia Três
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+    post:
+      tags: [Estudantes]
+      summary: Cadastrar estudante
+      operationId: cadastrarEstudante
+      description: |
+        `turmaId` precisa existir (400). `tutorId`, se informado, precisa ser
+        um usuário com perfil `TUTOR` e status `ATIVO` (RN13 — 400).
+        `codigoEscolar` é opcional, único quando informado (409 — RN18),
+        compara ignorando espaços nas pontas e diferenciando maiúsculas;
+        vazio vira `null`. Nomes podem se repetir. Gera LogAuditoria
+        "estudante criado".
+
+        Perfis: GESTAO.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstudanteEntrada'
+            example:
+              nomeCompleto: Aluno Fictício Dez
+              codigoEscolar: EXEMPLO-0010
+              turmaId: 1
+              tutorId: 3
+      responses:
+        '201':
+          description: Estudante cadastrado (formato completo).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstudanteCompleto'
+              example:
+                id: 10
+                nomeCompleto: Aluno Fictício Dez
+                codigoEscolar: EXEMPLO-0010
+                turma:
+                  id: 1
+                  nome: 1º A
+                  etapa: Ensino Médio
+                  anoLetivo: 2026
+                tutor:
+                  id: 3
+                  nome: Tutora Fictícia Três
+                  email: tutora.tres@escola.exemplo
+                  status: ATIVO
+        '400':
+          description: Dados inválidos, turma inexistente ou tutor que não é Tutor ativo (RN13).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                tutorInvalido:
+                  value:
+                    erro: O tutor informado precisa ser um usuário com perfil Tutor e status ativo.
+                turmaInexistente:
+                  value:
+                    erro: A turma informada não existe.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '409':
+          $ref: '#/components/responses/ConflitoEstudante'
+
+  /estudantes/{id}:
+    put:
+      tags: [Estudantes]
+      summary: Editar estudante (inclusive o vínculo com o tutor)
+      operationId: editarEstudante
+      description: |
+        `nomeCompleto` e `turmaId` são obrigatórios. `codigoEscolar` ausente
+        mantém o atual; `null` ou vazio o apaga. `tutorId` ausente mantém o
+        vínculo; `null` desvincula; outro id vincula ou troca (exige Tutor
+        ativo — RN13); o mesmo id já vinculado é mantido sem nova checagem
+        (vínculo com tutor bloqueado depois continua — RN07). Trocar a turma
+        não altera as ocorrências já registradas (RN14). Não há exclusão
+        (RN21). Gera LogAuditoria "estudante editado".
+
+        Perfis: GESTAO.
+      parameters:
+        - $ref: '#/components/parameters/IdEstudante'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EstudanteEntrada'
+            example:
+              nomeCompleto: Aluno Fictício Dez
+              turmaId: 2
+              tutorId: null
+      responses:
+        '200':
+          description: Estudante atualizado (formato completo).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstudanteCompleto'
+              example:
+                id: 10
+                nomeCompleto: Aluno Fictício Dez
+                codigoEscolar: EXEMPLO-0010
+                turma:
+                  id: 2
+                  nome: 9º B
+                  etapa: Ensino Fundamental II
+                  anoLetivo: 2026
+                tutor: null
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          description: Estudante não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Estudante não encontrado.
+        '409':
+          $ref: '#/components/responses/ConflitoEstudante'
+
+  /categorias:
+    get:
+      tags: [Categorias]
+      summary: Listar categorias
+      operationId: listarCategorias
+      description: |
+        Todas as categorias, ordenadas por nome e depois por id. Mesma
+        resposta para todos os perfis (RN20).
+
+        Perfis: todos.
+      responses:
+        '200':
+          description: Lista de categorias.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Categoria'
+              example:
+                - id: 1
+                  nome: Indisciplina
+                  descricao: Descumprimento das normas de convivência da escola.
+                - id: 2
+                  nome: Conflitos
+                  descricao: null
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+    post:
+      tags: [Categorias]
+      summary: Criar categoria
+      operationId: criarCategoria
+      description: |
+        Nome único, comparado sem diferenciar maiúsculas/minúsculas e
+        ignorando espaços nas pontas (RN18). `descricao` opcional; vazia vira
+        `null`. Gera LogAuditoria "categoria criada".
+
+        Perfis: GESTAO, PEDAGOGICO.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoriaEntrada'
+            example:
+              nome: Indisciplina
+              descricao: Descumprimento das normas de convivência da escola.
+      responses:
+        '201':
+          description: Categoria criada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+              example:
+                id: 1
+                nome: Indisciplina
+                descricao: Descumprimento das normas de convivência da escola.
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '409':
+          $ref: '#/components/responses/ConflitoCategoria'
+
+  /categorias/{id}:
+    put:
+      tags: [Categorias]
+      summary: Editar categoria
+      operationId: editarCategoria
+      description: |
+        `nome` é obrigatório. `descricao` ausente mantém a atual; `null` ou
+        texto vazio a apaga (Issue #38). Manter o próprio nome não é
+        duplicidade. Não há exclusão (RN21). Gera LogAuditoria
+        "categoria editada".
+
+        Perfis: GESTAO, PEDAGOGICO.
+      parameters:
+        - $ref: '#/components/parameters/IdCategoria'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoriaEntrada'
+            example:
+              nome: Indisciplina
+              descricao: null
+      responses:
+        '200':
+          description: Categoria atualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+              example:
+                id: 1
+                nome: Indisciplina
+                descricao: null
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          description: Categoria não encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Categoria não encontrada.
+        '409':
+          $ref: '#/components/responses/ConflitoCategoria'
+
+  /ocorrencias:
+    post:
+      tags: [Ocorrências]
+      summary: Registrar ocorrência com o encaminhamento inicial
+      operationId: registrarOcorrencia
+      description: |
+        Registra a ocorrência (UC01, RF05, RF06) com 1 a 50 estudantes
+        distintos (ids repetidos contam uma vez — RN02) e 1 a 10
+        encaminhamentos iniciais (RN03). O profissional responsável é sempre o
+        usuário logado (RN02). A turma informada é a turma de referência
+        (RN14); os estudantes podem ser de outras turmas. A ocorrência nasce
+        `ABERTO` e o encaminhamento inicial não muda o status.
+
+        Regras do encaminhamento (RN03): `TUTOR` exige `destinatarioUsuarioId`
+        de um usuário Tutor ativo; `EQUIPE_PEDAGOGICA` e `GESTAO` aceitam
+        usuário opcional, que, se informado, precisa ter o perfil
+        correspondente (`PEDAGOGICO` ou `GESTAO`) e estar ativo.
+        Encaminhamentos repetidos (mesmo `destinatarioPerfil` e mesmo
+        `destinatarioUsuarioId`, inclusive ambos sem usuário) são recusados
+        (400 — Issue #45).
+
+        Ocorrência, estudantes, encaminhamentos, histórico ("ocorrência
+        registrada" e um "encaminhamento registrado" por destinatário — RN08)
+        e LogAuditoria são gravados numa única transação (tudo ou nada).
+
+        Perfis: todos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OcorrenciaEntrada'
+            example:
+              dataHora: '2026-10-20T14:30:00-03:00'
+              local: Pátio
+              turmaId: 1
+              categoriaId: 2
+              descricao: Dois estudantes discutiram durante o intervalo; a discussão foi interrompida pelo professor.
+              estudanteIds: [10, 11]
+              testemunhas: Inspetora Fictícia Sete
+              providenciasImediatas: Os estudantes foram separados e conversaram com a coordenação.
+              encaminhamentos:
+                - destinatarioPerfil: TUTOR
+                  destinatarioUsuarioId: 3
+                - destinatarioPerfil: EQUIPE_PEDAGOGICA
+                  observacao: Acompanhar a convivência da turma.
+      responses:
+        '201':
+          description: |
+            Ocorrência registrada, no formato do detalhe sem `comunicacoes`,
+            sem `providencias` e sem `codigoEscolar` dos estudantes (para
+            todos os perfis).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcorrenciaRegistrada'
+              example:
+                id: 12
+                dataHora: '2026-10-20T17:30:00.000Z'
+                local: Pátio
+                turma:
+                  id: 1
+                  nome: 1º A
+                  etapa: Ensino Médio
+                  anoLetivo: 2026
+                categoria:
+                  id: 2
+                  nome: Conflitos
+                descricao: Dois estudantes discutiram durante o intervalo; a discussão foi interrompida pelo professor.
+                demaisEnvolvidos: null
+                testemunhas: Inspetora Fictícia Sete
+                providenciasImediatas: Os estudantes foram separados e conversaram com a coordenação.
+                observacoes: null
+                status: ABERTO
+                dataEncerramento: null
+                profissionalResponsavel:
+                  id: 5
+                  nome: Professora Fictícia Cinco
+                responsavelAcompanhamento: null
+                estudantes:
+                  - id: 10
+                    nomeCompleto: Aluno Fictício Dez
+                    turma:
+                      id: 1
+                      nome: 1º A
+                      etapa: Ensino Médio
+                      anoLetivo: 2026
+                  - id: 11
+                    nomeCompleto: Aluna Fictícia Onze
+                    turma:
+                      id: 2
+                      nome: 9º B
+                      etapa: Ensino Fundamental II
+                      anoLetivo: 2026
+                encaminhamentos:
+                  - id: 30
+                    destinatarioPerfil: TUTOR
+                    destinatarioUsuario:
+                      id: 3
+                      nome: Tutora Fictícia Três
+                      perfil: TUTOR
+                    registradoPor:
+                      id: 5
+                      nome: Professora Fictícia Cinco
+                    dataHora: '2026-10-20T17:40:00.000Z'
+                    observacao: null
+                  - id: 31
+                    destinatarioPerfil: EQUIPE_PEDAGOGICA
+                    destinatarioUsuario: null
+                    registradoPor:
+                      id: 5
+                      nome: Professora Fictícia Cinco
+                    dataHora: '2026-10-20T17:40:00.000Z'
+                    observacao: Acompanhar a convivência da turma.
+        '400':
+          description: Dados inválidos, data futura, limites, referência inexistente, destinatário inválido ou encaminhamento repetido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                semEncaminhamento:
+                  value:
+                    erro: Informe encaminhamentos com ao menos um destinatário (tutor, equipe pedagógica ou gestão).
+                dataFutura:
+                  value:
+                    erro: A data e hora da ocorrência não pode estar no futuro.
+                destinatarioInvalido:
+                  value:
+                    erro: No encaminhamento 1, o usuário destinatário precisa ter perfil Tutor e status ativo.
+                repetido:
+                  value:
+                    erro: Os encaminhamentos 1 e 2 têm o mesmo destinatário. Remova o repetido.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '409':
+          description: Conflito concorrente (transação repetida sem sucesso — `CONFLITO_CONCORRENTE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Não foi possível registrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
+    get:
+      tags: [Ocorrências]
+      summary: Consultar ocorrências com filtros e paginação
+      operationId: listarOcorrencias
+      description: |
+        Lista **resumida** e paginada (20 itens por página) das ocorrências
+        visíveis ao usuário (RN19), da mais recente para a mais antiga
+        (data/hora do fato e, no empate, id, decrescentes). Os filtros são
+        opcionais, combinados com E lógico e **sempre** limitados pela
+        visibilidade: nenhum filtro amplia o que o perfil vê (RF11, UC03).
+        Parâmetros desconhecidos são ignorados. Id válido de registro
+        inexistente não é erro (só não casa com nada). Página além da última
+        devolve `itens` vazio (200).
+
+        Visibilidade (RN19): Gestão e Pedagógico veem todas; Professor e
+        Técnico-administrativo, as que registraram e as encaminhadas a eles
+        como usuário destinatário; o Tutor, além dessas, as que acompanha como
+        responsável e as que envolvem estudantes sob sua tutoria atual.
+
+        Perfis: todos.
+      parameters:
+        - name: estudanteId
+          in: query
+          required: false
+          description: Ocorrências que envolvem o estudante.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+        - name: turmaId
+          in: query
+          required: false
+          description: Turma **da ocorrência** (turma de referência — RN14), não a turma atual do estudante.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+        - name: categoriaId
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+        - name: status
+          in: query
+          required: false
+          description: Valor exato do enum.
+          schema:
+            $ref: '#/components/schemas/StatusOcorrencia'
+        - $ref: '#/components/parameters/DataInicioOpcional'
+        - $ref: '#/components/parameters/DataFimOpcional'
+        - name: profissionalResponsavelId
+          in: query
+          required: false
+          description: |
+            Quem registrou a ocorrência (RN02). Aceito para qualquer perfil,
+            sempre dentro da visibilidade; na tela, o filtro aparece só para a
+            Gestão.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+        - name: pagina
+          in: query
+          required: false
+          description: Número da página, a partir de 1 (padrão 1).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 2147483647
+            default: 1
+      responses:
+        '200':
+          description: Página de ocorrências.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaOcorrencias'
+              example:
+                itens:
+                  - id: 12
+                    dataHora: '2026-10-20T17:30:00.000Z'
+                    local: Pátio
+                    status: EM_ACOMPANHAMENTO
+                    turma:
+                      id: 1
+                      nome: 1º A
+                      etapa: Ensino Médio
+                      anoLetivo: 2026
+                    categoria:
+                      id: 2
+                      nome: Conflitos
+                    profissionalResponsavel:
+                      id: 5
+                      nome: Professora Fictícia Cinco
+                    estudantes:
+                      - id: 10
+                        nomeCompleto: Aluno Fictício Dez
+                      - id: 11
+                        nomeCompleto: Aluna Fictícia Onze
+                total: 1
+                pagina: 1
+                tamanhoPagina: 20
+        '400':
+          description: Parâmetro de consulta inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                status:
+                  value:
+                    erro: 'O filtro status deve ser um dos valores: ABERTO, EM_ACOMPANHAMENTO, ENCERRADO.'
+                periodo:
+                  value:
+                    erro: A dataInicio não pode ser posterior à dataFim.
+                pagina:
+                  value:
+                    erro: O parâmetro pagina deve ser um número inteiro a partir de 1.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+
+  /ocorrencias/{id}:
+    get:
+      tags: [Ocorrências]
+      summary: Consultar o detalhe de uma ocorrência
+      operationId: detalharOcorrencia
+      description: |
+        Todos os campos do registro, profissional responsável, responsável
+        pelo acompanhamento, estudantes, categoria, turma, encaminhamentos,
+        comunicações e providências adotadas (Issue #47). Comunicações e
+        providências vêm da mais antiga para a mais nova. A chave
+        `codigoEscolar` dos estudantes só aparece para a Gestão (RN20).
+        Ocorrência inexistente ou fora da visibilidade: 404 com a mesma
+        mensagem (RN19).
+
+        Perfis: todos (limitados pela RN19).
+      parameters:
+        - $ref: '#/components/parameters/IdOcorrencia'
+      responses:
+        '200':
+          $ref: '#/components/responses/DetalheOcorrencia'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          $ref: '#/components/responses/OcorrenciaNaoEncontrada'
+    put:
+      tags: [Ocorrências]
+      summary: Reservado — fora do MVP
+      operationId: atualizarOcorrencia
+      deprecated: true
+      description: |
+        **Reservado — fora do MVP (SSD 1.8, Seção 12).** A atualização dos
+        campos de uma ocorrência não está implementada; a linha é mantida na
+        Seção 12 apenas como reservada. Chamadas autenticadas respondem 404
+        (`Rota não encontrada`); com troca de senha pendente, o bloqueio da
+        RN10 vem antes e a resposta é 403.
+      parameters:
+        - $ref: '#/components/parameters/IdOcorrencia'
+      responses:
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          description: Rota não implementada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: Rota não encontrada
+
+  /ocorrencias/{id}/encaminhamentos:
+    post:
+      tags: [Ocorrências]
+      summary: Registrar encaminhamento
+      operationId: registrarEncaminhamento
+      description: |
+        Encaminha uma ocorrência já registrada (UC02, RF08), com as regras de
+        destinatário da RN03 (iguais às do registro) e de status e responsável
+        da RN15:
+
+        * `ABERTO`: exige `responsavelAcompanhamentoId` (usuário ativo com
+          perfil `TUTOR`, `PEDAGOGICO` ou `GESTAO`) e muda o status para
+          `EM_ACOMPANHAMENTO`;
+        * `EM_ACOMPANHAMENTO`: o status não muda e a troca do responsável é
+          opcional; informar o responsável atual não é troca;
+        * `ENCERRADO`: 409.
+
+        Encaminhar de novo a um destinatário que já recebeu a ocorrência é
+        permitido. Histórico (RN08): "encaminhamento registrado" e, quando
+        houver, "status alterado" e "responsável pelo acompanhamento
+        definido/alterado". LogAuditoria "encaminhamento registrado".
+
+        Perfis: GESTAO, PEDAGOGICO.
+      parameters:
+        - $ref: '#/components/parameters/IdOcorrencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncaminhamentoEntrada'
+            example:
+              destinatarioPerfil: TUTOR
+              destinatarioUsuarioId: 3
+              observacao: Conversar com as famílias dos estudantes.
+              responsavelAcompanhamentoId: 3
+      responses:
+        '201':
+          $ref: '#/components/responses/DetalheOcorrencia'
+        '400':
+          description: Corpo inválido, responsável obrigatório ausente ou inválido, ou destinatário inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                responsavelObrigatorio:
+                  value:
+                    erro: Ocorrência com status aberto exige responsavelAcompanhamentoId (responsável pelo acompanhamento).
+                responsavelInvalido:
+                  value:
+                    erro: O responsável pelo acompanhamento precisa ser um usuário com perfil Tutor, Pedagógico ou Gestão e status ativo.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          $ref: '#/components/responses/OcorrenciaNaoEncontrada'
+        '409':
+          description: Ocorrência encerrada (`OCORRENCIA_ENCERRADA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                encerrada:
+                  value:
+                    erro: Ocorrência encerrada não recebe encaminhamentos.
+                    codigo: OCORRENCIA_ENCERRADA
+                concorrente:
+                  value:
+                    erro: Não foi possível registrar o encaminhamento por causa de outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
+
+  /ocorrencias/{id}/comunicacoes:
+    post:
+      tags: [Ocorrências]
+      summary: Registrar comunicação
+      operationId: registrarComunicacao
+      description: |
+        Registra um contato feito **fora** do sistema (família, rede de
+        proteção etc.); o sistema não envia notificações (RN16, Seção 5).
+        Todos os campos são obrigatórios; destinatário e meio são texto livre.
+        `dataHora` é o momento do contato (RN17). Ocorrência `ENCERRADO`
+        responde 409; em `ABERTO` e `EM_ACOMPANHAMENTO` o status não muda.
+        Histórico "comunicação registrada", sem o conteúdo (RN08).
+        LogAuditoria "comunicação registrada".
+
+        Perfis: TUTOR (apenas nas ocorrências que pode visualizar — RN19;
+        fora delas, 404), GESTAO, PEDAGOGICO.
+      parameters:
+        - $ref: '#/components/parameters/IdOcorrencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComunicacaoEntrada'
+            example:
+              destinatario: Responsável pelo estudante
+              meio: Telefone
+              descricao: Responsável informado sobre o ocorrido e convidado para reunião.
+              dataHora: '2026-10-21T09:00:00-03:00'
+      responses:
+        '201':
+          $ref: '#/components/responses/DetalheOcorrencia'
+        '400':
+          description: Corpo inválido ou data futura.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                dataFutura:
+                  value:
+                    erro: A data e hora da comunicação não pode estar no futuro.
+                meio:
+                  value:
+                    erro: Informe meio (texto não vazio).
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          $ref: '#/components/responses/OcorrenciaNaoEncontrada'
+        '409':
+          description: Ocorrência encerrada (`OCORRENCIA_ENCERRADA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                encerrada:
+                  value:
+                    erro: Ocorrência encerrada não recebe comunicações.
+                    codigo: OCORRENCIA_ENCERRADA
+                concorrente:
+                  value:
+                    erro: Não foi possível registrar a comunicação por causa de outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
+
+  /ocorrencias/{id}/providencias:
+    post:
+      tags: [Ocorrências]
+      summary: Registrar providência adotada
+      operationId: registrarProvidencia
+      description: |
+        Registra uma providência adotada durante o acompanhamento (UC04). Só
+        com a ocorrência em `EM_ACOMPANHAMENTO`; em `ABERTO` ou `ENCERRADO`,
+        409 (RN04). Não muda o status. A data/hora é o momento do registro,
+        preenchida pelo sistema (RN17). Histórico "providência registrada",
+        sem o conteúdo (RN08). LogAuditoria "providência registrada".
+
+        Ordem dos erros: sem token → 401; troca de senha pendente → 403;
+        Professor e Técnico-administrativo → 403 na rota, antes de validar.
+        Para os demais: 400 (id/corpo) → 404 (inexistente ou fora da
+        visibilidade — RN19) → 403 (Tutor que não é o responsável) → 409.
+
+        Perfis (RN22): GESTAO, PEDAGOGICO e o usuário que é o responsável pelo
+        acompanhamento. Na rota entram GESTAO, PEDAGOGICO e TUTOR; o Tutor que
+        vê a ocorrência mas não é o responsável recebe 403. PROFESSOR e
+        TECNICO_ADMINISTRATIVO recebem 403.
+      parameters:
+        - $ref: '#/components/parameters/IdOcorrencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvidenciaEntrada'
+            example:
+              descricao: Reunião com os responsáveis e acordo de convivência registrado.
+      responses:
+        '201':
+          $ref: '#/components/responses/DetalheOcorrencia'
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          $ref: '#/components/responses/OcorrenciaNaoEncontrada'
+        '409':
+          description: |
+            Status diferente de em acompanhamento (`OCORRENCIA_ABERTA` ou
+            `OCORRENCIA_ENCERRADA`) ou conflito concorrente
+            (`CONFLITO_CONCORRENTE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                aberta:
+                  value:
+                    erro: A providência só pode ser registrada com a ocorrência em acompanhamento. Esta ocorrência ainda está aberta.
+                    codigo: OCORRENCIA_ABERTA
+                encerrada:
+                  value:
+                    erro: Ocorrência encerrada não recebe providências.
+                    codigo: OCORRENCIA_ENCERRADA
+                concorrente:
+                  value:
+                    erro: Não foi possível registrar a providência por causa de outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
+
+  /ocorrencias/{id}/status:
+    patch:
+      tags: [Ocorrências]
+      summary: Encerrar a ocorrência
+      operationId: encerrarOcorrencia
+      description: |
+        Aceita somente `{ "status": "ENCERRADO" }`, sem justificativa (RN04).
+        Valor ausente ou fora do enum → 400; `ABERTO` ou `EM_ACOMPANHAMENTO`
+        → 400 (a passagem para em acompanhamento é feita só pelo
+        encaminhamento — RN15). Só encerra a partir de `EM_ACOMPANHAMENTO` e
+        com ao menos uma providência registrada; caso contrário, 409. Não há
+        reabertura. `dataEncerramento` é preenchida com o momento do registro
+        (RN17). Histórico "status alterado" ("De em acompanhamento para
+        encerrado"). LogAuditoria "ocorrência encerrada".
+
+        Ordem dos erros: sem token → 401; troca de senha pendente → 403;
+        Professor e Técnico-administrativo → 403 na rota, antes de validar.
+        Para os demais: 400 (id/corpo) → 404 (RN19) → 403 (Tutor que não é o
+        responsável) → 409.
+
+        Perfis (RN22): GESTAO, PEDAGOGICO e o responsável pelo acompanhamento
+        (Tutor não responsável, PROFESSOR e TECNICO_ADMINISTRATIVO recebem
+        403).
+      parameters:
+        - $ref: '#/components/parameters/IdOcorrencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlteracaoStatusEntrada'
+            example:
+              status: ENCERRADO
+      responses:
+        '200':
+          $ref: '#/components/responses/DetalheOcorrencia'
+        '400':
+          description: Corpo inválido ou status diferente de ENCERRADO.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                statusInvalido:
+                  value:
+                    erro: Informe status com o valor ENCERRADO.
+                somenteEncerrado:
+                  value:
+                    erro: Só é possível alterar o status para encerrado.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          $ref: '#/components/responses/OcorrenciaNaoEncontrada'
+        '409':
+          description: |
+            Ocorrência aberta (`OCORRENCIA_ABERTA`), já encerrada
+            (`OCORRENCIA_ENCERRADA`), sem providência
+            (`ENCERRAMENTO_SEM_PROVIDENCIA`) ou conflito concorrente
+            (`CONFLITO_CONCORRENTE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                aberta:
+                  value:
+                    erro: A ocorrência só pode ser encerrada depois de entrar em acompanhamento. Esta ocorrência ainda está aberta.
+                    codigo: OCORRENCIA_ABERTA
+                jaEncerrada:
+                  value:
+                    erro: Esta ocorrência já está encerrada e não pode ser reaberta.
+                    codigo: OCORRENCIA_ENCERRADA
+                semProvidencia:
+                  value:
+                    erro: Registre ao menos uma providência adotada antes de encerrar a ocorrência.
+                    codigo: ENCERRAMENTO_SEM_PROVIDENCIA
+                concorrente:
+                  value:
+                    erro: Não foi possível encerrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
+
+  /ocorrencias/{id}/historico:
+    get:
+      tags: [Ocorrências]
+      summary: Consultar o histórico da ocorrência
+      operationId: historicoOcorrencia
+      description: |
+        Registros do histórico (RF12, RN08), do mais antigo para o mais novo
+        (data/hora e, no empate, id), sem paginação. A ação e a descrição são
+        textos fixos, sem dados pessoais nem conteúdo de comunicações ou
+        providências; do usuário vêm só `id` e `nome`.
+
+        Ações possíveis: "ocorrência registrada", "encaminhamento registrado",
+        "status alterado", "responsável pelo acompanhamento definido",
+        "responsável pelo acompanhamento alterado", "comunicação registrada",
+        "providência registrada".
+
+        Perfis: todos (quem vê a ocorrência — RN19; fora dela, 404).
+      parameters:
+        - $ref: '#/components/parameters/IdOcorrencia'
+      responses:
+        '200':
+          description: Histórico da ocorrência.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RegistroHistorico'
+              example:
+                - id: 100
+                  acao: ocorrência registrada
+                  descricao: null
+                  dataHora: '2026-10-20T17:40:00.000Z'
+                  usuario:
+                    id: 5
+                    nome: Professora Fictícia Cinco
+                - id: 101
+                  acao: encaminhamento registrado
+                  descricao: 'Destinatário: tutor'
+                  dataHora: '2026-10-20T17:40:00.000Z'
+                  usuario:
+                    id: 5
+                    nome: Professora Fictícia Cinco
+                - id: 105
+                  acao: status alterado
+                  descricao: De aberto para em acompanhamento
+                  dataHora: '2026-10-21T11:00:00.000Z'
+                  usuario:
+                    id: 1
+                    nome: Gestora Fictícia Um
+        '400':
+          $ref: '#/components/responses/ErroValidacao'
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+        '404':
+          $ref: '#/components/responses/OcorrenciaNaoEncontrada'
+
+  /relatorios:
+    get:
+      tags: [Relatórios]
+      summary: Gerar relatório de quantidade de ocorrências
+      operationId: gerarRelatorio
+      description: |
+        Relatório por período, turma ou categoria (RF13, UC05), sobre a
+        data/hora do fato no intervalo informado (dias inteiros em São Paulo,
+        pontas incluídas). Entram ocorrências de todos os status, e cada
+        ocorrência conta uma vez. A contagem também passa pela visibilidade
+        (RN19).
+
+        * `periodo`: só o total (`linhas` vazio);
+        * `turma`: uma linha por turma **da ocorrência** (RN14);
+        * `categoria`: uma linha por categoria.
+
+        Sem linhas com zero; linhas em ordem alfabética natural do rótulo
+        (pt-BR, "6º A" antes de "10º A") e, no empate, por id. Não há
+        exportação (Seção 5). Sem dados pessoais.
+
+        Perfis: GESTAO, PEDAGOGICO.
+      parameters:
+        - name: tipo
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [periodo, turma, categoria]
+        - $ref: '#/components/parameters/DataInicioObrigatoria'
+        - $ref: '#/components/parameters/DataFimObrigatoria'
+      responses:
+        '200':
+          description: Relatório gerado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Relatorio'
+              examples:
+                porTurma:
+                  value:
+                    tipo: turma
+                    dataInicio: '2026-10-01'
+                    dataFim: '2026-10-31'
+                    total: 5
+                    linhas:
+                      - id: 1
+                        rotulo: 1º A — Ensino Médio (2026)
+                        quantidade: 3
+                      - id: 2
+                        rotulo: 9º B — Ensino Fundamental II (2026)
+                        quantidade: 2
+                porPeriodo:
+                  value:
+                    tipo: periodo
+                    dataInicio: '2026-10-01'
+                    dataFim: '2026-10-31'
+                    total: 5
+                    linhas: []
+        '400':
+          description: Parâmetro ausente ou inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              examples:
+                tipo:
+                  value:
+                    erro: 'Informe tipo com um destes valores: periodo, turma, categoria.'
+                dataInicio:
+                  value:
+                    erro: Informe dataInicio no formato AAAA-MM-DD.
+        '401':
+          $ref: '#/components/responses/NaoAutenticado'
+        '403':
+          $ref: '#/components/responses/Proibido'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT HS256 emitido pelo `POST /auth/login`, válido por 8 horas, sem
+        refresh (RNF03). Enviar como `Authorization: Bearer <token>`.
+
+  parameters:
+    IdUsuario:
+      name: id
+      in: path
+      required: true
+      description: Id do usuário (inteiro positivo; fora do formato responde 400 "Identificador de usuário inválido.").
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+    IdTurma:
+      name: id
+      in: path
+      required: true
+      description: Id da turma (inteiro positivo; fora do formato responde 400).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+    IdEstudante:
+      name: id
+      in: path
+      required: true
+      description: Id do estudante (inteiro positivo; fora do formato responde 400).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+    IdCategoria:
+      name: id
+      in: path
+      required: true
+      description: Id da categoria (inteiro positivo; fora do formato responde 400).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+    IdOcorrencia:
+      name: id
+      in: path
+      required: true
+      description: Id da ocorrência (inteiro positivo; fora do formato responde 400 "Identificador de ocorrência inválido.").
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+    DataInicioOpcional:
+      name: dataInicio
+      in: query
+      required: false
+      description: Primeiro dia do período (AAAA-MM-DD, horário de São Paulo, incluído), sobre a data/hora do fato.
+      schema:
+        type: string
+        format: date
+      example: '2026-10-01'
+    DataFimOpcional:
+      name: dataFim
+      in: query
+      required: false
+      description: Último dia do período (AAAA-MM-DD, horário de São Paulo, incluído). Não pode ser anterior a dataInicio.
+      schema:
+        type: string
+        format: date
+      example: '2026-10-31'
+    DataInicioObrigatoria:
+      name: dataInicio
+      in: query
+      required: true
+      description: Primeiro dia do período (AAAA-MM-DD, horário de São Paulo, incluído).
+      schema:
+        type: string
+        format: date
+      example: '2026-10-01'
+    DataFimObrigatoria:
+      name: dataFim
+      in: query
+      required: true
+      description: Último dia do período (AAAA-MM-DD, horário de São Paulo, incluído). Não pode ser anterior a dataInicio.
+      schema:
+        type: string
+        format: date
+      example: '2026-10-31'
+
+  headers:
+    RetryAfter:
+      description: Segundos até a janela de 15 minutos liberar novas tentativas.
+      schema:
+        type: integer
+        minimum: 0
+      example: 840
+    RateLimit:
+      description: Cabeçalho padrão `RateLimit` (draft-7 do IETF), enviado pelo express-rate-limit.
+      schema:
+        type: string
+      example: 'limit=5, remaining=0, reset=840'
+    RateLimitPolicy:
+      description: Cabeçalho padrão `RateLimit-Policy` (draft-7 do IETF).
+      schema:
+        type: string
+      example: '5;w=900'
+    WwwAuthenticate:
+      description: Sempre `Bearer` nos 401 das rotas protegidas.
+      schema:
+        type: string
+      example: Bearer
+
+  responses:
+    ErroValidacao:
+      description: Entrada inválida (corpo, parâmetro de URL ou de consulta), com mensagem clara.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: Informe nome (texto não vazio).
+    NaoAutenticado:
+      description: |
+        Token ausente, malformado, inválido ou expirado; usuário inexistente,
+        bloqueado ou desativado (RN09); ou token emitido antes da última troca
+        de senha (RN12). Mensagem única (RNF06).
+      headers:
+        WWW-Authenticate:
+          $ref: '#/components/headers/WwwAuthenticate'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: Não autenticado. Faça login novamente.
+    Proibido:
+      description: |
+        Perfil sem permissão para a operação (RN01/RF14; inclusive RN22) ou
+        troca de senha obrigatória pendente (RN10). No caso da troca
+        pendente (todas as rotas protegidas, exceto `PUT /conta/senha`), a
+        resposta traz `codigo: "TROCA_SENHA_OBRIGATORIA"` (Issue #72); o 403
+        de perfil sem permissão traz só `erro`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          examples:
+            perfilSemPermissao:
+              summary: Perfil sem permissão (sem codigo)
+              value:
+                erro: Acesso não permitido para o seu perfil.
+            trocaSenhaObrigatoria:
+              summary: Troca de senha pendente (RN10)
+              value:
+                erro: Você precisa trocar a sua senha temporária para continuar usando o sistema.
+                codigo: TROCA_SENHA_OBRIGATORIA
+    OcorrenciaNaoEncontrada:
+      description: Ocorrência inexistente ou fora da visibilidade do usuário (RN19) — mesma resposta.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: Ocorrência não encontrada.
+    MuitasTentativas:
+      description: |
+        Limite de tentativas com falha excedido (5 em 15 minutos — SSD 1.8,
+        Seção 12; Issue #90). A mensagem é a mesma para qualquer e-mail. O
+        status da conta não muda (RN07).
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        RateLimit:
+          $ref: '#/components/headers/RateLimit'
+        RateLimit-Policy:
+          $ref: '#/components/headers/RateLimitPolicy'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: Muitas tentativas. Tente novamente em alguns minutos.
+    ConflitoTurma:
+      description: Turma duplicada no mesmo ano letivo (RN18 — `TURMA_DUPLICADA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          examples:
+            duplicada:
+              value:
+                erro: Já existe uma turma cadastrada com este nome e esta etapa neste ano letivo.
+                codigo: TURMA_DUPLICADA
+            concorrente:
+              value:
+                erro: A turma foi alterada por outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
+    ConflitoEstudante:
+      description: Código escolar duplicado (RN18 — `CODIGO_ESCOLAR_DUPLICADO`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          examples:
+            codigoDuplicado:
+              value:
+                erro: Já existe um estudante cadastrado com este código escolar.
+                codigo: CODIGO_ESCOLAR_DUPLICADO
+            concorrente:
+              value:
+                erro: O estudante foi alterado por outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
+    ConflitoCategoria:
+      description: Nome de categoria duplicado (RN18 — `CATEGORIA_DUPLICADA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          examples:
+            duplicada:
+              value:
+                erro: Já existe uma categoria cadastrada com este nome.
+                codigo: CATEGORIA_DUPLICADA
+            concorrente:
+              value:
+                erro: A categoria foi alterada por outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
+    DetalheOcorrencia:
+      description: |
+        Detalhe completo da ocorrência, no formato do `GET /ocorrencias/{id}`
+        (`codigoEscolar` dos estudantes só para a Gestão — RN20). Usado
+        também como resposta do encaminhamento, da comunicação, da
+        providência (201) e do encerramento (200).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/OcorrenciaDetalhe'
+          example:
+            id: 12
+            dataHora: '2026-10-20T17:30:00.000Z'
+            local: Pátio
+            turma:
+              id: 1
+              nome: 1º A
+              etapa: Ensino Médio
+              anoLetivo: 2026
+            categoria:
+              id: 2
+              nome: Conflitos
+            descricao: Dois estudantes discutiram durante o intervalo; a discussão foi interrompida pelo professor.
+            demaisEnvolvidos: null
+            testemunhas: Inspetora Fictícia Sete
+            providenciasImediatas: Os estudantes foram separados e conversaram com a coordenação.
+            observacoes: null
+            status: EM_ACOMPANHAMENTO
+            dataEncerramento: null
+            profissionalResponsavel:
+              id: 5
+              nome: Professora Fictícia Cinco
+            responsavelAcompanhamento:
+              id: 3
+              nome: Tutora Fictícia Três
+            estudantes:
+              - id: 10
+                nomeCompleto: Aluno Fictício Dez
+                turma:
+                  id: 1
+                  nome: 1º A
+                  etapa: Ensino Médio
+                  anoLetivo: 2026
+                codigoEscolar: EXEMPLO-0010
+            encaminhamentos:
+              - id: 30
+                destinatarioPerfil: TUTOR
+                destinatarioUsuario:
+                  id: 3
+                  nome: Tutora Fictícia Três
+                  perfil: TUTOR
+                registradoPor:
+                  id: 5
+                  nome: Professora Fictícia Cinco
+                dataHora: '2026-10-20T17:40:00.000Z'
+                observacao: null
+            comunicacoes:
+              - id: 7
+                destinatario: Responsável pelo estudante
+                meio: Telefone
+                descricao: Responsável informado sobre o ocorrido e convidado para reunião.
+                dataHora: '2026-10-21T12:00:00.000Z'
+                registradoPor:
+                  id: 3
+                  nome: Tutora Fictícia Três
+            providencias:
+              - id: 4
+                descricao: Reunião com os responsáveis e acordo de convivência registrado.
+                dataHora: '2026-10-22T13:00:00.000Z'
+                registradoPor:
+                  id: 3
+                  nome: Tutora Fictícia Três
+
+  schemas:
+    Erro:
+      type: object
+      description: Formato único das respostas de erro.
+      required: [erro]
+      properties:
+        erro:
+          type: string
+          description: Mensagem clara, em português, segura para exibir ao usuário.
+        codigo:
+          type: string
+          description: |
+            Código estável do erro (Issue #72). Enviado em todas as respostas
+            409 e no 403 de troca de senha obrigatória pendente (RN10); ausente
+            nos demais erros. O front-end identifica o caso pelo código, não
+            pelo texto de `erro`. A mesma situação em recursos diferentes usa o
+            mesmo código; os valores não mudam (renomear quebra o contrato).
+
+            * `CONFLITO_CONCORRENTE` (409): a operação esbarrou em outra
+              simultânea e a transação foi repetida sem sucesso; tentar de
+              novo. Em POST/PUT de categorias, turmas e estudantes,
+              `PUT /usuarios/{id}`, `PUT /usuarios/{id}/senha`,
+              `PUT /conta/senha`, `POST /ocorrencias`, encaminhamentos,
+              comunicações, providências e `PATCH /ocorrencias/{id}/status`.
+            * `EMAIL_DUPLICADO` (409): e-mail já usado por outro usuário
+              (`POST /usuarios`, `PUT /usuarios/{id}`).
+            * `CATEGORIA_DUPLICADA` (409): nome de categoria já usado (RN18).
+            * `TURMA_DUPLICADA` (409): trio nome, etapa e ano letivo já usado
+              (RN18).
+            * `CODIGO_ESCOLAR_DUPLICADO` (409): código escolar já usado por
+              outro estudante (RN18).
+            * `GESTAO_ATIVA_MINIMA` (409): a edição deixaria menos de dois
+              usuários Gestão ativos (RN11).
+            * `ALTERAR_PROPRIO_ACESSO` (409): a Gestão tentou bloquear,
+              desativar ou alterar o perfil do próprio usuário (RN11).
+            * `REDEFINIR_PROPRIA_SENHA` (409): `PUT /usuarios/{id}/senha` na
+              própria conta (RF03); usar `PUT /conta/senha`.
+            * `TUTOR_COM_TUTORADOS` (409): troca de perfil de um Tutor com
+              estudantes vinculados (RN13).
+            * `OCORRENCIA_ENCERRADA` (409): ocorrência encerrada não recebe
+              encaminhamento, comunicação ou providência, nem é encerrada de
+              novo (RN04, RN15, RN16).
+            * `OCORRENCIA_ABERTA` (409): providência ou encerramento com a
+              ocorrência ainda aberta (RN04).
+            * `ENCERRAMENTO_SEM_PROVIDENCIA` (409): encerramento sem nenhuma
+              providência registrada (RN04).
+            * `TROCA_SENHA_OBRIGATORIA` (403): troca de senha obrigatória
+              pendente; só `PUT /conta/senha` é liberada (RN10).
+          enum:
+            - CONFLITO_CONCORRENTE
+            - EMAIL_DUPLICADO
+            - CATEGORIA_DUPLICADA
+            - TURMA_DUPLICADA
+            - CODIGO_ESCOLAR_DUPLICADO
+            - GESTAO_ATIVA_MINIMA
+            - ALTERAR_PROPRIO_ACESSO
+            - REDEFINIR_PROPRIA_SENHA
+            - TUTOR_COM_TUTORADOS
+            - OCORRENCIA_ENCERRADA
+            - OCORRENCIA_ABERTA
+            - ENCERRAMENTO_SEM_PROVIDENCIA
+            - TROCA_SENHA_OBRIGATORIA
+          example: TROCA_SENHA_OBRIGATORIA
+
+    Perfil:
+      type: string
+      description: Perfil do usuário (valores técnicos da Seção 11).
+      enum: [PROFESSOR, TUTOR, GESTAO, PEDAGOGICO, TECNICO_ADMINISTRATIVO]
+    StatusUsuario:
+      type: string
+      enum: [ATIVO, BLOQUEADO, DESATIVADO]
+    StatusOcorrencia:
+      type: string
+      description: Fluxo aberto → em acompanhamento → encerrado, sem retorno (RN04).
+      enum: [ABERTO, EM_ACOMPANHAMENTO, ENCERRADO]
+    DestinatarioPerfil:
+      type: string
+      description: Tipo de destinatário do encaminhamento (RN03).
+      enum: [TUTOR, EQUIPE_PEDAGOGICA, GESTAO]
+    Id:
+      type: integer
+      minimum: 1
+      maximum: 2147483647
+    DataHoraInformada:
+      type: string
+      format: date-time
+      description: |
+        ISO 8601 com fuso obrigatório (`Z` ou `±hh:mm`); minutos obrigatórios,
+        segundos e fração opcionais. Até 5 minutos à frente do servidor
+        (RN17); anos 0001 a 9999 em UTC.
+      example: '2026-10-20T14:30:00-03:00'
+    DataHoraResposta:
+      type: string
+      format: date-time
+      description: Data/hora em UTC, com milissegundos.
+      example: '2026-10-20T17:30:00.000Z'
+    Senha:
+      type: string
+      minLength: 8
+      description: Mínimo de 8 caracteres (RN10) e máximo de 72 bytes em UTF-8 (letras acentuadas contam 2). Espaços não são retirados.
+
+    LoginEntrada:
+      type: object
+      required: [email, senha]
+      properties:
+        email:
+          type: string
+          description: Texto não vazio; comparado sem espaços nas pontas e em minúsculas.
+        senha:
+          type: string
+          description: Texto não vazio (a política da RN10 não é aplicada no login).
+    LoginResposta:
+      type: object
+      required: [token, usuario, trocaSenhaObrigatoria]
+      properties:
+        token:
+          type: string
+          description: JWT HS256 com validade de 8 horas.
+        usuario:
+          type: object
+          required: [id, nome, perfil]
+          properties:
+            id:
+              $ref: '#/components/schemas/Id'
+            nome:
+              type: string
+            perfil:
+              $ref: '#/components/schemas/Perfil'
+        trocaSenhaObrigatoria:
+          type: boolean
+          description: Quando `true`, o usuário precisa trocar a senha temporária antes de usar as demais rotas (RN10).
+
+    TrocaSenhaEntrada:
+      type: object
+      required: [senhaAtual, novaSenha]
+      properties:
+        senhaAtual:
+          type: string
+        novaSenha:
+          $ref: '#/components/schemas/Senha'
+    RedefinicaoSenhaEntrada:
+      type: object
+      required: [novaSenha]
+      properties:
+        novaSenha:
+          $ref: '#/components/schemas/Senha'
+
+    UsuarioCompleto:
+      type: object
+      description: Formato visto pela Gestão (nunca inclui senha nem hash).
+      required: [id, nome, email, perfil, status]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nome:
+          type: string
+        email:
+          type: string
+        perfil:
+          $ref: '#/components/schemas/Perfil'
+        status:
+          $ref: '#/components/schemas/StatusUsuario'
+    UsuarioReduzido:
+      type: object
+      description: Formato visto por quem não é Gestão (RN20).
+      required: [id, nome, perfil]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nome:
+          type: string
+        perfil:
+          type: string
+          enum: [TUTOR, PEDAGOGICO, GESTAO]
+    UsuarioCadastroEntrada:
+      type: object
+      required: [nome, email, perfil, senha]
+      properties:
+        nome:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          maxLength: 254
+          description: Formato simples (parte local, "@", domínio com ponto); único.
+        perfil:
+          $ref: '#/components/schemas/Perfil'
+        senha:
+          $ref: '#/components/schemas/Senha'
+    UsuarioEdicaoEntrada:
+      type: object
+      description: Ao menos um dos campos deve ser enviado.
+      minProperties: 1
+      properties:
+        nome:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          maxLength: 254
+        perfil:
+          $ref: '#/components/schemas/Perfil'
+        status:
+          $ref: '#/components/schemas/StatusUsuario'
+    ReferenciaUsuario:
+      type: object
+      required: [id, nome]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nome:
+          type: string
+
+    Turma:
+      type: object
+      required: [id, nome, etapa, anoLetivo]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nome:
+          type: string
+        etapa:
+          type: string
+        anoLetivo:
+          type: integer
+    TurmaEntrada:
+      type: object
+      required: [nome, etapa, anoLetivo]
+      properties:
+        nome:
+          type: string
+          maxLength: 150
+        etapa:
+          type: string
+          maxLength: 150
+          description: Texto livre.
+        anoLetivo:
+          type: integer
+          minimum: 1000
+          maximum: 9999
+          description: Inteiro de 4 dígitos enviado como número.
+
+    TutorCompleto:
+      type: object
+      description: Tutor do estudante como a Gestão vê (RN13).
+      required: [id, nome, email, status]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nome:
+          type: string
+        email:
+          type: string
+        status:
+          $ref: '#/components/schemas/StatusUsuario'
+    EstudanteCompleto:
+      type: object
+      required: [id, nomeCompleto, codigoEscolar, turma, tutor]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nomeCompleto:
+          type: string
+        codigoEscolar:
+          type: string
+          nullable: true
+        turma:
+          $ref: '#/components/schemas/Turma'
+        tutor:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/TutorCompleto'
+          nullable: true
+    EstudanteReduzido:
+      type: object
+      description: Formato visto por quem não é Gestão (RN20).
+      required: [id, nomeCompleto, turma, tutor]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nomeCompleto:
+          type: string
+        turma:
+          $ref: '#/components/schemas/Turma'
+        tutor:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/ReferenciaUsuario'
+          nullable: true
+    EstudanteEntrada:
+      type: object
+      required: [nomeCompleto, turmaId]
+      properties:
+        nomeCompleto:
+          type: string
+          maxLength: 150
+        codigoEscolar:
+          type: string
+          nullable: true
+          maxLength: 150
+          description: Opcional; único quando informado; vazio vira null. No PUT, ausente mantém o atual.
+        turmaId:
+          $ref: '#/components/schemas/Id'
+        tutorId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          description: Usuário Tutor ativo (RN13). No PUT, null desvincula e ausente mantém o vínculo.
+
+    Categoria:
+      type: object
+      required: [id, nome, descricao]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nome:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+    CategoriaEntrada:
+      type: object
+      required: [nome]
+      properties:
+        nome:
+          type: string
+          maxLength: 150
+        descricao:
+          type: string
+          nullable: true
+          maxLength: 1000
+          description: No PUT, ausente mantém a atual; null ou vazio apaga.
+
+    EncaminhamentoInicialEntrada:
+      type: object
+      required: [destinatarioPerfil]
+      properties:
+        destinatarioPerfil:
+          $ref: '#/components/schemas/DestinatarioPerfil'
+        destinatarioUsuarioId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          description: Obrigatório para TUTOR; opcional para EQUIPE_PEDAGOGICA e GESTAO (RN03).
+        observacao:
+          type: string
+          nullable: true
+          maxLength: 5000
+    OcorrenciaEntrada:
+      type: object
+      required: [dataHora, local, turmaId, categoriaId, descricao, estudanteIds, encaminhamentos]
+      properties:
+        dataHora:
+          $ref: '#/components/schemas/DataHoraInformada'
+        local:
+          type: string
+          maxLength: 150
+        turmaId:
+          $ref: '#/components/schemas/Id'
+        categoriaId:
+          $ref: '#/components/schemas/Id'
+        descricao:
+          type: string
+          maxLength: 5000
+        estudanteIds:
+          type: array
+          minItems: 1
+          description: De 1 a 50 estudantes distintos (ids repetidos contam uma vez).
+          items:
+            $ref: '#/components/schemas/Id'
+        demaisEnvolvidos:
+          type: string
+          nullable: true
+          maxLength: 5000
+        testemunhas:
+          type: string
+          nullable: true
+          maxLength: 5000
+        providenciasImediatas:
+          type: string
+          nullable: true
+          maxLength: 5000
+        observacoes:
+          type: string
+          nullable: true
+          maxLength: 5000
+        encaminhamentos:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/EncaminhamentoInicialEntrada'
+    EncaminhamentoEntrada:
+      type: object
+      required: [destinatarioPerfil]
+      properties:
+        destinatarioPerfil:
+          $ref: '#/components/schemas/DestinatarioPerfil'
+        destinatarioUsuarioId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          description: Obrigatório para TUTOR; opcional para EQUIPE_PEDAGOGICA e GESTAO (RN03).
+        observacao:
+          type: string
+          nullable: true
+          maxLength: 5000
+        responsavelAcompanhamentoId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          nullable: true
+          description: Obrigatório com a ocorrência em ABERTO; opcional em EM_ACOMPANHAMENTO (RN15).
+    ComunicacaoEntrada:
+      type: object
+      required: [destinatario, meio, descricao, dataHora]
+      properties:
+        destinatario:
+          type: string
+          maxLength: 150
+          description: Texto livre (RN16).
+        meio:
+          type: string
+          maxLength: 150
+          description: Texto livre (RN16).
+        descricao:
+          type: string
+          maxLength: 5000
+        dataHora:
+          $ref: '#/components/schemas/DataHoraInformada'
+    ProvidenciaEntrada:
+      type: object
+      required: [descricao]
+      properties:
+        descricao:
+          type: string
+          maxLength: 5000
+    AlteracaoStatusEntrada:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ENCERRADO]
+          description: Único valor aceito (RN04).
+
+    EstudanteOcorrencia:
+      type: object
+      required: [id, nomeCompleto, turma]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nomeCompleto:
+          type: string
+        turma:
+          allOf:
+            - $ref: '#/components/schemas/Turma'
+          description: Turma atual do estudante.
+        codigoEscolar:
+          type: string
+          nullable: true
+          description: Só no detalhe consultado pela Gestão (RN20); para os demais perfis e no 201 do registro, a chave não aparece.
+    Encaminhamento:
+      type: object
+      required: [id, destinatarioPerfil, destinatarioUsuario, registradoPor, dataHora, observacao]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        destinatarioPerfil:
+          $ref: '#/components/schemas/DestinatarioPerfil'
+        destinatarioUsuario:
+          type: object
+          nullable: true
+          required: [id, nome, perfil]
+          properties:
+            id:
+              $ref: '#/components/schemas/Id'
+            nome:
+              type: string
+            perfil:
+              $ref: '#/components/schemas/Perfil'
+        registradoPor:
+          $ref: '#/components/schemas/ReferenciaUsuario'
+        dataHora:
+          allOf:
+            - $ref: '#/components/schemas/DataHoraResposta'
+          description: Momento do registro, preenchido pelo sistema (RN17).
+        observacao:
+          type: string
+          nullable: true
+    Comunicacao:
+      type: object
+      required: [id, destinatario, meio, descricao, dataHora, registradoPor]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        destinatario:
+          type: string
+        meio:
+          type: string
+        descricao:
+          type: string
+        dataHora:
+          allOf:
+            - $ref: '#/components/schemas/DataHoraResposta'
+          description: Momento do contato, informado pelo usuário (RN17).
+        registradoPor:
+          $ref: '#/components/schemas/ReferenciaUsuario'
+    Providencia:
+      type: object
+      required: [id, descricao, dataHora, registradoPor]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        descricao:
+          type: string
+        dataHora:
+          allOf:
+            - $ref: '#/components/schemas/DataHoraResposta'
+          description: Momento do registro, preenchido pelo sistema (RN17).
+        registradoPor:
+          $ref: '#/components/schemas/ReferenciaUsuario'
+    OcorrenciaRegistrada:
+      type: object
+      description: Resposta do POST /ocorrencias (sem comunicações, providências e código escolar).
+      required:
+        - id
+        - dataHora
+        - local
+        - turma
+        - categoria
+        - descricao
+        - demaisEnvolvidos
+        - testemunhas
+        - providenciasImediatas
+        - observacoes
+        - status
+        - dataEncerramento
+        - profissionalResponsavel
+        - responsavelAcompanhamento
+        - estudantes
+        - encaminhamentos
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        dataHora:
+          $ref: '#/components/schemas/DataHoraResposta'
+        local:
+          type: string
+        turma:
+          allOf:
+            - $ref: '#/components/schemas/Turma'
+          description: Turma de referência gravada no registro (RN14).
+        categoria:
+          $ref: '#/components/schemas/CategoriaResumo'
+        descricao:
+          type: string
+        demaisEnvolvidos:
+          type: string
+          nullable: true
+        testemunhas:
+          type: string
+          nullable: true
+        providenciasImediatas:
+          type: string
+          nullable: true
+        observacoes:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/StatusOcorrencia'
+        dataEncerramento:
+          type: string
+          format: date-time
+          nullable: true
+          description: Preenchida pelo sistema ao encerrar (RN04, RN17).
+        profissionalResponsavel:
+          allOf:
+            - $ref: '#/components/schemas/ReferenciaUsuario'
+          description: Usuário que registrou (RN02).
+        responsavelAcompanhamento:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/ReferenciaUsuario'
+          nullable: true
+          description: Definido no primeiro encaminhamento pela Gestão ou pela Equipe Pedagógica (RN15).
+        estudantes:
+          type: array
+          description: Ordenados por nome completo e depois por id.
+          items:
+            $ref: '#/components/schemas/EstudanteOcorrencia'
+        encaminhamentos:
+          type: array
+          description: Do primeiro para o último registrado.
+          items:
+            $ref: '#/components/schemas/Encaminhamento'
+    OcorrenciaDetalhe:
+      description: Resposta do GET /ocorrencias/{id} (e das gravações posteriores ao registro).
+      allOf:
+        - $ref: '#/components/schemas/OcorrenciaRegistrada'
+        - type: object
+          required: [comunicacoes, providencias]
+          properties:
+            comunicacoes:
+              type: array
+              description: Da mais antiga para a mais nova (data/hora do contato e id).
+              items:
+                $ref: '#/components/schemas/Comunicacao'
+            providencias:
+              type: array
+              description: Da mais antiga para a mais nova.
+              items:
+                $ref: '#/components/schemas/Providencia'
+    CategoriaResumo:
+      type: object
+      required: [id, nome]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        nome:
+          type: string
+    ItemListaOcorrencia:
+      type: object
+      description: 'Item resumido da lista (Issue #47).'
+      required: [id, dataHora, local, status, turma, categoria, profissionalResponsavel, estudantes]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        dataHora:
+          $ref: '#/components/schemas/DataHoraResposta'
+        local:
+          type: string
+        status:
+          $ref: '#/components/schemas/StatusOcorrencia'
+        turma:
+          $ref: '#/components/schemas/Turma'
+        categoria:
+          $ref: '#/components/schemas/CategoriaResumo'
+        profissionalResponsavel:
+          $ref: '#/components/schemas/ReferenciaUsuario'
+        estudantes:
+          type: array
+          items:
+            type: object
+            required: [id, nomeCompleto]
+            properties:
+              id:
+                $ref: '#/components/schemas/Id'
+              nomeCompleto:
+                type: string
+    PaginaOcorrencias:
+      type: object
+      required: [itens, total, pagina, tamanhoPagina]
+      properties:
+        itens:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/ItemListaOcorrencia'
+        total:
+          type: integer
+          minimum: 0
+          description: Total de ocorrências que atendem aos filtros, dentro da visibilidade.
+        pagina:
+          type: integer
+          minimum: 1
+        tamanhoPagina:
+          type: integer
+          enum: [20]
+          description: Fixo em 20.
+    RegistroHistorico:
+      type: object
+      required: [id, acao, descricao, dataHora, usuario]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        acao:
+          type: string
+          description: Texto fixo (RN08).
+        descricao:
+          type: string
+          nullable: true
+          description: 'Texto fixo, sem dados pessoais (ex.: "Destinatário: tutor", "De aberto para em acompanhamento").'
+        dataHora:
+          $ref: '#/components/schemas/DataHoraResposta'
+        usuario:
+          $ref: '#/components/schemas/ReferenciaUsuario'
+    Relatorio:
+      type: object
+      required: [tipo, dataInicio, dataFim, total, linhas]
+      properties:
+        tipo:
+          type: string
+          enum: [periodo, turma, categoria]
+        dataInicio:
+          type: string
+          format: date
+        dataFim:
+          type: string
+          format: date
+        total:
+          type: integer
+          minimum: 0
+          description: Total de ocorrências do intervalo (cada uma conta uma vez).
+        linhas:
+          type: array
+          description: Vazia no tipo periodo; sem linhas com zero.
+          items:
+            $ref: '#/components/schemas/LinhaRelatorio'
+    LinhaRelatorio:
+      type: object
+      required: [id, rotulo, quantidade]
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/Id'
+          description: Id da turma ou da categoria.
+        rotulo:
+          type: string
+          description: 'Turma: "nome — etapa (ano letivo)"; categoria: nome.'
+        quantidade:
+          type: integer
+          minimum: 1

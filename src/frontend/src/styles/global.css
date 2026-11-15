@@ -1,0 +1,1473 @@
+/* Estilos globais do Sisto. Layout mobile-first (RNF01). */
+:root {
+  --cor-primaria: #88185d;
+  --cor-destaque: #e6371e;
+  --cor-texto: #1f2430;
+  --cor-texto-secundario: #5b6575;
+  --cor-fundo: #f6f2f5;
+  --cor-superficie: #ffffff;
+  --cor-borda: #e3d6de;
+  --raio: 8px;
+  --largura-maxima: 1100px;
+
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--cor-texto);
+  background-color: var(--cor-fundo);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  color: var(--cor-primaria);
+}
+
+p {
+  margin: 0 0 0.5rem;
+}
+
+.texto-secundario {
+  color: var(--cor-texto-secundario);
+}
+
+/* Layout */
+.layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.layout__container {
+  width: 100%;
+  max-width: var(--largura-maxima);
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.layout__cabecalho {
+  background-color: var(--cor-superficie);
+  border-bottom: 4px solid var(--cor-primaria);
+}
+
+.layout__cabecalho-conteudo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.layout__logo {
+  display: block;
+  height: 48px;
+  width: auto;
+}
+
+.layout__principal {
+  flex: 1;
+  padding: 1.5rem 0;
+}
+
+.layout__rodape {
+  padding: 1rem 0;
+  font-size: 0.875rem;
+  text-align: center;
+  color: var(--cor-texto-secundario);
+  border-top: 1px solid var(--cor-borda);
+}
+
+/* Rodapé: escola, telefone e links legais (#92). Empilha no celular. */
+.layout__rodape-escola {
+  margin: 0;
+}
+
+.layout__rodape-separador {
+  display: none;
+}
+
+.layout__rodape-telefone {
+  display: block;
+}
+
+.layout__rodape a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* área de toque confortável no celular */
+  color: var(--cor-primaria);
+}
+
+.layout__rodape-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 1.25rem;
+}
+
+/* Componentes simples */
+.cartao {
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-top: 4px solid var(--cor-destaque);
+  border-radius: var(--raio);
+  padding: 1.25rem;
+}
+
+/* Usuário logado no cabeçalho */
+.layout__usuario {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.layout__usuario-nome {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.layout__usuario-perfil {
+  font-weight: 400;
+  color: var(--cor-texto-secundario);
+}
+
+/* Botões */
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px; /* área de toque confortável no celular */
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--raio);
+  border: 2px solid var(--cor-primaria);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.botao:focus-visible {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+.botao:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.botao--primario {
+  background-color: var(--cor-primaria);
+  color: #ffffff;
+}
+
+.botao--primario:hover:not(:disabled) {
+  background-color: #6e1349;
+}
+
+.botao--secundario {
+  background-color: var(--cor-superficie);
+  color: var(--cor-primaria);
+}
+
+.botao--secundario:hover:not(:disabled) {
+  background-color: var(--cor-fundo);
+}
+
+.botao--largo {
+  width: 100%;
+}
+
+/* Formulários */
+.cartao--login {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.campo label {
+  font-weight: 600;
+}
+
+.campo input {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--cor-texto);
+  background-color: var(--cor-superficie);
+  border: 1px solid #b9a7b2;
+  border-radius: var(--raio);
+}
+
+.campo input:focus {
+  outline: 3px solid rgba(136, 24, 93, 0.35);
+  border-color: var(--cor-primaria);
+}
+
+.campo input[aria-invalid='true'] {
+  border-color: var(--cor-destaque);
+}
+
+.campo__erro {
+  font-size: 0.875rem;
+  color: #b3240f;
+}
+
+/* Mensagens */
+.mensagem {
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--raio);
+  border-left: 4px solid;
+}
+
+.mensagem--erro {
+  background-color: #fdecea;
+  border-color: var(--cor-destaque);
+  color: #8a1c0c;
+}
+
+.mensagem--aviso {
+  background-color: #f8e9f2;
+  border-color: var(--cor-primaria);
+  color: var(--cor-texto);
+}
+
+/* Menu principal (cabeçalho) */
+.layout__menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  order: 3;
+  width: 100%;
+}
+
+.layout__menu-item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--raio);
+  color: var(--cor-primaria);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.layout__menu-item:hover {
+  background-color: var(--cor-fundo);
+}
+
+.layout__menu-item:focus-visible {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+.layout__menu-item.active {
+  background-color: #f8e9f2;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* Utilitário de acessibilidade: visível só para leitores de tela */
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  color: var(--cor-primaria);
+}
+
+/* Campos de seleção e senha com botão mostrar/ocultar */
+.campo select {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--cor-texto);
+  background-color: var(--cor-superficie);
+  border: 1px solid #b9a7b2;
+  border-radius: var(--raio);
+}
+
+.campo select:focus {
+  outline: 3px solid rgba(136, 24, 93, 0.35);
+  border-color: var(--cor-primaria);
+}
+
+.campo select[aria-invalid='true'] {
+  border-color: var(--cor-destaque);
+}
+
+/* Botão de olho dentro do campo, à direita (área de toque de 44x44px). */
+.campo__senha {
+  position: relative;
+  display: flex;
+}
+
+.campo__senha input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 3rem; /* o texto não fica sob o ícone */
+}
+
+.campo__senha-botao {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--raio);
+  background: transparent;
+  color: var(--cor-texto-secundario);
+  cursor: pointer;
+}
+
+.campo__senha-botao:hover {
+  color: var(--cor-primaria);
+}
+
+.campo__senha-botao:focus-visible {
+  color: var(--cor-primaria);
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: -3px;
+}
+
+.campo__ajuda {
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+}
+
+.mensagem--sucesso {
+  background-color: #e8f5ec;
+  border-color: #1e7a3c;
+  color: #14532a;
+}
+
+.mensagem .botao {
+  margin-top: 0.5rem;
+}
+
+/* Campo de texto longo (ex.: descrição da categoria) */
+.campo textarea {
+  min-height: 6rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--cor-texto);
+  background-color: var(--cor-superficie);
+  border: 1px solid #b9a7b2;
+  border-radius: var(--raio);
+  resize: vertical;
+}
+
+.campo textarea:focus {
+  outline: 3px solid rgba(136, 24, 93, 0.35);
+  border-color: var(--cor-primaria);
+}
+
+.campo textarea[aria-invalid='true'] {
+  border-color: var(--cor-destaque);
+}
+
+/* Lista de categorias: reaproveita a tabela de usuários (cartões no celular);
+   a descrição mantém as quebras de linha digitadas. */
+.tabela-categorias__descricao {
+  white-space: pre-line;
+}
+
+/* Sem isso, o overflow-wrap das células espreme a coluna Ações e quebra "Editar" no meio. */
+.tabela-categorias .botao {
+  white-space: nowrap;
+}
+
+/* Lista de turmas: mesma tabela de usuários (cartões no celular). O botão
+   "Editar" e o ano letivo não quebram no meio (overflow-wrap das células). */
+.tabela-turmas .botao,
+.tabela-turmas__ano {
+  white-space: nowrap;
+}
+
+/* Lista de estudantes: mesma tabela de usuários (cartões no celular). O botão
+   "Editar" e o selo do tutor não quebram no meio (overflow-wrap das células). */
+.tabela-estudantes .botao {
+  white-space: nowrap;
+}
+
+/* Largura mínima para um código comum (ex.: TESTE-0001) não quebrar no hífen;
+   códigos longos (até 150 caracteres) continuam quebrando, sem estourar a tela. */
+.tabela-estudantes__codigo {
+  min-width: 11ch;
+}
+
+/* Filtro por turma acima da lista de estudantes. */
+.filtro-estudantes {
+  max-width: 32rem;
+  margin-bottom: 1rem;
+}
+
+/* Rótulos longos (turma com etapa e ano) não alargam o seletor além da tela
+   no celular (RNF01). */
+.filtro-estudantes select,
+.dialogo .campo select,
+.pagina-estudantes .campo select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Página de usuários */
+.pagina-usuarios__grade {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.pagina-usuarios__grade > .cartao {
+  min-width: 0;
+}
+
+/* Selo de status (destaque discreto) */
+.selo {
+  display: inline-block;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.selo--ativo {
+  background-color: #e8f5ec;
+  border-color: #9fd3ae;
+  color: #14532a;
+}
+
+.selo--bloqueado {
+  background-color: #fdecea;
+  border-color: #f2b2a8;
+  color: #8a1c0c;
+}
+
+.selo--desativado {
+  background-color: #eeeff2;
+  border-color: #c9ccd3;
+  color: #3f4652;
+}
+
+/* Tabela de usuários: no celular, cada linha vira um cartão (RNF01) */
+.tabela-usuarios {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela-usuarios thead {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.tabela-usuarios tbody,
+.tabela-usuarios tr,
+.tabela-usuarios td {
+  display: block;
+}
+
+.tabela-usuarios tr {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela-usuarios td {
+  padding: 0.125rem 0;
+  overflow-wrap: anywhere;
+}
+
+.tabela-usuarios td::before {
+  content: attr(data-rotulo) ': ';
+  font-weight: 600;
+  color: var(--cor-texto-secundario);
+}
+
+.tabela-usuarios td.tabela-usuarios__nome {
+  font-weight: 600;
+}
+
+.tabela-usuarios td.tabela-usuarios__nome::before {
+  content: none;
+}
+
+/* Botões das ações de usuários (RF04) */
+.botao[aria-disabled='true'] {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.botao--compacto {
+  padding: 0.5rem 0.875rem; /* altura mínima de 44px vem de .botao */
+}
+
+/* Bloquear/desativar na lista: contorno no tom de destaque */
+.botao--alerta {
+  background-color: var(--cor-superficie);
+  border-color: #b3240f;
+  color: #8a1c0c;
+}
+
+.botao--alerta:hover:not(:disabled) {
+  background-color: #fdecea;
+}
+
+/* Confirmação de bloquear/desativar no diálogo */
+.botao--perigo {
+  background-color: #b3240f;
+  border-color: #b3240f;
+  color: #ffffff;
+}
+
+.botao--perigo:hover:not(:disabled) {
+  background-color: #8a1c0c;
+  border-color: #8a1c0c;
+}
+
+.tabela-usuarios__botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tabela-usuarios td.tabela-usuarios__acoes::before {
+  content: none;
+}
+
+.tabela-usuarios__voce {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+}
+
+/* Diálogo modal (edição e confirmações) */
+.dialogo__fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.75rem;
+  background-color: rgba(31, 36, 48, 0.55);
+}
+
+.dialogo {
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 1.5rem);
+  overflow-y: auto;
+  padding: 1.25rem;
+  background-color: var(--cor-superficie);
+  border-top: 4px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.dialogo:focus-visible {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+.dialogo__pergunta {
+  font-weight: 600;
+  font-size: 1.0625rem;
+}
+
+.dialogo__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+/* Cabeçalho: no celular, nome, "Alterar minha senha" e "Sair" quebram linha
+   sem estourar a largura (RNF01). */
+.layout__usuario {
+  flex-wrap: wrap;
+}
+
+.layout__conta {
+  white-space: nowrap;
+}
+
+/* Orientação de recuperação de acesso no login (RF03) */
+.login__ajuda {
+  margin: 1.25rem 0 0;
+  text-align: center;
+}
+
+/* Links para os textos legais no login (#92) */
+.login__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.login__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--cor-primaria);
+}
+
+/* Páginas de texto legal (#92) */
+.texto-legal__aviso {
+  margin: 0 0 1.25rem;
+  border-color: var(--cor-destaque);
+  font-size: 1.0625rem;
+}
+
+.texto-legal h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.125rem;
+  color: var(--cor-primaria);
+}
+
+.texto-legal__lista {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.texto-legal__lista li {
+  margin-bottom: 0.375rem;
+}
+
+.texto-legal p,
+.texto-legal li {
+  overflow-wrap: anywhere;
+  max-width: 75ch;
+}
+
+/* Trechos que dependem de decisão da escola: destaque até a homologação (#95). */
+.texto-legal__a-definir {
+  background-color: #fde2dc;
+  color: #8a1c0c;
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  outline: 1px dashed var(--cor-destaque);
+}
+
+.mensagem p:last-child {
+  margin-bottom: 0;
+}
+
+/* Tablet */
+@media (min-width: 600px) {
+  /* O menu fica em linha própria em todas as larguras (decisão do Rafael na #41):
+     logo e usuário na primeira linha, itens do menu na segunda. */
+
+  .tabela-usuarios thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+  }
+
+  .tabela-usuarios {
+    display: table;
+  }
+
+  .tabela-usuarios tbody {
+    display: table-row-group;
+  }
+
+  .tabela-usuarios tr {
+    display: table-row;
+    padding: 0;
+  }
+
+  .tabela-usuarios th,
+  .tabela-usuarios td {
+    display: table-cell;
+    padding: 0.625rem 0.5rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--cor-borda);
+  }
+
+  .tabela-usuarios th {
+    font-size: 0.875rem;
+    color: var(--cor-texto-secundario);
+    border-bottom-width: 2px;
+  }
+
+  .tabela-usuarios td::before {
+    content: none;
+  }
+
+  .tabela-usuarios__botoes {
+    margin-top: 0;
+  }
+
+  .dialogo__fundo {
+    align-items: center;
+    padding: 1.5rem;
+  }
+
+  .dialogo {
+    padding: 1.75rem;
+  }
+
+  .dialogo__acoes {
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+  }
+
+  .layout__container {
+    padding: 0 1.5rem;
+  }
+
+  .layout__logo {
+    height: 56px;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  .cartao {
+    padding: 1.75rem;
+  }
+
+  .cartao--login {
+    margin-top: 1.5rem;
+  }
+
+  .layout__rodape-separador {
+    display: inline;
+  }
+
+  .layout__rodape-telefone {
+    display: inline;
+  }
+}
+
+/* Computador */
+@media (min-width: 1024px) {
+  .layout__principal {
+    padding: 2.5rem 0;
+  }
+
+  .layout__logo {
+    height: 64px;
+  }
+
+  h1 {
+    font-size: 2rem;
+  }
+
+  .pagina-usuarios__grade {
+    grid-template-columns: minmax(300px, 380px) 1fr;
+    align-items: start;
+  }
+}
+
+/* Registro de ocorrência (UC01): coluna única no celular, seções separadas,
+   lista de estudantes com rolagem limitada e áreas de toque de 44px (RNF01). */
+.pagina-ocorrencia {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.registro-ocorrencia {
+  gap: 1.5rem;
+  margin-top: 0;
+}
+
+.registro-ocorrencia__secao {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.registro-ocorrencia__secao + .registro-ocorrencia__secao {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.registro-ocorrencia__secao h2 {
+  margin-bottom: 0;
+}
+
+.registro-ocorrencia h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.registro-ocorrencia__linha {
+  display: grid;
+  gap: 1rem;
+}
+
+.registro-ocorrencia__orientacao {
+  margin: 0 0 0.25rem;
+  font-weight: 400;
+}
+
+/* Rótulos longos (turma com etapa e ano) não alargam o seletor (RNF01). */
+.registro-ocorrencia .campo select,
+.registro-ocorrencia .campo input,
+.registro-ocorrencia .campo textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.registro-ocorrencia__enviar {
+  width: 100%;
+}
+
+.selecao-estudantes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.selecao-estudantes__lista {
+  max-height: 18rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem 0.75rem 0.5rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.selecao-estudantes__lista legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.selecao-estudantes__opcao {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--cor-borda);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.selecao-estudantes__opcao:last-child {
+  border-bottom: 0;
+}
+
+.selecao-estudantes__opcao input {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--cor-primaria);
+}
+
+.selecao-estudantes__itens {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.selecao-estudantes__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.375rem 0.375rem 0.375rem 0.75rem;
+  background-color: #f8e9f2;
+  border-radius: var(--raio);
+}
+
+.selecao-estudantes__nome {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.selecao-estudantes__turma {
+  font-weight: 400;
+  color: var(--cor-texto-secundario);
+}
+
+.lista-destinatarios {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.lista-destinatarios__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.lista-destinatarios__item legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+  color: var(--cor-primaria);
+}
+
+.lista-destinatarios__remover {
+  align-self: flex-start;
+}
+
+@media (min-width: 600px) {
+  .registro-ocorrencia__linha {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  .registro-ocorrencia__enviar {
+    width: auto;
+    align-self: flex-start;
+  }
+
+  .lista-destinatarios > .botao {
+    align-self: flex-start;
+  }
+}
+
+/* Lista e detalhe de ocorrências (UC03, RF05): cartões em coluna única no
+   celular, textos longos quebrando linha sem estourar a largura e áreas de
+   toque confortáveis (RNF01, RNF02). Só as cores da identidade (--cor-*). */
+.pagina-ocorrencia__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pagina-ocorrencia__cabecalho h1 {
+  margin: 0;
+}
+
+a.botao {
+  text-decoration: none;
+}
+
+.lista-ocorrencias {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartao-ocorrencia {
+  position: relative;
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-left: 4px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  padding: 1rem;
+  min-width: 0;
+}
+
+.cartao-ocorrencia:hover {
+  border-color: var(--cor-primaria);
+}
+
+.cartao-ocorrencia:focus-within {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+.cartao-ocorrencia__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.cartao-ocorrencia__titulo {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.cartao-ocorrencia__link {
+  color: var(--cor-primaria);
+  text-decoration: underline;
+}
+
+.cartao-ocorrencia__link:focus-visible {
+  outline: none;
+}
+
+/* O link cobre o cartão inteiro: toque em qualquer parte abre o detalhe. */
+.cartao-ocorrencia__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* Selo do status da ocorrência */
+.selo-ocorrencia {
+  white-space: normal;
+}
+
+.selo-ocorrencia--aberto {
+  background-color: var(--cor-superficie);
+  border-color: var(--cor-destaque);
+  color: var(--cor-primaria);
+}
+
+.selo-ocorrencia--em-acompanhamento {
+  background-color: var(--cor-fundo);
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
+}
+
+.selo-ocorrencia--encerrado {
+  background-color: var(--cor-fundo);
+  border-color: var(--cor-borda);
+  color: var(--cor-texto-secundario);
+}
+
+/* Pares rótulo/valor (lista e detalhe) */
+.dados-ocorrencia {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.dados-ocorrencia--compacto {
+  gap: 0.5rem;
+}
+
+.dados-ocorrencia > div {
+  min-width: 0;
+}
+
+.dados-ocorrencia dt {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--cor-texto-secundario);
+}
+
+.dados-ocorrencia dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.texto-longo {
+  white-space: pre-wrap;
+}
+
+/* Detalhe */
+.detalhe-ocorrencia__voltar {
+  margin: 0 0 0.5rem;
+}
+
+.detalhe-ocorrencia__voltar a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--cor-primaria);
+  font-weight: 600;
+}
+
+.detalhe-ocorrencia__voltar a:focus-visible {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+.detalhe-ocorrencia__cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.detalhe-ocorrencia__secao {
+  min-width: 0;
+}
+
+.detalhe-ocorrencia__secao + .detalhe-ocorrencia__secao {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.detalhe-ocorrencia__itens {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detalhe-ocorrencia__item {
+  padding: 0.75rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background-color: var(--cor-fundo);
+  min-width: 0;
+}
+
+.detalhe-ocorrencia__nome {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 600px) {
+  .dados-ocorrencia {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dados-ocorrencia > .dados-ocorrencia__longo {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Ações no detalhe da ocorrência (#50): no celular o botão ocupa a largura
+   toda (toque fácil); a partir do tablet fica do tamanho do texto (RNF01). */
+.detalhe-ocorrencia__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* O título recebe o foco quando o botão que abriu o diálogo deixa de existir. */
+.detalhe-ocorrencia h1:focus {
+  outline: none;
+}
+
+.detalhe-ocorrencia h1:focus-visible {
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+/* Diálogo de encaminhamento: campos em coluna e texto longo sem estourar a
+   largura no celular; a rolagem interna vem de .dialogo (max-height). */
+.encaminhamento .campo textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Diálogo de comunicação (#52): mesmos cuidados no celular; o campo de data
+   e hora também não pode estourar a largura (RNF01). */
+.comunicacao .campo input,
+.comunicacao .campo textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.comunicacao__orientacao {
+  margin: 0 0 0.25rem;
+  font-weight: 400;
+}
+
+@media (min-width: 600px) {
+  .detalhe-ocorrencia__acoes {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+/* Diálogo de providência (#84): texto longo sem estourar a largura no celular (RNF01). */
+.providencia .campo textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Aviso da RN04 (encerrar sem providência), logo abaixo dos botões de ação. */
+.detalhe-ocorrencia__aviso {
+  margin: 0.75rem 0 0;
+}
+
+/* Relatórios (UC05, RF13): formulário em coluna única no celular, período
+   lado a lado a partir do tablet e tabela simples de duas colunas que cabe
+   na largura do celular, com rótulos longos quebrando linha (RNF01). */
+.pagina-relatorios {
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.relatorios__formulario .campo select,
+.relatorios__formulario .campo input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.relatorios__periodo {
+  display: grid;
+  gap: 1rem;
+}
+
+.relatorios__gerar {
+  width: 100%;
+}
+
+.relatorios__resultado {
+  margin-top: 1.5rem;
+}
+
+.relatorios__cabecalho-resultado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.relatorios__cabecalho-resultado h2 {
+  margin: 0 0 0.25rem;
+}
+
+.relatorios__periodo-texto {
+  margin: 0;
+  font-weight: 600;
+}
+
+.tabela-relatorio {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabela-relatorio th,
+.tabela-relatorio td {
+  padding: 0.625rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--cor-borda);
+  overflow-wrap: anywhere;
+}
+
+.tabela-relatorio thead th {
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+  border-bottom-width: 2px;
+}
+
+.tabela-relatorio tfoot th,
+.tabela-relatorio tfoot td {
+  font-weight: 700;
+  border-top: 2px solid var(--cor-borda);
+  border-bottom: none;
+}
+
+.tabela-relatorio .tabela-relatorio__quantidade {
+  width: 7rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (min-width: 600px) {
+  .relatorios__periodo {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  .relatorios__gerar {
+    width: auto;
+    align-self: flex-start;
+  }
+}
+
+/* Impressão pelo navegador (RF13): esconde cabeçalho, menu, rodapé,
+   formulário e botões; ficam só o título, o período e a tabela. */
+@media print {
+  :root,
+  body {
+    background-color: #ffffff;
+  }
+
+  .layout__cabecalho,
+  .layout__rodape,
+  .nao-imprimir {
+    display: none !important;
+  }
+
+  .layout__principal {
+    padding: 0;
+  }
+
+  .relatorios__resultado {
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  .tabela-relatorio th,
+  .tabela-relatorio td {
+    color: #000000;
+  }
+}
+
+/* Filtros e paginação da lista de ocorrências (Issue #87, RNF01) */
+.filtros-ocorrencias {
+  margin-top: 1rem;
+}
+
+.filtros-ocorrencias__alternar {
+  width: 100%;
+}
+
+.filtros-ocorrencias__painel {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background-color: var(--cor-superficie);
+  border: 1px solid #e3d6de;
+  border-radius: var(--raio);
+}
+
+.filtros-ocorrencias__campos {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.filtros-ocorrencias__grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid #e3d6de;
+  border-radius: var(--raio);
+}
+
+.filtros-ocorrencias__grupo legend {
+  padding: 0 0.25rem;
+  font-weight: 600;
+}
+
+.filtros-ocorrencias__periodo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.filtros-ocorrencias__periodo .campo {
+  min-width: 0;
+}
+
+.filtros-ocorrencias__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.resumo-ocorrencias {
+  margin: 1rem 0 0;
+  font-weight: 600;
+}
+
+.resumo-ocorrencias:empty {
+  display: none;
+}
+
+.resumo-ocorrencias:focus {
+  outline: none;
+}
+
+.paginacao-ocorrencias {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.paginacao-ocorrencias__posicao {
+  font-weight: 600;
+}
+
+@media (min-width: 600px) {
+  .filtros-ocorrencias__alternar {
+    width: auto;
+  }
+
+  .filtros-ocorrencias__campos {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filtros-ocorrencias__grupo {
+    grid-column: 1 / -1;
+  }
+
+  .filtros-ocorrencias__acoes {
+    flex-direction: row;
+  }
+}

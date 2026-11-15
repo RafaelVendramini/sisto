@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

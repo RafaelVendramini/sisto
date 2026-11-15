@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Sisto — SeNAS 2026.2</title>
+<style>
+  /* Cores institucionais — ajuste aqui se necessário */
+  :root {
+    --primaria: #88185d;
+    --primaria-2: #6d1249;
+    --destaque: #e6371e;
+    --cinza: #5b6575;
+    --claro: #f8f1f5;
+    --linha: #d9dee8;
+    --texto: #1b2433;
+  }
+  @page { size: 1280px 720px; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--texto);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .slide {
+    width: 1280px; height: 720px; position: relative; overflow: hidden;
+    padding: 48px 72px 56px; page-break-after: always; break-after: page;
+    background: #fff;
+  }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+  .slide::before { /* faixa lateral */
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 14px;
+    background: linear-gradient(var(--primaria) 0 78%, var(--destaque) 78% 100%);
+  }
+  .rodape {
+    position: absolute; left: 72px; right: 72px; bottom: 20px;
+    display: flex; justify-content: space-between;
+    font-size: 13px; color: var(--cinza); border-top: 1px solid var(--linha); padding-top: 8px;
+  }
+  .kicker { font-size: 15px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--destaque); margin: 0 0 6px; }
+  h2 { font-size: 40px; margin: 0 0 28px; color: var(--primaria); line-height: 1.1; }
+  p { margin: 0; }
+
+  /* ---------- Capa ---------- */
+  .capa { background: var(--primaria); color: #fff; padding: 0; }
+  .capa::before { display: none; }
+  .capa .topo {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 17px 72px; background: #fff; height: 130px;
+  }
+  .logo-ies { width: 96px; height: 96px; border-radius: 6px; display: block; }
+  .capa .evento { font-size: 16px; color: var(--primaria); font-weight: 600; text-align: right; line-height: 1.35; }
+  .capa .evento b { display: block; font-size: 26px; letter-spacing: .06em; color: var(--destaque); }
+  .capa .centro { padding: 56px 72px 0; }
+  .capa .marca { display: flex; align-items: center; gap: 18px; margin-left: -8px; }
+  .capa h1 { font-size: 72px; margin: 0; letter-spacing: -.01em; }
+  .capa h1 span { color: #ff8a6b; }
+  .capa .nome { font-size: 28px; margin-top: 4px; color: #f3dce9; }
+  .capa .sub { font-size: 20px; margin-top: 18px; color: #e2bdd3; max-width: 900px; line-height: 1.4; }
+  .capa .barra { width: 90px; height: 6px; background: var(--destaque); margin: 28px 0 0; }
+  .capa .info {
+    position: absolute; left: 72px; right: 72px; bottom: 40px;
+    display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; font-size: 16px;
+  }
+  .capa .info small { display: block; text-transform: uppercase; letter-spacing: .1em; font-size: 12px; color: #d7a6c3; margin-bottom: 4px; }
+
+  /* ---------- Problema ---------- */
+  .fluxo { display: flex; align-items: stretch; gap: 0; margin-bottom: 32px; }
+  .passo {
+    flex: 1; background: var(--claro); border-radius: 10px; padding: 16px 18px;
+    font-size: 16px; line-height: 1.35; border-top: 4px solid var(--primaria);
+  }
+  .passo b { display: block; color: var(--primaria); font-size: 17px; margin-bottom: 4px; }
+  .passo.dor { border-top-color: var(--destaque); }
+  .seta { width: 38px; display: flex; align-items: center; justify-content: center; color: var(--cinza); font-size: 26px; }
+  .problema-grid { display: grid; grid-template-columns: 300px 1fr; gap: 40px; align-items: start; }
+  .destaque {
+    background: var(--primaria); color: #fff; border-radius: 12px; padding: 26px;
+  }
+  .destaque .num { font-size: 76px; font-weight: 700; line-height: 1; color: #fff; }
+  .destaque .num small { font-size: 26px; font-weight: 600; }
+  .destaque p { font-size: 17px; margin-top: 8px; color: #ecc9dd; line-height: 1.4; }
+  .dores { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 28px; list-style: none; padding: 0; margin: 0; }
+  .dores li { font-size: 18px; padding-left: 26px; position: relative; line-height: 1.35; }
+  .dores li::before { content: ""; position: absolute; left: 0; top: 8px; width: 12px; height: 12px; border-radius: 3px; background: var(--destaque); }
+
+  /* ---------- Escopo ---------- */
+  .duas { display: grid; grid-template-columns: 1.35fr 1fr; gap: 32px; }
+  .caixa { border-radius: 12px; padding: 22px 26px; }
+  .caixa h3 { margin: 0 0 14px; font-size: 20px; }
+  .caixa ul { margin: 0; padding-left: 20px; }
+  .caixa li { font-size: 16.5px; line-height: 1.38; margin-bottom: 7px; }
+  .inclui { background: var(--claro); border-left: 6px solid var(--primaria); }
+  .inclui h3 { color: var(--primaria); }
+  .exclui { background: #fff; border: 1px solid var(--linha); border-left: 6px solid var(--destaque); }
+  .exclui h3 { color: var(--destaque); }
+  .exclui li { color: var(--cinza); }
+
+  /* ---------- Requisitos ---------- */
+  .modulos { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; }
+  .modulo { border: 1px solid var(--linha); border-radius: 12px; padding: 16px 20px; }
+  .modulo h3 { margin: 0 0 10px; font-size: 18px; color: var(--primaria); display: flex; align-items: center; gap: 10px; }
+  .modulo h3 i { font-style: normal; background: var(--primaria); color: #fff; font-size: 12px; border-radius: 20px; padding: 2px 10px; }
+  .rf { display: flex; gap: 10px; font-size: 15px; line-height: 1.3; margin-bottom: 6px; }
+  .rf code { font-family: Consolas, monospace; font-size: 13px; color: var(--destaque); font-weight: 700; min-width: 40px; padding-top: 1px; }
+
+  /* ---------- Arquitetura ---------- */
+  .arq { display: grid; grid-template-columns: 1fr 360px; gap: 36px; }
+  .camadas { display: flex; flex-direction: column; gap: 0; }
+  .camada {
+    border-radius: 12px; padding: 16px 22px; display: grid; grid-template-columns: 210px 1fr; gap: 18px; align-items: center;
+  }
+  .camada .tit { font-weight: 700; font-size: 19px; }
+  .camada .tit small { display: block; font-weight: 500; font-size: 13px; opacity: .8; margin-top: 2px; }
+  .camada .det { font-size: 15px; line-height: 1.4; }
+  .c1 { background: #f6e8f0; color: var(--primaria); }
+  .c2 { background: var(--primaria); color: #fff; }
+  .c3 { background: #6d1249; color: #fff; }
+  .c4 { background: #fdebe7; color: #9a2a14; }
+  .conector { text-align: center; font-size: 13px; color: var(--cinza); padding: 5px 0; }
+  .conector::before { content: "▼ "; color: var(--destaque); }
+  .lateral { background: var(--claro); border-radius: 12px; padding: 20px 22px; }
+  .lateral h3 { margin: 0 0 10px; font-size: 17px; color: var(--primaria); }
+  .lateral ul { margin: 0 0 16px; padding-left: 18px; }
+  .lateral li { font-size: 15px; line-height: 1.38; margin-bottom: 5px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tags span { background: #fff; border: 1px solid var(--linha); border-radius: 20px; padding: 3px 10px; font-size: 13px; }
+
+  /* ---------- Entidades ---------- */
+  svg text { font-family: "Segoe UI", Arial, sans-serif; }
+  .nota { font-size: 14px; color: var(--cinza); margin-top: 6px; }
+
+  /* ---------- IA ---------- */
+  .ia { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-bottom: 22px; }
+  .ia .caixa { background: var(--claro); }
+  .ia .caixa h3 { color: var(--primaria); display: flex; justify-content: space-between; align-items: baseline; }
+  .ia .caixa h3 small { font-size: 13px; color: var(--cinza); font-weight: 500; }
+  .ia .cli { border-top: 5px solid var(--primaria); }
+  .ia .conv { border-top: 5px solid var(--destaque); }
+  .ciclo { display: flex; align-items: center; gap: 0; }
+  .ciclo div {
+    flex: 1; text-align: center; font-size: 14.5px; line-height: 1.3; padding: 12px 8px;
+    border: 1px solid var(--linha); border-radius: 10px; background: #fff;
+  }
+  .ciclo div b { display: block; color: var(--primaria); font-size: 15px; }
+  .ciclo span { width: 28px; text-align: center; color: var(--destaque); font-size: 20px; }
+  .regras-ia { margin-top: 14px; font-size: 14.5px; color: var(--cinza); display: flex; gap: 26px; }
+  .regras-ia b { color: var(--texto); }
+</style>
+</head>
+<body>
+
+<!-- ============ 1. CAPA ============ -->
+<section class="slide capa">
+  <div class="topo">
+    <img class="logo-ies" src="unimetrocamp.logo.png" alt="Unimetrocamp Wyden">
+    <div class="evento"><b>SeNAS</b>Seminários de Negócios e<br>Arquitetura de Soluções</div>
+  </div>
+  <div class="centro">
+    <div class="marca">
+      <svg viewBox="0 0 120 120" width="104" height="104" aria-hidden="true">
+        <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#ffffff"/>
+        <rect x="38" y="30" width="44" height="58" rx="6" fill="#88185d"/>
+        <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+        <line x1="46" y1="45" x2="74" y2="45" stroke="#c27aa5" stroke-width="4" stroke-linecap="round"/>
+        <line x1="46" y1="54" x2="66" y2="54" stroke="#c27aa5" stroke-width="4" stroke-linecap="round"/>
+        <path d="M47 69 L56 78 L74 60" fill="none" stroke="#ff8a6b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1>Sisto<span>.</span></h1>
+    </div>
+    <div class="nome">Sistema de gestão de ocorrências de alunos</div>
+    <div class="sub">Registro, encaminhamento e acompanhamento digital das ocorrências escolares.</div>
+    <div class="barra"></div>
+  </div>
+  <div class="info">
+    <div><small>Cliente</small>Escola Estadual José Carlos Nogueira Reverendo – Professor</div>
+    <div><small>Integrantes</small>Rafael Vendramini<br>Gabriel Luna</div>
+    <div><small>Orientador</small>Prof. Kesede Julio<br><span style="color:#d7a6c3;font-size:14px">LTD.2026.2-006 · 2026.2</span></div>
+  </div>
+</section>
+
+<!-- ============ 2. PROBLEMA ============ -->
+<section class="slide">
+  <p class="kicker">Problema</p>
+  <h2>A dor do cliente: ocorrências registradas em papel</h2>
+
+  <div class="fluxo">
+    <div class="passo"><b>1. Ocorrência</b>Indisciplina, conflito, bullying, evasão, sofrimento emocional…</div>
+    <div class="seta">→</div>
+    <div class="passo dor"><b>2. Formulário impresso</b>Preenchido à mão por professores e equipes</div>
+    <div class="seta">→</div>
+    <div class="passo dor"><b>3. Organização manual</b>Equipe pedagógica junta e organiza os papéis</div>
+    <div class="seta">→</div>
+    <div class="passo dor"><b>4. Transcrição</b>Tudo é digitado novamente na Plataforma Conviva</div>
+  </div>
+
+  <div class="problema-grid">
+    <div class="destaque">
+      <div class="num">~50<small> /dia</small></div>
+      <p>ocorrências escolares registradas na EE José Carlos Nogueira</p>
+    </div>
+    <ul class="dores">
+      <li>Alto consumo de papel</li>
+      <li>Risco de perda ou extravio dos registros</li>
+      <li>Retrabalho e erros de transcrição</li>
+      <li>Demora no encaminhamento das informações</li>
+      <li>Dificuldade para localizar registros anteriores</li>
+      <li>Sem histórico digital integrado</li>
+      <li>Relatórios limitados</li>
+      <li>Menos agilidade na proteção dos estudantes</li>
+    </ul>
+  </div>
+  <div class="rodape"><span>Sisto · SeNAS 2026.2</span><span>2</span></div>
+</section>
+
+<!-- ============ 3. ESCOPO ============ -->
+<section class="slide">
+  <p class="kicker">Escopo do MVP</p>
+  <h2>O que será feito para resolver a dor</h2>
+  <div class="duas">
+    <div class="caixa inclui">
+      <h3>✔ Incluído no MVP</h3>
+      <ul>
+        <li>Usuários com perfis (Professor, Tutor, Gestão, Pedagógico, Técnico-adm.) e login individual</li>
+        <li>Cadastro de turmas, estudantes e vínculo com o professor tutor</li>
+        <li>Registro digital da ocorrência com todos os campos do formulário atual</li>
+        <li>Categorias de ocorrência configuráveis</li>
+        <li>Encaminhamento para tutor, equipe pedagógica ou gestão</li>
+        <li>Registro de comunicações (família, rede de proteção)</li>
+        <li>Status (aberto → em acompanhamento → encerrado) com histórico</li>
+        <li>Consultas com filtros e relatórios por período, turma e categoria</li>
+      </ul>
+    </div>
+    <div class="caixa exclui">
+      <h3>✘ Fora do escopo</h3>
+      <ul>
+        <li>Aplicativo móvel nativo (será web responsivo)</li>
+        <li>Notificações automáticas às famílias</li>
+        <li>Dashboard analítico</li>
+        <li>Assinatura eletrônica dos registros</li>
+        <li>Integração com a Plataforma Conviva / SEDUC-SP</li>
+        <li>Exportação em PDF ou planilha</li>
+        <li>Módulo de mediação de conflitos</li>
+      </ul>
+    </div>
+  </div>
+  <div class="rodape"><span>Sisto · SeNAS 2026.2</span><span>3</span></div>
+</section>
+
+<!-- ============ 4. REQUISITOS FUNCIONAIS ============ -->
+<section class="slide">
+  <p class="kicker">Requisitos Funcionais</p>
+  <h2>16 requisitos organizados em 4 módulos</h2>
+  <div class="modulos">
+    <div class="modulo">
+      <h3>Acesso e usuários <i>4</i></h3>
+      <div class="rf"><code>RF01</code>Cadastro de usuários com perfil</div>
+      <div class="rf"><code>RF02</code>Autenticação individual (usuário e senha)</div>
+      <div class="rf"><code>RF03</code>Recuperação de acesso (redefinição de senha)</div>
+      <div class="rf"><code>RF04</code>Bloqueio / desativação de usuários</div>
+    </div>
+    <div class="modulo">
+      <h3>Cadastros de apoio <i>3</i></h3>
+      <div class="rf"><code>RF07</code>Criação e edição de categorias de ocorrência</div>
+      <div class="rf"><code>RF15</code>Cadastro e edição de turmas e estudantes</div>
+      <div class="rf"><code>RF16</code>Vínculo do estudante com o professor tutor</div>
+    </div>
+    <div class="modulo">
+      <h3>Ocorrências <i>6</i></h3>
+      <div class="rf"><code>RF05</code>Registro da ocorrência com todos os campos</div>
+      <div class="rf"><code>RF06</code>Mais de um estudante por ocorrência</div>
+      <div class="rf"><code>RF08</code>Encaminhamento para tutor, pedagógico ou gestão</div>
+      <div class="rf"><code>RF09</code>Registro de comunicações realizadas</div>
+      <div class="rf"><code>RF10</code>Atualização de status</div>
+      <div class="rf"><code>RF12</code>Histórico de alterações</div>
+    </div>
+    <div class="modulo">
+      <h3>Consultas e relatórios <i>3</i></h3>
+      <div class="rf"><code>RF11</code>Consulta por estudante, turma, período, categoria e responsável</div>
+      <div class="rf"><code>RF13</code>Relatórios de quantidade por período, turma e categoria</div>
+      <div class="rf"><code>RF14</code>Níveis de acesso por perfil em registros e relatórios</div>
+    </div>
+  </div>
+  <div class="rodape"><span>Sisto · SeNAS 2026.2</span><span>4</span></div>
+</section>
+
+<!-- ============ 5. ARQUITETURA ============ -->
+<section class="slide">
+  <p class="kicker">Arquitetura do Sistema</p>
+  <h2>JavaScript de ponta a ponta</h2>
+  <div class="arq">
+    <div class="camadas">
+      <div class="camada c1">
+        <div class="tit">Front-end<small>React + Vite</small></div>
+        <div class="det">Aplicação web responsiva (computador, tablet e celular) — telas de registro, consulta e relatórios</div>
+      </div>
+      <div class="conector">HTTPS · API REST · JSON · token JWT</div>
+      <div class="camada c2">
+        <div class="tit">Back-end<small>Node.js + Express</small></div>
+        <div class="det">Autenticação, controle de acesso por perfil, regras de negócio, histórico e log de auditoria</div>
+      </div>
+      <div class="conector">Prisma ORM</div>
+      <div class="camada c4">
+        <div class="tit">Banco de dados<small>PostgreSQL</small></div>
+        <div class="det">Dados relacionais: usuários, turmas, estudantes, ocorrências e histórico · backups periódicos</div>
+      </div>
+    </div>
+    <div class="lateral">
+      <h3>Organização do back-end (camadas)</h3>
+      <ul>
+        <li><b>Routes</b> — define os endpoints</li>
+        <li><b>Middlewares</b> — autenticação e permissão</li>
+        <li><b>Controllers</b> — recebem e respondem as requisições</li>
+        <li><b>Services</b> — regras de negócio (RN01–RN08)</li>
+        <li><b>Prisma</b> — acesso ao banco</li>
+      </ul>
+      <h3>Por que essa stack?</h3>
+      <ul>
+        <li>Uma só linguagem: manutenção mais simples</li>
+        <li>Ecossistema amplo e gratuito</li>
+      </ul>
+      <div class="tags"><span>JavaScript</span><span>Node.js</span><span>Express</span><span>React</span><span>Vite</span><span>Prisma</span><span>PostgreSQL</span><span>JWT</span><span>npm</span></div>
+    </div>
+  </div>
+  <div class="rodape"><span>Sisto · SeNAS 2026.2</span><span>5</span></div>
+</section>
+
+<!-- ============ 6. ENTIDADES ============ -->
+<section class="slide">
+  <p class="kicker">Modelo de Dados</p>
+  <h2>Entidades principais</h2>
+  <svg viewBox="0 0 1136 470" width="1136" height="470" aria-label="Diagrama de entidades">
+    <defs>
+      <style>
+        .bx { fill: #f8f1f5; stroke: #88185d; stroke-width: 2; }
+        .bx-c { fill: #88185d; stroke: #88185d; stroke-width: 2; }
+        .bx-s { fill: #fff; stroke: #d9dee8; stroke-width: 1.5; }
+        .t { font-size: 19px; font-weight: 700; fill: #88185d; }
+        .t-c { font-size: 21px; font-weight: 700; fill: #fff; }
+        .f { font-size: 13px; fill: #5b6575; }
+        .f-c { font-size: 13px; fill: #ecc9dd; }
+        .ln { stroke: #8a94a6; stroke-width: 2; fill: none; }
+        .card { font-size: 13px; font-weight: 700; fill: #e6371e; }
+        .lb { font-size: 13px; fill: #5b6575; font-style: italic; }
+      </style>
+    </defs>
+
+    <!-- linhas -->
+    <line class="ln" x1="568" y1="100" x2="568" y2="190"/>
+    <line class="ln" x1="1000" y1="100" x2="1000" y2="190"/>
+    <line class="ln" x1="252" y1="235" x2="448" y2="235"/>
+    <line class="ln" x1="688" y1="235" x2="880" y2="235"/>
+    <path class="ln" d="M568 280 V320 H125 V370"/>
+    <path class="ln" d="M568 320 H415 V370"/>
+    <path class="ln" d="M568 320 H715 V370"/>
+    <path class="ln" d="M568 320 H1005 V370"/>
+    <path class="ln" d="M132 190 V150 Q132 140 142 140 H800 Q810 140 810 150 V250 Q810 262 822 262 H880" stroke-dasharray="6 5"/>
+
+    <!-- cardinalidades / rótulos -->
+    <text class="card" x="576" y="122">1</text><text class="card" x="576" y="184">N</text>
+    <text class="card" x="1008" y="122">1</text><text class="card" x="1008" y="184">N</text>
+    <text class="card" x="262" y="228">1</text><text class="card" x="430" y="228">N</text>
+    <text class="lb" x="300" y="257">registra</text>
+    <text class="card" x="698" y="228">N</text><text class="card" x="862" y="228">N</text>
+    <text class="lb" x="722" y="222">envolve</text>
+    <text class="lb" x="558" y="172" text-anchor="end">classifica</text>
+    <text class="lb" x="1028" y="153">possui</text>
+    <text class="lb" x="300" y="133">tutora (Usuário perfil Tutor → Estudante)</text>
+    <text class="card" x="576" y="305">1</text>
+    <text class="lb" x="600" y="312">possui N</text>
+
+    <!-- linha 1 -->
+    <rect class="bx" x="448" y="20" width="240" height="80" rx="10"/>
+    <text class="t" x="568" y="52" text-anchor="middle">Categoria</text>
+    <text class="f" x="568" y="76" text-anchor="middle">nome · descrição</text>
+
+    <rect class="bx" x="880" y="20" width="240" height="80" rx="10"/>
+    <text class="t" x="1000" y="52" text-anchor="middle">Turma</text>
+    <text class="f" x="1000" y="76" text-anchor="middle">nome · etapa</text>
+
+    <!-- linha 2 -->
+    <rect class="bx" x="12" y="190" width="240" height="90" rx="10"/>
+    <text class="t" x="132" y="226" text-anchor="middle">Usuário</text>
+    <text class="f" x="132" y="250" text-anchor="middle">nome · e-mail · perfil · status</text>
+
+    <rect class="bx-c" x="448" y="190" width="240" height="90" rx="10"/>
+    <text class="t-c" x="568" y="226" text-anchor="middle">Ocorrência</text>
+    <text class="f-c" x="568" y="250" text-anchor="middle">data/hora · local · descrição</text>
+    <text class="f-c" x="568" y="268" text-anchor="middle">categoria · status</text>
+
+    <rect class="bx" x="880" y="190" width="240" height="90" rx="10"/>
+    <text class="t" x="1000" y="226" text-anchor="middle">Estudante</text>
+    <text class="f" x="1000" y="250" text-anchor="middle">nome · código escolar</text>
+    <text class="f" x="1000" y="268" text-anchor="middle">turma · tutor</text>
+
+    <!-- linha 3 -->
+    <rect class="bx-s" x="12" y="370" width="226" height="78" rx="10"/>
+    <text class="t" x="125" y="402" text-anchor="middle">Encaminhamento</text>
+    <text class="f" x="125" y="426" text-anchor="middle">destinatário · data/hora</text>
+
+    <rect class="bx-s" x="302" y="370" width="226" height="78" rx="10"/>
+    <text class="t" x="415" y="402" text-anchor="middle">Providência</text>
+    <text class="f" x="415" y="426" text-anchor="middle">descrição · data/hora</text>
+
+    <rect class="bx-s" x="602" y="370" width="226" height="78" rx="10"/>
+    <text class="t" x="715" y="402" text-anchor="middle">Comunicação</text>
+    <text class="f" x="715" y="426" text-anchor="middle">destinatário · meio · descrição</text>
+
+    <rect class="bx-s" x="892" y="370" width="226" height="78" rx="10"/>
+    <text class="t" x="1005" y="402" text-anchor="middle">Histórico</text>
+    <text class="f" x="1005" y="426" text-anchor="middle">usuário · ação · data/hora</text>
+  </svg>
+  <div class="rodape"><span>Sisto · SeNAS 2026.2</span><span>6</span></div>
+</section>
+
+<!-- ============ 7. METODOLOGIA IA ============ -->
+<section class="slide">
+  <p class="kicker">Metodologia de uso da IA</p>
+  <h2>IA conversacional + IA via CLI, guiadas pelo SSD</h2>
+  <div class="ia">
+    <div class="caixa conv">
+      <h3>Conversacional <small>chat (ChatGPT, Claude.ai…)</small></h3>
+      <ul>
+        <li>Entender o problema e a proposta do cliente</li>
+        <li>Brainstorming de soluções e de escopo</li>
+        <li>Rascunho de textos e da especificação</li>
+        <li>Tirar dúvidas de conceitos e tecnologias</li>
+      </ul>
+    </div>
+    <div class="caixa cli">
+      <h3>CLI <small>agente no terminal (Claude Code)</small></h3>
+      <ul>
+        <li>Revisar o SSD buscando lacunas e inconsistências</li>
+        <li>Gerar código direto no repositório, a partir das Stories</li>
+        <li>Criar e executar testes</li>
+        <li>Apoiar revisão de código e commits</li>
+      </ul>
+    </div>
+  </div>
+  <div class="ciclo">
+    <div><b>SSD</b>fonte única de verdade</div><span>→</span>
+    <div><b>Story / Task</b>ligada a RFs e RNs</div><span>→</span>
+    <div><b>IA gera</b>código, testes, docs</div><span>→</span>
+    <div><b>Dev revisa</b>valida e testa</div><span>→</span>
+    <div><b>SSD atualizado</b>se algo mudou</div>
+  </div>
+  <div class="regras-ia">
+    <span><b>Humano no controle:</b> toda saída da IA é revisada antes do commit.</span>
+    <span><b>LGPD:</b> a IA só trabalha com dados fictícios (RN05).</span>
+  </div>
+  <div class="rodape"><span>Sisto · SeNAS 2026.2</span><span>7</span></div>
+</section>
+
+</body>
+</html>
