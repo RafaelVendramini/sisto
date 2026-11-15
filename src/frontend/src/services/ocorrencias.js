@@ -127,3 +127,35 @@ export function registrarComunicacao(id, { destinatario, meio, descricao, dataHo
     corpo: { destinatario, meio, descricao, dataHora },
   });
 }
+
+/**
+ * Registra uma providência adotada numa ocorrência em acompanhamento
+ * (POST /ocorrencias/{id}/providencias — UC04, RF12, RN04, RN22). Gestão,
+ * Pedagógico e o responsável pelo acompanhamento (403 para os demais);
+ * ocorrência "Aberto" ou "Encerrado": 409. Envia só o campo do contrato; a
+ * normalização (trim) e a validação definitiva são do back-end (400).
+ * @param {number | string} id
+ * @param {{ descricao: string }} dados
+ * @returns {Promise<object>} detalhe completo da ocorrência (201), no formato do GET /ocorrencias/{id}
+ */
+export function registrarProvidencia(id, { descricao }) {
+  return requisicaoAutenticada(`/ocorrencias/${encodeURIComponent(String(id))}/providencias`, {
+    metodo: 'POST',
+    corpo: { descricao },
+  });
+}
+
+/**
+ * Encerra a ocorrência (PATCH /ocorrencias/{id}/status — UC04, RF10, RN04,
+ * RN22). Aceita somente `ENCERRADO`, sem justificativa; sem providência
+ * registrada ou fora de "Em acompanhamento": 409.
+ * @param {number | string} id
+ * @returns {Promise<object>} detalhe completo da ocorrência (200), já com
+ *   `status: "ENCERRADO"` e `dataEncerramento`
+ */
+export function encerrarOcorrencia(id) {
+  return requisicaoAutenticada(`/ocorrencias/${encodeURIComponent(String(id))}/status`, {
+    metodo: 'PATCH',
+    corpo: { status: 'ENCERRADO' },
+  });
+}

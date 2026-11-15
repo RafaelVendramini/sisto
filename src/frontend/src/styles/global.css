@@ -1237,3 +1237,15 @@ a.botao {
     flex-wrap: wrap;
   }
 }
+
+/* Diálogo de providência (#84): texto longo sem estourar a largura no celular (RNF01). */
+.providencia .campo textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Aviso da RN04 (encerrar sem providência), logo abaixo dos botões de ação. */
+.detalhe-ocorrencia__aviso {
+  margin: 0.75rem 0 0;
+}

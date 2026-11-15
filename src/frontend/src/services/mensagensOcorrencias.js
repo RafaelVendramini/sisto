@@ -572,3 +572,93 @@ export function mensagemErroComunicacao(falha) {
   if (status === 400 && falha?.doServidor && falha?.message) return falha.message;
   return MENSAGEM_GENERICA_COMUNICACAO;
 }
+
+// ---------------------------------------------------------------------------
+// Providência adotada e encerramento (UC04, RF10, RF12, RN04, RN22 — #84)
+// ---------------------------------------------------------------------------
+
+export const MENSAGEM_PROVIDENCIA_REGISTRADA = 'Providência registrada.';
+export const MENSAGEM_OCORRENCIA_ENCERRADA = 'Ocorrência encerrada.';
+export const MENSAGEM_PROVIDENCIA_DESCRICAO_OBRIGATORIA = 'Descreva a providência adotada.';
+export const MENSAGEM_PROVIDENCIA_DESCRICAO_LONGA = `A descrição deve ter no máximo ${TAMANHO_MAXIMO_TEXTO_LONGO} caracteres.`;
+
+/** RN04: orientação ao tentar encerrar sem nenhuma providência registrada. */
+export const MENSAGEM_ENCERRAR_SEM_PROVIDENCIA =
+  'Para encerrar a ocorrência, registre antes ao menos uma providência adotada. ' +
+  'Use o botão "Registrar providência".';
+
+/** Pergunta do diálogo de confirmação do encerramento (ação irreversível — RN04). */
+export const PERGUNTA_ENCERRAMENTO =
+  'Encerrar a ocorrência? Depois de encerrada, ela não recebe mais encaminhamentos, ' +
+  'comunicações nem providências.';
+
+/** Usado quando o 409 chega sem a mensagem do back-end. */
+export const MENSAGEM_CONFLITO_OCORRENCIA = MENSAGEM_ENCAMINHAMENTO_CONFLITO;
+
+const MENSAGEM_GENERICA_PROVIDENCIA =
+  'Não foi possível registrar a providência agora. Tente novamente em instantes.';
+const MENSAGEM_GENERICA_ENCERRAMENTO =
+  'Não foi possível encerrar a ocorrência agora. Tente novamente em instantes.';
+
+/** RN04: só encerra quem já tem ao menos uma providência registrada. */
+export function temProvidencia(ocorrencia) {
+  return (ocorrencia?.providencias ?? []).length > 0;
+}
+
+/**
+ * Valida o diálogo de providência antes do envio. É só usabilidade: a
+ * validação definitiva é a do back-end (400).
+ * @param {{ descricao: string }} dados
+ * @returns {Record<string, string>} erros por campo
+ */
+export function validarProvidencia(dados) {
+  const erros = {};
+  const descricao = limparTexto(dados.descricao);
+  if (!descricao) erros.descricao = MENSAGEM_PROVIDENCIA_DESCRICAO_OBRIGATORIA;
+  else if (descricao.length > TAMANHO_MAXIMO_TEXTO_LONGO) {
+    erros.descricao = MENSAGEM_PROVIDENCIA_DESCRICAO_LONGA;
+  }
+  return erros;
+}
+
+/**
+ * A falha indica que a ocorrência mudou ou sumiu (409: status mudou, sem
+ * providência ou conflito concorrente; 404: inexistente ou fora da
+ * visibilidade — RN19): vale atualizar o detalhe.
+ */
+export function atualizacaoOcorrenciaPedeAtualizacao(falha) {
+  return [404, 409].includes(falha?.status);
+}
+
+/** Mensagens comuns às falhas da providência e do encerramento. */
+function mensagemErroAtualizacao(falha, generica) {
+  const status = falha?.status;
+  if (status === 403) return MENSAGEM_SEM_PERMISSAO;
+  if (status === 0) return MENSAGEM_SEM_CONEXAO;
+  if (status === 404) return MENSAGEM_OCORRENCIA_NAO_ENCONTRADA;
+  // 409: a mensagem do back-end explica o motivo (aberta, encerrada, sem
+  // providência ou outra operação ao mesmo tempo). O campo `codigo` (#72/D1)
+  // ainda não é usado.
+  if (status === 409) {
+    return falha?.doServidor && falha?.message ? falha.message : MENSAGEM_CONFLITO_OCORRENCIA;
+  }
+  if (status === 400 && falha?.doServidor && falha?.message) return falha.message;
+  return generica;
+}
+
+/**
+ * Converte a falha do POST /ocorrencias/{id}/providencias em mensagem para a
+ * tela. O 401 não chega aqui na prática: o tratamento central leva ao login.
+ * @param {{ status?: number, message?: string, doServidor?: boolean }} falha
+ */
+export function mensagemErroProvidencia(falha) {
+  return mensagemErroAtualizacao(falha, MENSAGEM_GENERICA_PROVIDENCIA);
+}
+
+/**
+ * Converte a falha do PATCH /ocorrencias/{id}/status em mensagem para a tela.
+ * @param {{ status?: number, message?: string, doServidor?: boolean }} falha
+ */
+export function mensagemErroEncerramento(falha) {
+  return mensagemErroAtualizacao(falha, MENSAGEM_GENERICA_ENCERRAMENTO);
+}
