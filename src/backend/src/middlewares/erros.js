@@ -12,7 +12,9 @@ export function rotaNaoEncontrada(req, res) {
 
 /**
  * Middleware central de erros. Sempre responde em JSON no formato
- * { "erro": "mensagem" } e nunca expõe a stack trace ao cliente.
+ * { "erro": "mensagem" } — acrescido de "codigo" quando o ErroHttp tiver um
+ * código estável (todo 409 e o 403 da RN10 — Issue #72, D1) — e nunca expõe
+ * a stack trace ao cliente.
  */
 // eslint-disable-next-line no-unused-vars
 export function tratarErros(err, req, res, next) {
@@ -33,6 +35,10 @@ export function tratarErros(err, req, res, next) {
           res.set(nome, valor);
         }
       }
+    }
+    // Só ErroHttp define o código estável; sem código, o corpo segue { erro }.
+    if (err instanceof ErroHttp && typeof err.codigo === 'string' && err.codigo) {
+      return res.status(status).json({ erro: mensagem, codigo: err.codigo });
     }
     return res.status(status).json({ erro: mensagem });
   }

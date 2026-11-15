@@ -364,6 +364,7 @@ describe('Registro de comunicação — complementar do QA (#52)', () => {
       const { alerta } = await enviarComErro(() =>
         respostaFalsa(409, {
           erro: 'Não foi possível registrar a comunicação por causa de outra operação ao mesmo tempo. Tente novamente.',
+          codigo: 'CONFLITO_CONCORRENTE',
         }),
       );
       expect(alerta).toHaveTextContent(MENSAGEM_COMUNICACAO_CONFLITO);

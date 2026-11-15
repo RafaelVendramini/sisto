@@ -3,6 +3,7 @@
 // (UC03, RF05, RN19 — Issue #48): nada técnico aparece na tela.
 // A validação daqui é só usabilidade; a definitiva é a do back-end (400), cuja
 // mensagem (campo `erro`) é exibida como veio.
+import { CODIGOS_ERRO, codigoDaFalha } from './codigosErro.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from './mensagens.js';
 import { idParaEnvio, limparTexto } from './mensagensEstudantes.js';
 
@@ -639,17 +640,31 @@ export function atualizacaoOcorrenciaPedeAtualizacao(falha) {
   return [404, 409].includes(falha?.status);
 }
 
+/**
+ * Texto reserva do 409 da providência/encerramento quando a resposta vem sem
+ * a mensagem do back-end: identificado pelo `codigo` (#72/D1). Sem providência
+ * orienta a registrar uma; os demais (aberta, encerrada, concorrente ou sem
+ * código) pedem para atualizar a ocorrência.
+ */
+export function mensagemReservaConflitoOcorrencia(falha) {
+  if (codigoDaFalha(falha) === CODIGOS_ERRO.ENCERRAMENTO_SEM_PROVIDENCIA) {
+    return MENSAGEM_ENCERRAR_SEM_PROVIDENCIA;
+  }
+  return MENSAGEM_CONFLITO_OCORRENCIA;
+}
+
 /** Mensagens comuns às falhas da providência e do encerramento. */
 function mensagemErroAtualizacao(falha, generica) {
   const status = falha?.status;
   if (status === 403) return MENSAGEM_SEM_PERMISSAO;
   if (status === 0) return MENSAGEM_SEM_CONEXAO;
   if (status === 404) return MENSAGEM_OCORRENCIA_NAO_ENCONTRADA;
-  // 409: a mensagem do back-end explica o motivo (aberta, encerrada, sem
-  // providência ou outra operação ao mesmo tempo). O campo `codigo` (#72/D1)
-  // ainda não é usado.
+  // 409: a mensagem do back-end explica o motivo (OCORRENCIA_ABERTA,
+  // OCORRENCIA_ENCERRADA, ENCERRAMENTO_SEM_PROVIDENCIA ou CONFLITO_CONCORRENTE).
+  // Sem a mensagem, o `codigo` (#72/D1) escolhe o texto reserva.
   if (status === 409) {
-    return falha?.doServidor && falha?.message ? falha.message : MENSAGEM_CONFLITO_OCORRENCIA;
+    if (falha?.doServidor && falha?.message) return falha.message;
+    return mensagemReservaConflitoOcorrencia(falha);
   }
   if (status === 400 && falha?.doServidor && falha?.message) return falha.message;
   return generica;

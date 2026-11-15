@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 import request from 'supertest';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const { findUnique, findMany, create, update, count, $transaction, criarLog } = vi.hoisted(
   () => ({
@@ -308,7 +309,7 @@ describe('PUT /usuarios/{id}/senha — validações e permissões', () => {
     const res = await redefinir(ID_GESTAO, { novaSenha: SENHA_TEMPORARIA }, tokenGestao);
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_REDEFINIR_PROPRIA_SENHA });
+    expect(res.body).toEqual({ erro: MENSAGEM_REDEFINIR_PROPRIA_SENHA, codigo: CODIGOS_ERRO.REDEFINIR_PROPRIA_SENHA });
     expect(update).not.toHaveBeenCalled();
     expect(criarLog).not.toHaveBeenCalled();
   });
@@ -402,7 +403,7 @@ describe('Depois da redefinição pela Gestão (RN10)', () => {
     ];
     for (const res of respostas) {
       expect(res.status).toBe(403);
-      expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+      expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     }
     expect(findMany).not.toHaveBeenCalled();
     expect(buscar(ID_ALVO).nome).toBe('Usuário Fictício 6');
@@ -510,7 +511,7 @@ describe('Usuário recém-cadastrado (RN10, #37)', () => {
       // 2. Rotas protegidas bloqueadas (403) até a troca.
       const bloqueada = await get(rota, tokenPendente);
       expect(bloqueada.status).toBe(403);
-      expect(bloqueada.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+      expect(bloqueada.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
 
       // 3. Troca da senha pelo próprio usuário (fluxo da #18).
       const troca = await trocar({ senhaAtual: SENHA_CADASTRO, novaSenha: SENHA_NOVA }, tokenPendente);
@@ -829,7 +830,7 @@ describe('Transação da troca de senha (atomicidade e concorrência)', () => {
     const res = await redefinir(ID_ALVO, { novaSenha: SENHA_TEMPORARIA }, tokenGestao);
 
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_TROCA_SENHA });
+    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_TROCA_SENHA, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
     expect($transaction).toHaveBeenCalledTimes(3);
     expect(buscar(ID_ALVO).troca_senha_obrigatoria).toBe(false);
   });

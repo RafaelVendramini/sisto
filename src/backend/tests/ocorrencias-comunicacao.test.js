@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -481,7 +482,7 @@ describe('POST /ocorrencias/{id}/comunicacoes — autenticação e perfis (Seç�
   it('troca de senha pendente responde 403 sem gravar', async () => {
     const res = await comunicar(O_ABERTA, corpo(), ID_TROCA_PENDENTE);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     esperarNadaGravado();
   });
 
@@ -805,7 +806,7 @@ describe('RN16 — status da ocorrência', () => {
     it(`ENCERRADO: 409 sem gravar (${rotulo})`, async () => {
       const res = await comunicar(O_ENCERRADA, corpo(), id);
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO });
+      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
       esperarNadaGravado();
     });
   }
@@ -1030,7 +1031,7 @@ describe('transação única SERIALIZABLE', () => {
     });
     const res = await comunicar(O_ACOMPANHAMENTO, corpo());
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO });
+    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
     expect(banco.comunicacoes).toHaveLength(1);
     expect(banco.historicos).toHaveLength(0);
   });
@@ -1039,7 +1040,7 @@ describe('transação única SERIALIZABLE', () => {
     mocks.$transaction.mockRejectedValue(erroPrisma('P2034'));
     const res = await comunicar(O_ABERTA, corpo());
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_COMUNICACAO });
+    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_COMUNICACAO, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
     expect(mocks.$transaction).toHaveBeenCalledTimes(3);
     esperarNadaGravado();
   });

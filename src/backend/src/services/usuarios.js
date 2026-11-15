@@ -33,7 +33,7 @@
 // Operações recusadas (400, 403, 404, 409) não chegam a gravar o log.
 import { Perfil, Prisma, StatusUsuario } from '@prisma/client';
 import prisma from '../lib/prisma.js';
-import { ErroHttp } from '../lib/erros.js';
+import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { normalizarEmail } from './email.js';
 import { gerarHashSenha, mensagemPoliticaSenha } from './senha.js';
@@ -177,7 +177,7 @@ export async function cadastrarUsuario(
   // requisições simultâneas é coberta pelo tratamento do P2002 abaixo.
   const existente = await db.usuario.findUnique({ where: { email }, select: { id: true } });
   if (existente) {
-    throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO);
+    throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO, { codigo: CODIGOS_ERRO.EMAIL_DUPLICADO });
   }
 
   // O hash é gerado fora da transação para não mantê-la aberta durante o bcrypt.
@@ -209,7 +209,7 @@ export async function cadastrarUsuario(
     });
   } catch (erro) {
     if (ehViolacaoDeUnicidade(erro)) {
-      throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO);
+      throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO, { codigo: CODIGOS_ERRO.EMAIL_DUPLICADO });
     }
     throw erro;
   }
@@ -417,7 +417,7 @@ async function verificarEAtualizar(tx, id, dados, solicitante) {
       select: { id: true },
     });
     if (dono && dono.id !== id) {
-      throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO);
+      throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO, { codigo: CODIGOS_ERRO.EMAIL_DUPLICADO });
     }
   }
 
@@ -430,7 +430,9 @@ async function verificarEAtualizar(tx, id, dados, solicitante) {
   if (atual.perfil === Perfil.TUTOR && dados.perfil !== undefined && dados.perfil !== Perfil.TUTOR) {
     const tutorados = await tx.estudante.count({ where: { tutor_id: id } });
     if (tutorados > 0) {
-      throw new ErroHttp(409, MENSAGEM_TUTOR_COM_TUTORADOS);
+      throw new ErroHttp(409, MENSAGEM_TUTOR_COM_TUTORADOS, {
+        codigo: CODIGOS_ERRO.TUTOR_COM_TUTORADOS,
+      });
     }
   }
 
@@ -446,7 +448,9 @@ async function verificarEAtualizar(tx, id, dados, solicitante) {
       where: { perfil: Perfil.GESTAO, status: StatusUsuario.ATIVO, id: { not: id } },
     });
     if (outrasGestoesAtivas < MINIMO_GESTOES_ATIVAS) {
-      throw new ErroHttp(409, MENSAGEM_MINIMO_GESTOES_ATIVAS);
+      throw new ErroHttp(409, MENSAGEM_MINIMO_GESTOES_ATIVAS, {
+        codigo: CODIGOS_ERRO.GESTAO_ATIVA_MINIMA,
+      });
     }
   }
 
@@ -498,7 +502,9 @@ export async function atualizarUsuario(idUrl, corpo, solicitante, { db = prisma 
     const mudaPerfil = dados.perfil !== undefined && dados.perfil !== solicitante.perfil;
     const perdeAcesso = dados.status !== undefined && dados.status !== StatusUsuario.ATIVO;
     if (mudaPerfil || perdeAcesso) {
-      throw new ErroHttp(409, MENSAGEM_ALTERAR_PROPRIO_ACESSO);
+      throw new ErroHttp(409, MENSAGEM_ALTERAR_PROPRIO_ACESSO, {
+        codigo: CODIGOS_ERRO.ALTERAR_PROPRIO_ACESSO,
+      });
     }
   }
 
@@ -510,13 +516,19 @@ export async function atualizarUsuario(idUrl, corpo, solicitante, { db = prisma 
     } catch (erro) {
       if (erro instanceof ErroHttp) throw erro;
       // Corrida com outro cadastro/edição usando o mesmo e-mail.
-      if (ehViolacaoDeUnicidade(erro)) throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO);
+      if (ehViolacaoDeUnicidade(erro)) {
+        throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO, {
+          codigo: CODIGOS_ERRO.EMAIL_DUPLICADO,
+        });
+      }
       // Registro inexistente no update (ex.: removido direto no banco).
       if (erro?.code === 'P2025') throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
       // Conflito de serialização/escrita: repete a transação.
       if (erro?.code === 'P2034') {
         if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE);
+        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE, {
+          codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
+        });
       }
       throw erro;
     }

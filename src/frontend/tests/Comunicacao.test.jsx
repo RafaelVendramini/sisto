@@ -566,7 +566,10 @@ describe('Registro de comunicação no detalhe da ocorrência (#52)', () => {
     it('409: mensagem clara e "Atualizar a ocorrência" recarrega o detalhe sem o botão', async () => {
       let consultas = 0;
       const { alerta } = await enviarComErro(
-        () => respostaFalsa(409, { erro: 'Ocorrência encerrada não recebe comunicações.' }),
+        () => respostaFalsa(409, {
+            erro: 'Ocorrência encerrada não recebe comunicações.',
+            codigo: 'OCORRENCIA_ENCERRADA',
+          }),
         {
           detalhe: () =>
             respostaFalsa(200, ++consultas === 1 ? DETALHE_ABERTO : DETALHE_ENCERRADO),

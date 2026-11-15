@@ -511,7 +511,10 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
     it('e-mail duplicado (409) mostra mensagem clara junto ao e-mail', async () => {
       mockarApi({
         aoCadastrar: () =>
-          respostaFalsa(409, { erro: 'Já existe um usuário cadastrado com este e-mail.' }),
+          respostaFalsa(409, {
+            erro: 'Já existe um usuário cadastrado com este e-mail.',
+            codigo: 'EMAIL_DUPLICADO',
+          }),
       });
       await abrirPaginaComLista();
 
@@ -530,10 +533,45 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
       expect(document.body.textContent).not.toContain(SENHA_TEMPORARIA);
     });
 
+    it('409 do cadastro com outro código não vai para o campo E-mail: mostra o texto do back-end (#72)', async () => {
+      const outra = 'Não foi possível cadastrar por causa de outra operação ao mesmo tempo.';
+      mockarApi({
+        aoCadastrar: () => respostaFalsa(409, { erro: outra, codigo: 'CONFLITO_CONCORRENTE' }),
+      });
+      await abrirPaginaComLista();
+
+      const c = await preencher(usuario, { email: 'maria@sisto.exemplo' });
+      await usuario.click(c.cadastrar);
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(outra);
+      expect(c.email).toHaveAttribute('aria-invalid', 'false');
+      expect(c.email).not.toHaveAccessibleDescription(
+        'Já existe um usuário cadastrado com este e-mail.',
+      );
+    });
+
+    it('409 do cadastro sem código cai na reserva: vai para o campo E-mail (#72)', async () => {
+      mockarApi({ aoCadastrar: () => respostaFalsa(409, { erro: 'Texto qualquer.' }) });
+      await abrirPaginaComLista();
+
+      const c = await preencher(usuario, { email: 'maria@sisto.exemplo' });
+      await usuario.click(c.cadastrar);
+
+      await waitFor(() =>
+        expect(c.email).toHaveAccessibleDescription(
+          'Já existe um usuário cadastrado com este e-mail.',
+        ),
+      );
+      expect(c.email).toHaveAttribute('aria-invalid', 'true');
+    });
+
     it('após o 409, os demais campos continuam preenchidos para correção', async () => {
       mockarApi({
         aoCadastrar: () =>
-          respostaFalsa(409, { erro: 'Já existe um usuário cadastrado com este e-mail.' }),
+          respostaFalsa(409, {
+            erro: 'Já existe um usuário cadastrado com este e-mail.',
+            codigo: 'EMAIL_DUPLICADO',
+          }),
       });
       await abrirPaginaComLista();
 

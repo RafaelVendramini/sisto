@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { readFileSync } from 'node:fs';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   usuarioFindUnique: vi.fn(),
@@ -335,7 +336,15 @@ describe('Erros de POST/PUT não ecoam nome nem código do estudante', () => {
     const texto = JSON.stringify(res.body);
     expect(texto).not.toContain('Marcador');
     expect(texto).not.toContain('TESTE-');
-    expect(Object.keys(res.body)).toEqual(['erro']);
+    // Só o 409 traz, além de `erro`, o código estável (#72, D1).
+    if (status === 409) {
+      expect(res.body).toEqual({
+        erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO,
+        codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO,
+      });
+    } else {
+      expect(Object.keys(res.body)).toEqual(['erro']);
+    }
     expect(logs).toHaveLength(0);
   });
 
@@ -345,7 +354,7 @@ describe('Erros de POST/PUT não ecoam nome nem código do estudante', () => {
     );
     const res = await postEstudantes({ nomeCompleto: NOME_MARCADOR, codigoEscolar: CODIGO_MARCADOR, turmaId: 1 });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO });
+    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO, codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO });
   });
 
   it('PUT: erro inesperado do banco responde 500 genérico, sem dados do estudante', async () => {

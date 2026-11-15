@@ -19,7 +19,7 @@
 // também 409, com mensagem para tentar de novo.
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
-import { ErroHttp } from '../lib/erros.js';
+import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 
 /** Nome do recurso na API, usado no LogAuditoria ("categorias/<id>"). */
@@ -141,7 +141,9 @@ async function garantirNomeDisponivel(tx, nome, idIgnorado) {
     (categoria) => categoria.id !== idIgnorado && chaveNomeCategoria(categoria.nome) === chave,
   );
   if (duplicada) {
-    throw new ErroHttp(409, MENSAGEM_CATEGORIA_DUPLICADA);
+    throw new ErroHttp(409, MENSAGEM_CATEGORIA_DUPLICADA, {
+      codigo: CODIGOS_ERRO.CATEGORIA_DUPLICADA,
+    });
   }
 }
 
@@ -159,7 +161,9 @@ async function emTransacaoSerializavel(db, operacao) {
       if (erro instanceof ErroHttp) throw erro;
       if (erro?.code === 'P2034') {
         if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_CATEGORIA);
+        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_CATEGORIA, {
+          codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
+        });
       }
       throw erro;
     }

@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   usuarioFindUnique: vi.fn(),
@@ -347,7 +348,7 @@ describe('GET /estudantes', () => {
       .get('/estudantes')
       .set('Authorization', `Bearer ${tokenDoUsuario(ID_TROCA_PENDENTE)}`);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.estudanteFindMany).not.toHaveBeenCalled();
   });
 });
@@ -455,7 +456,7 @@ describe('POST /estudantes', () => {
       .set('Authorization', `Bearer ${tokenDoUsuario(ID_TROCA_PENDENTE)}`)
       .send(ESTUDANTE_VALIDO);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.estudanteCreate).not.toHaveBeenCalled();
   });
 
@@ -552,7 +553,7 @@ describe('POST /estudantes', () => {
   ])('código escolar duplicado (%s) responde 409 (RN18) e nada é gravado', async (_caso, codigoEscolar) => {
     const res = await postEstudantes({ ...ESTUDANTE_VALIDO, codigoEscolar });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO });
+    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO, codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO });
     expect(mocks.estudanteCreate).not.toHaveBeenCalled();
     expect(logs).toHaveLength(0);
   });
@@ -561,7 +562,7 @@ describe('POST /estudantes', () => {
     mocks.estudanteCreate.mockRejectedValueOnce(erroPrisma('P2002'));
     const res = await postEstudantes(ESTUDANTE_VALIDO);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO });
+    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO, codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO });
   });
 
   it('corpo que não é objeto (array) responde 400', async () => {
@@ -674,7 +675,7 @@ describe('PUT /estudantes/{id}', () => {
   it('código escolar de outro estudante responde 409 (RN18)', async () => {
     const res = await putEstudante(1, { nomeCompleto: 'Estudante Fictício 03', turmaId: 2, codigoEscolar: 'TESTE-0001' });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO });
+    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO, codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO });
     expect(mocks.estudanteUpdate).not.toHaveBeenCalled();
     expect(logs).toHaveLength(0);
   });
@@ -757,7 +758,7 @@ describe('PUT /estudantes/{id}', () => {
       .set('Authorization', `Bearer ${tokenDoUsuario(ID_TROCA_PENDENTE)}`)
       .send({ nomeCompleto: 'Estudante Fictício 03', turmaId: 2 });
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
   });
 });
 
@@ -800,7 +801,7 @@ describe('Concorrência no cadastro de estudantes', () => {
     });
     const res = await postEstudantes(ESTUDANTE_VALIDO);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO });
+    expect(res.body).toEqual({ erro: MENSAGEM_CODIGO_ESCOLAR_DUPLICADO, codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO });
     expect(mocks.$transaction).toHaveBeenCalledTimes(2);
   });
 
@@ -815,7 +816,7 @@ describe('Concorrência no cadastro de estudantes', () => {
     mocks.$transaction.mockRejectedValue(erroPrisma('P2034'));
     const res = await putEstudante(1, { nomeCompleto: 'Estudante Fictício 03', turmaId: 2 });
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_ESTUDANTE });
+    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_ESTUDANTE, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
     expect(mocks.$transaction).toHaveBeenCalledTimes(3);
   });
 

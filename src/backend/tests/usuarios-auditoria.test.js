@@ -12,6 +12,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
@@ -377,7 +378,7 @@ describe('Operações recusadas não gravam auditoria (#91)', () => {
       const res = await post(corpoCadastro({ email: EMAIL_ALVO }));
 
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO });
+      expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO, codigo: CODIGOS_ERRO.EMAIL_DUPLICADO });
       esperarSemLog();
     });
 
@@ -441,7 +442,7 @@ describe('Operações recusadas não gravam auditoria (#91)', () => {
       const res = await put(ID_ALVO, { email: buscar(ID_GESTAO).email });
 
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO });
+      expect(res.body).toEqual({ erro: MENSAGEM_EMAIL_DUPLICADO, codigo: CODIGOS_ERRO.EMAIL_DUPLICADO });
       esperarSemLog();
     });
 
@@ -449,7 +450,7 @@ describe('Operações recusadas não gravam auditoria (#91)', () => {
       const res = await put(ID_GESTAO, { status: 'BLOQUEADO' });
 
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_ALTERAR_PROPRIO_ACESSO });
+      expect(res.body).toEqual({ erro: MENSAGEM_ALTERAR_PROPRIO_ACESSO, codigo: CODIGOS_ERRO.ALTERAR_PROPRIO_ACESSO });
       esperarSemLog();
     });
 
@@ -459,7 +460,7 @@ describe('Operações recusadas não gravam auditoria (#91)', () => {
       const res = await put(ID_GESTAO_2, { status: 'BLOQUEADO' });
 
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_MINIMO_GESTOES_ATIVAS });
+      expect(res.body).toEqual({ erro: MENSAGEM_MINIMO_GESTOES_ATIVAS, codigo: CODIGOS_ERRO.GESTAO_ATIVA_MINIMA });
       expect(buscar(ID_GESTAO_2).status).toBe('ATIVO');
       esperarSemLog();
     });
@@ -470,7 +471,7 @@ describe('Operações recusadas não gravam auditoria (#91)', () => {
       const res = await put(ID_TUTOR, { perfil: 'PROFESSOR' });
 
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_TUTOR_COM_TUTORADOS });
+      expect(res.body).toEqual({ erro: MENSAGEM_TUTOR_COM_TUTORADOS, codigo: CODIGOS_ERRO.TUTOR_COM_TUTORADOS });
       esperarSemLog();
     });
 

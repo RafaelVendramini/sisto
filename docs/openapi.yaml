@@ -17,9 +17,9 @@ info:
 
     **Troca de senha obrigatória (RN10).** Enquanto o usuário tiver uma senha
     temporária, todas as rotas protegidas respondem **403**, exceto
-    `PUT /conta/senha`. Esse 403 passará a trazer
-    `codigo: "TROCA_SENHA_OBRIGATORIA"` (previsto pela Issue #72; ainda não
-    enviado).
+    `PUT /conta/senha`. Esse 403 traz `codigo: "TROCA_SENHA_OBRIGATORIA"`
+    (Issue #72), para o front-end distinguir o caso do 403 de perfil sem
+    permissão.
 
     **Permissões.** Cada operação indica os perfis permitidos (matriz da
     Seção 4 do SSD). Perfil sem permissão recebe **403**
@@ -54,9 +54,12 @@ info:
       também é **400**.
 
     **Erros.** Toda resposta de erro tem o formato `{ "erro": "mensagem" }`
-    (esquema `Erro`). O campo opcional `codigo` está previsto pela Issue #72
-    (todas as respostas 409 e o 403 de troca de senha obrigatória), mas ainda
-    não é enviado. Códigos usados:
+    (esquema `Erro`). Todas as respostas **409** e o **403** de troca de
+    senha obrigatória (RN10) trazem também o campo `codigo`, um código
+    estável (Issue #72) que o front-end usa para identificar o caso sem
+    depender do texto da mensagem; os valores e o significado de cada um
+    estão no esquema `Erro`. As demais respostas de erro trazem só `erro`.
+    Status HTTP usados:
     * **400** entrada inválida, inclusive referência inexistente no corpo
       (turma, estudante, categoria ou usuário) e JSON malformado
       (`JSON inválido no corpo da requisição`);
@@ -243,13 +246,14 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '409':
-          description: Conflito concorrente com outra troca de senha do mesmo usuário.
+          description: Conflito concorrente com outra troca de senha do mesmo usuário (`CONFLITO_CONCORRENTE`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
               example:
                 erro: A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
         '429':
           $ref: '#/components/responses/MuitasTentativas'
 
@@ -366,13 +370,14 @@ paths:
         '403':
           $ref: '#/components/responses/Proibido'
         '409':
-          description: E-mail já cadastrado.
+          description: E-mail já cadastrado (`EMAIL_DUPLICADO`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
               example:
                 erro: Já existe um usuário cadastrado com este e-mail.
+                codigo: EMAIL_DUPLICADO
 
   /usuarios/{id}:
     put:
@@ -388,13 +393,16 @@ paths:
         acesso na requisição seguinte (RN09). Gera LogAuditoria
         "usuário editado".
 
-        Respostas **409**:
+        Respostas **409** (com o `codigo` de cada caso):
         * a Gestão tenta bloquear, desativar ou alterar o próprio perfil
-          (RN11); editar o próprio nome/e-mail é permitido;
-        * a edição deixaria menos de dois usuários Gestão ativos (RN11);
-        * troca de perfil de um Tutor com estudantes vinculados (RN13);
-        * e-mail já usado por outro usuário;
-        * conflito concorrente.
+          (RN11) — `ALTERAR_PROPRIO_ACESSO`; editar o próprio nome/e-mail é
+          permitido;
+        * a edição deixaria menos de dois usuários Gestão ativos (RN11) —
+          `GESTAO_ATIVA_MINIMA`;
+        * troca de perfil de um Tutor com estudantes vinculados (RN13) —
+          `TUTOR_COM_TUTORADOS`;
+        * e-mail já usado por outro usuário — `EMAIL_DUPLICADO`;
+        * conflito concorrente — `CONFLITO_CONCORRENTE`.
 
         Perfis: GESTAO.
       parameters:
@@ -435,7 +443,10 @@ paths:
               example:
                 erro: Usuário não encontrado.
         '409':
-          description: Recusado pelas regras RN11/RN13, e-mail duplicado ou conflito concorrente.
+          description: |
+            Recusado pelas regras RN11/RN13 (`ALTERAR_PROPRIO_ACESSO`,
+            `GESTAO_ATIVA_MINIMA`, `TUTOR_COM_TUTORADOS`), e-mail duplicado
+            (`EMAIL_DUPLICADO`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
           content:
             application/json:
               schema:
@@ -444,18 +455,23 @@ paths:
                 proprioAcesso:
                   value:
                     erro: Você não pode bloquear, desativar ou alterar o perfil do seu próprio usuário.
+                    codigo: ALTERAR_PROPRIO_ACESSO
                 minimoGestoes:
                   value:
                     erro: O sistema precisa de ao menos dois usuários Gestão ativos. Cadastre ou reative outro usuário Gestão antes de bloquear, desativar ou alterar o perfil deste.
+                    codigo: GESTAO_ATIVA_MINIMA
                 tutorComTutorados:
                   value:
                     erro: Este usuário Tutor tem estudantes vinculados. Desvincule os estudantes (ou troque o tutor deles) antes de alterar o perfil.
+                    codigo: TUTOR_COM_TUTORADOS
                 emailDuplicado:
                   value:
                     erro: Já existe um usuário cadastrado com este e-mail.
+                    codigo: EMAIL_DUPLICADO
                 concorrente:
                   value:
                     erro: O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
 
   /usuarios/{id}/senha:
     put:
@@ -471,7 +487,8 @@ paths:
         reativado (RN09). Registrada no LogAuditoria, sem a senha.
 
         **409** quando a Gestão tenta redefinir a própria senha por este
-        caminho (ela usa `PUT /conta/senha`) e em conflito concorrente.
+        caminho (ela usa `PUT /conta/senha`) — `REDEFINIR_PROPRIA_SENHA` — e
+        em conflito concorrente — `CONFLITO_CONCORRENTE`.
 
         Perfis: GESTAO.
       parameters:
@@ -502,7 +519,7 @@ paths:
               example:
                 erro: Usuário não encontrado.
         '409':
-          description: Redefinição da própria senha ou conflito concorrente.
+          description: Redefinição da própria senha (`REDEFINIR_PROPRIA_SENHA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
           content:
             application/json:
               schema:
@@ -511,9 +528,11 @@ paths:
                 propriaSenha:
                   value:
                     erro: Você não pode redefinir a sua própria senha por aqui. Use a opção "Alterar minha senha".
+                    codigo: REDEFINIR_PROPRIA_SENHA
                 concorrente:
                   value:
                     erro: A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
 
   /turmas:
     get:
@@ -1098,13 +1117,14 @@ paths:
         '403':
           $ref: '#/components/responses/Proibido'
         '409':
-          description: Conflito concorrente (transação repetida sem sucesso).
+          description: Conflito concorrente (transação repetida sem sucesso — `CONFLITO_CONCORRENTE`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Erro'
               example:
                 erro: Não foi possível registrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
     get:
       tags: [Ocorrências]
       summary: Consultar ocorrências com filtros e paginação
@@ -1344,7 +1364,7 @@ paths:
         '404':
           $ref: '#/components/responses/OcorrenciaNaoEncontrada'
         '409':
-          description: Ocorrência encerrada ou conflito concorrente.
+          description: Ocorrência encerrada (`OCORRENCIA_ENCERRADA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
           content:
             application/json:
               schema:
@@ -1353,9 +1373,11 @@ paths:
                 encerrada:
                   value:
                     erro: Ocorrência encerrada não recebe encaminhamentos.
+                    codigo: OCORRENCIA_ENCERRADA
                 concorrente:
                   value:
                     erro: Não foi possível registrar o encaminhamento por causa de outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
 
   /ocorrencias/{id}/comunicacoes:
     post:
@@ -1409,7 +1431,7 @@ paths:
         '404':
           $ref: '#/components/responses/OcorrenciaNaoEncontrada'
         '409':
-          description: Ocorrência encerrada ou conflito concorrente.
+          description: Ocorrência encerrada (`OCORRENCIA_ENCERRADA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
           content:
             application/json:
               schema:
@@ -1418,9 +1440,11 @@ paths:
                 encerrada:
                   value:
                     erro: Ocorrência encerrada não recebe comunicações.
+                    codigo: OCORRENCIA_ENCERRADA
                 concorrente:
                   value:
                     erro: Não foi possível registrar a comunicação por causa de outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
 
   /ocorrencias/{id}/providencias:
     post:
@@ -1465,7 +1489,10 @@ paths:
         '404':
           $ref: '#/components/responses/OcorrenciaNaoEncontrada'
         '409':
-          description: Status diferente de em acompanhamento ou conflito concorrente.
+          description: |
+            Status diferente de em acompanhamento (`OCORRENCIA_ABERTA` ou
+            `OCORRENCIA_ENCERRADA`) ou conflito concorrente
+            (`CONFLITO_CONCORRENTE`).
           content:
             application/json:
               schema:
@@ -1474,12 +1501,15 @@ paths:
                 aberta:
                   value:
                     erro: A providência só pode ser registrada com a ocorrência em acompanhamento. Esta ocorrência ainda está aberta.
+                    codigo: OCORRENCIA_ABERTA
                 encerrada:
                   value:
                     erro: Ocorrência encerrada não recebe providências.
+                    codigo: OCORRENCIA_ENCERRADA
                 concorrente:
                   value:
                     erro: Não foi possível registrar a providência por causa de outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
 
   /ocorrencias/{id}/status:
     patch:
@@ -1537,7 +1567,11 @@ paths:
         '404':
           $ref: '#/components/responses/OcorrenciaNaoEncontrada'
         '409':
-          description: Ocorrência aberta, já encerrada, sem providência ou conflito concorrente.
+          description: |
+            Ocorrência aberta (`OCORRENCIA_ABERTA`), já encerrada
+            (`OCORRENCIA_ENCERRADA`), sem providência
+            (`ENCERRAMENTO_SEM_PROVIDENCIA`) ou conflito concorrente
+            (`CONFLITO_CONCORRENTE`).
           content:
             application/json:
               schema:
@@ -1546,15 +1580,19 @@ paths:
                 aberta:
                   value:
                     erro: A ocorrência só pode ser encerrada depois de entrar em acompanhamento. Esta ocorrência ainda está aberta.
+                    codigo: OCORRENCIA_ABERTA
                 jaEncerrada:
                   value:
                     erro: Esta ocorrência já está encerrada e não pode ser reaberta.
+                    codigo: OCORRENCIA_ENCERRADA
                 semProvidencia:
                   value:
                     erro: Registre ao menos uma providência adotada antes de encerrar a ocorrência.
+                    codigo: ENCERRAMENTO_SEM_PROVIDENCIA
                 concorrente:
                   value:
                     erro: Não foi possível encerrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.
+                    codigo: CONFLITO_CONCORRENTE
 
   /ocorrencias/{id}/historico:
     get:
@@ -1834,23 +1872,20 @@ components:
       description: |
         Perfil sem permissão para a operação (RN01/RF14; inclusive RN22) ou
         troca de senha obrigatória pendente (RN10). No caso da troca
-        pendente, o campo `codigo: "TROCA_SENHA_OBRIGATORIA"` está previsto
-        pela Issue #72 e ainda não é enviado.
+        pendente (todas as rotas protegidas, exceto `PUT /conta/senha`), a
+        resposta traz `codigo: "TROCA_SENHA_OBRIGATORIA"` (Issue #72); o 403
+        de perfil sem permissão traz só `erro`.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Erro'
           examples:
             perfilSemPermissao:
-              summary: Perfil sem permissão
+              summary: Perfil sem permissão (sem codigo)
               value:
                 erro: Acesso não permitido para o seu perfil.
             trocaSenhaObrigatoria:
-              summary: Troca de senha pendente (formato atual)
-              value:
-                erro: Você precisa trocar a sua senha temporária para continuar usando o sistema.
-            trocaSenhaObrigatoriaPrevisto:
-              summary: Troca de senha pendente (formato previsto pela Issue 72)
+              summary: Troca de senha pendente (RN10)
               value:
                 erro: Você precisa trocar a sua senha temporária para continuar usando o sistema.
                 codigo: TROCA_SENHA_OBRIGATORIA
@@ -1881,7 +1916,7 @@ components:
           example:
             erro: Muitas tentativas. Tente novamente em alguns minutos.
     ConflitoTurma:
-      description: Turma duplicada no mesmo ano letivo (RN18) ou conflito concorrente.
+      description: Turma duplicada no mesmo ano letivo (RN18 — `TURMA_DUPLICADA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
       content:
         application/json:
           schema:
@@ -1890,11 +1925,13 @@ components:
             duplicada:
               value:
                 erro: Já existe uma turma cadastrada com este nome e esta etapa neste ano letivo.
+                codigo: TURMA_DUPLICADA
             concorrente:
               value:
                 erro: A turma foi alterada por outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
     ConflitoEstudante:
-      description: Código escolar duplicado (RN18) ou conflito concorrente.
+      description: Código escolar duplicado (RN18 — `CODIGO_ESCOLAR_DUPLICADO`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
       content:
         application/json:
           schema:
@@ -1903,11 +1940,13 @@ components:
             codigoDuplicado:
               value:
                 erro: Já existe um estudante cadastrado com este código escolar.
+                codigo: CODIGO_ESCOLAR_DUPLICADO
             concorrente:
               value:
                 erro: O estudante foi alterado por outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
     ConflitoCategoria:
-      description: Nome de categoria duplicado (RN18) ou conflito concorrente.
+      description: Nome de categoria duplicado (RN18 — `CATEGORIA_DUPLICADA`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
       content:
         application/json:
           schema:
@@ -1916,9 +1955,11 @@ components:
             duplicada:
               value:
                 erro: Já existe uma categoria cadastrada com este nome.
+                codigo: CATEGORIA_DUPLICADA
             concorrente:
               value:
                 erro: A categoria foi alterada por outra operação ao mesmo tempo. Tente novamente.
+                codigo: CONFLITO_CONCORRENTE
     DetalheOcorrencia:
       description: |
         Detalhe completo da ocorrência, no formato do `GET /ocorrencias/{id}`
@@ -2004,9 +2045,56 @@ components:
         codigo:
           type: string
           description: |
-            Código estável do erro. **Previsto pela Issue #72 — ainda não
-            enviado.** Constará em todas as respostas 409 e no 403 de troca
-            de senha obrigatória (`TROCA_SENHA_OBRIGATORIA`).
+            Código estável do erro (Issue #72). Enviado em todas as respostas
+            409 e no 403 de troca de senha obrigatória pendente (RN10); ausente
+            nos demais erros. O front-end identifica o caso pelo código, não
+            pelo texto de `erro`. A mesma situação em recursos diferentes usa o
+            mesmo código; os valores não mudam (renomear quebra o contrato).
+
+            * `CONFLITO_CONCORRENTE` (409): a operação esbarrou em outra
+              simultânea e a transação foi repetida sem sucesso; tentar de
+              novo. Em POST/PUT de categorias, turmas e estudantes,
+              `PUT /usuarios/{id}`, `PUT /usuarios/{id}/senha`,
+              `PUT /conta/senha`, `POST /ocorrencias`, encaminhamentos,
+              comunicações, providências e `PATCH /ocorrencias/{id}/status`.
+            * `EMAIL_DUPLICADO` (409): e-mail já usado por outro usuário
+              (`POST /usuarios`, `PUT /usuarios/{id}`).
+            * `CATEGORIA_DUPLICADA` (409): nome de categoria já usado (RN18).
+            * `TURMA_DUPLICADA` (409): trio nome, etapa e ano letivo já usado
+              (RN18).
+            * `CODIGO_ESCOLAR_DUPLICADO` (409): código escolar já usado por
+              outro estudante (RN18).
+            * `GESTAO_ATIVA_MINIMA` (409): a edição deixaria menos de dois
+              usuários Gestão ativos (RN11).
+            * `ALTERAR_PROPRIO_ACESSO` (409): a Gestão tentou bloquear,
+              desativar ou alterar o perfil do próprio usuário (RN11).
+            * `REDEFINIR_PROPRIA_SENHA` (409): `PUT /usuarios/{id}/senha` na
+              própria conta (RF03); usar `PUT /conta/senha`.
+            * `TUTOR_COM_TUTORADOS` (409): troca de perfil de um Tutor com
+              estudantes vinculados (RN13).
+            * `OCORRENCIA_ENCERRADA` (409): ocorrência encerrada não recebe
+              encaminhamento, comunicação ou providência, nem é encerrada de
+              novo (RN04, RN15, RN16).
+            * `OCORRENCIA_ABERTA` (409): providência ou encerramento com a
+              ocorrência ainda aberta (RN04).
+            * `ENCERRAMENTO_SEM_PROVIDENCIA` (409): encerramento sem nenhuma
+              providência registrada (RN04).
+            * `TROCA_SENHA_OBRIGATORIA` (403): troca de senha obrigatória
+              pendente; só `PUT /conta/senha` é liberada (RN10).
+          enum:
+            - CONFLITO_CONCORRENTE
+            - EMAIL_DUPLICADO
+            - CATEGORIA_DUPLICADA
+            - TURMA_DUPLICADA
+            - CODIGO_ESCOLAR_DUPLICADO
+            - GESTAO_ATIVA_MINIMA
+            - ALTERAR_PROPRIO_ACESSO
+            - REDEFINIR_PROPRIA_SENHA
+            - TUTOR_COM_TUTORADOS
+            - OCORRENCIA_ENCERRADA
+            - OCORRENCIA_ABERTA
+            - ENCERRAMENTO_SEM_PROVIDENCIA
+            - TROCA_SENHA_OBRIGATORIA
           example: TROCA_SENHA_OBRIGATORIA
 
     Perfil:

@@ -498,7 +498,7 @@ describe('Tela de estudantes (#43)', () => {
     });
 
     it('409 de código repetido marca o campo "Código escolar" e o aviso some ao alterá-lo', async () => {
-      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_CODIGO_DUPLICADO }) });
+      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_CODIGO_DUPLICADO, codigo: 'CODIGO_ESCOLAR_DUPLICADO' }) });
       await abrirPagina();
 
       const c = formularioCadastro();
@@ -762,7 +762,7 @@ describe('Tela de estudantes (#43)', () => {
     });
 
     it('409 de código repetido marca o campo, mantém o diálogo e não recarrega a lista', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_CODIGO_DUPLICADO }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_CODIGO_DUPLICADO, codigo: 'CODIGO_ESCOLAR_DUPLICADO' }) });
       const d = await abrirEdicao('Estudante Fictício 04');
 
       await usuario.type(d.codigo, 'TESTE-0001');
@@ -776,7 +776,7 @@ describe('Tela de estudantes (#43)', () => {
     });
 
     it('409 de alteração simultânea mostra aviso geral e recarrega a lista', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_CONCORRENCIA }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_CONCORRENCIA, codigo: 'CONFLITO_CONCORRENTE' }) });
       const d = await abrirEdicao('Estudante Fictício 02');
 
       await usuario.type(d.nome, ' A');

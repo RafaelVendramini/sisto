@@ -22,7 +22,7 @@
 import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
-import { ErroHttp } from '../lib/erros.js';
+import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { TAMANHO_MAXIMO_BYTES_SENHA, gerarHashSenha, mensagemPoliticaSenha } from './senha.js';
 import { MENSAGEM_USUARIO_NAO_ENCONTRADO, validarIdUsuario } from './usuarios.js';
@@ -100,7 +100,9 @@ async function gravarNovaSenha(db, { id, senha_hash, trocaSenhaObrigatoria, audi
       if (erro?.code === 'P2025') throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
       if (erro?.code === 'P2034') {
         if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_TROCA_SENHA);
+        throw new ErroHttp(409, MENSAGEM_CONFLITO_TROCA_SENHA, {
+          codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
+        });
       }
       throw erro;
     }
@@ -183,7 +185,9 @@ export async function redefinirSenhaUsuario(
   const { novaSenha } = validarRedefinicaoSenha(corpo);
 
   if (solicitante?.id === id) {
-    throw new ErroHttp(409, MENSAGEM_REDEFINIR_PROPRIA_SENHA);
+    throw new ErroHttp(409, MENSAGEM_REDEFINIR_PROPRIA_SENHA, {
+      codigo: CODIGOS_ERRO.REDEFINIR_PROPRIA_SENHA,
+    });
   }
 
   // Pré-checagem (evita gastar um hash bcrypt à toa com usuário inexistente).

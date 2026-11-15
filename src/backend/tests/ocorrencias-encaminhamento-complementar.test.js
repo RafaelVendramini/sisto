@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -778,8 +779,10 @@ describe('QA — mensagens de erro claras, sem ids nem nomes', () => {
       await encaminhar(O_ABERTA, { destinatarioPerfil: 'GESTAO', responsavelAcompanhamentoId: ID_TUTOR_BLOQUEADO }),
     ];
     expect(respostas.map((r) => r.status)).toEqual([404, 409, 400, 400, 400, 400]);
+    expect(respostas[1].body.codigo).toBe(CODIGOS_ERRO.OCORRENCIA_ENCERRADA);
     for (const r of respostas) {
-      expect(Object.keys(r.body)).toEqual(['erro']);
+      // Só o 409 traz, além de `erro`, o código estável (#72, D1).
+      expect(Object.keys(r.body)).toEqual(r.status === 409 ? ['erro', 'codigo'] : ['erro']);
       expect(r.body.erro.length).toBeGreaterThan(10);
       expect(r.body.erro).not.toMatch(/999|777|888|Fictíci|@|BLOQUEADO|undefined/);
     }

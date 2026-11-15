@@ -65,7 +65,7 @@
 // ver a seção "Encerramento" no fim do arquivo.
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
-import { ErroHttp } from '../lib/erros.js';
+import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { interpretarPeriodo } from './periodo.js';
 import { paraRespostaTurma } from './turmas.js';
@@ -348,8 +348,8 @@ function garantirNaoFutura(dataHora, agora, mensagem) {
 /**
  * Executa `operacao` numa transação SERIALIZABLE, repetindo-a quando o banco
  * aborta por conflito de serialização (P2034); esgotadas as tentativas,
- * responde 409 com `mensagemConflito`. ErroHttp lançado dentro da operação
- * sobe sem repetição. Compartilhada pelas gravações de ocorrências.
+ * responde 409 com `mensagemConflito` e o código CONFLITO_CONCORRENTE.
+ * ErroHttp lançado dentro da operação sobe sem repetição. Compartilhada pelas gravações de ocorrências.
  * @param {object} db client Prisma
  * @param {(tx: object) => Promise<any>} operacao
  * @param {string} mensagemConflito
@@ -365,7 +365,7 @@ async function executarSerializavel(db, operacao, mensagemConflito) {
       if (erro instanceof ErroHttp) throw erro;
       if (erro?.code === 'P2034') {
         if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, mensagemConflito);
+        throw new ErroHttp(409, mensagemConflito, { codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
       }
       throw erro;
     }
@@ -1217,7 +1217,9 @@ async function gravarEncaminhamento(tx, id, dados, solicitante, filtro) {
   });
   if (!atual) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
   if (atual.status === 'ENCERRADO') {
-    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ENCERRADA_ENCAMINHAMENTO);
+    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ENCERRADA_ENCAMINHAMENTO, {
+      codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA,
+    });
   }
 
   const estavaAberta = atual.status === 'ABERTO';
@@ -1425,7 +1427,9 @@ async function gravarComunicacao(tx, id, dados, solicitante, filtro) {
   });
   if (!atual) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
   if (atual.status === 'ENCERRADO') {
-    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO);
+    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO, {
+      codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA,
+    });
   }
 
   await tx.comunicacao.create({
@@ -1535,8 +1539,8 @@ export async function registrarComunicacao(
 // encerramento concorrente aborta uma das transações (P2034), que é repetida
 // e relê o estado.
 //
-// O 409 de status ainda não traz o campo `codigo` estável (Seção 12, v1.8):
-// ele depende do padrão da Issue #72 (D1), ainda não implementado.
+// Os 409 trazem `codigo` estável (Issue #72, D1): OCORRENCIA_ABERTA,
+// OCORRENCIA_ENCERRADA e CONFLITO_CONCORRENTE (ver CODIGOS_ERRO em lib/erros.js).
 
 /** Perfis que podem registrar providência (Seção 4, RN22); o Tutor só se for o responsável. */
 export const PERFIS_PROVIDENCIA = Object.freeze(['GESTAO', 'PEDAGOGICO', 'TUTOR']);
@@ -1588,8 +1592,16 @@ async function gravarProvidencia(tx, id, dados, solicitante, filtro) {
   }
 
   // RN04: só em EM_ACOMPANHAMENTO.
-  if (atual.status === 'ABERTO') throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ABERTA_PROVIDENCIA);
-  if (atual.status === 'ENCERRADO') throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA);
+  if (atual.status === 'ABERTO') {
+    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ABERTA_PROVIDENCIA, {
+      codigo: CODIGOS_ERRO.OCORRENCIA_ABERTA,
+    });
+  }
+  if (atual.status === 'ENCERRADO') {
+    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA, {
+      codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA,
+    });
+  }
 
   // data_hora vem do banco (@default(now()) — RN17).
   await tx.providencia.create({
@@ -1764,8 +1776,9 @@ export async function listarHistoricoOcorrencia(idUrl, solicitante, { db = prism
 // encerramento sem providência nem providência/encaminhamento gravado depois
 // do encerramento.
 //
-// O 409 ainda não traz o campo `codigo` estável (Seção 12, v1.8): ele depende
-// do padrão da Issue #72 (D1), ainda não implementado.
+// Os 409 trazem `codigo` estável (Issue #72, D1): OCORRENCIA_ABERTA,
+// OCORRENCIA_ENCERRADA, ENCERRAMENTO_SEM_PROVIDENCIA e CONFLITO_CONCORRENTE
+// (ver CODIGOS_ERRO em lib/erros.js).
 
 /** Perfis que podem encerrar (Seção 4, RN22); o Tutor só se for o responsável. STATUS_OCORRENCIA fica na seção de filtros (#86). */
 export const PERFIS_ENCERRAMENTO = Object.freeze(['GESTAO', 'PEDAGOGICO', 'TUTOR']);
@@ -1822,12 +1835,24 @@ async function gravarEncerramento(tx, id, solicitante, filtro, agora) {
   }
 
   // RN04: só a partir de EM_ACOMPANHAMENTO, sem pular etapa nem reabrir.
-  if (atual.status === 'ABERTO') throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ABERTA_ENCERRAMENTO);
-  if (atual.status === 'ENCERRADO') throw new ErroHttp(409, MENSAGEM_OCORRENCIA_JA_ENCERRADA);
+  if (atual.status === 'ABERTO') {
+    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_ABERTA_ENCERRAMENTO, {
+      codigo: CODIGOS_ERRO.OCORRENCIA_ABERTA,
+    });
+  }
+  if (atual.status === 'ENCERRADO') {
+    throw new ErroHttp(409, MENSAGEM_OCORRENCIA_JA_ENCERRADA, {
+      codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA,
+    });
+  }
 
   // RN04: ao menos uma providência registrada (contada dentro da transação).
   const providencias = await tx.providencia.count({ where: { ocorrencia_id: id } });
-  if (providencias === 0) throw new ErroHttp(409, MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA);
+  if (providencias === 0) {
+    throw new ErroHttp(409, MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA, {
+      codigo: CODIGOS_ERRO.ENCERRAMENTO_SEM_PROVIDENCIA,
+    });
+  }
 
   await tx.ocorrencia.update({
     where: { id },

@@ -613,7 +613,10 @@ describe('Encaminhamento no detalhe da ocorrência (#50)', () => {
         detalhe: () =>
           respostaFalsa(200, ++consultas === 1 ? DETALHE_ABERTO : DETALHE_ENCERRADO),
         encaminhar: () =>
-          respostaFalsa(409, { erro: 'Ocorrência encerrada não recebe encaminhamentos.' }),
+          respostaFalsa(409, {
+            erro: 'Ocorrência encerrada não recebe encaminhamentos.',
+            codigo: 'OCORRENCIA_ENCERRADA',
+          }),
       });
       renderizarApp('/ocorrencias/12');
       await usuario.click(await screen.findByRole('button', { name: 'Encaminhar' }));

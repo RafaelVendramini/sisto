@@ -1,5 +1,6 @@
 // Mensagens e validação da tela de turmas (RF15, RN18, RNF02): nada técnico
 // aparece na tela. Para 400/404/409 o texto vem do back-end (campo `erro`).
+import { CODIGOS_ERRO, falhaTemCodigo } from './codigosErro.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from './mensagens.js';
 
 // Limites técnicos do back-end (Issue #40), após remover espaços nas pontas.
@@ -9,7 +10,8 @@ export const TAMANHO_MAXIMO_ETAPA_TURMA = 150;
 export const MENOR_ANO_LETIVO = 1000;
 export const MAIOR_ANO_LETIVO = 9999;
 
-// Textos do contrato do back-end (POST/PUT /turmas — 409).
+// Textos do contrato do back-end (POST/PUT /turmas — 409). O tipo do 409 é
+// identificado pelo `codigo` (Issue #72); o texto só é reserva sem código.
 export const MENSAGEM_TURMA_DUPLICADA =
   'Já existe uma turma cadastrada com este nome e esta etapa neste ano letivo.';
 export const MENSAGEM_ALTERACAO_SIMULTANEA_TURMA =
@@ -72,11 +74,19 @@ export function validarTurma({ nome, etapa, anoLetivo }) {
 }
 
 /**
- * Indica se o 409 é de turma repetida (RN18): nome, etapa e ano letivo iguais
- * aos de outra turma. O outro 409 possível é o de alteração simultânea.
+ * Indica se o 409 é de turma repetida (RN18 — codigo TURMA_DUPLICADA): nome,
+ * etapa e ano letivo iguais aos de outra turma. O outro 409 possível é o de
+ * alteração simultânea. Sem código, vale a reserva pelo texto.
  */
 export function ehTurmaDuplicada(falha) {
-  return falha?.status === 409 && falha?.message !== MENSAGEM_ALTERACAO_SIMULTANEA_TURMA;
+  return (
+    falha?.status === 409 &&
+    falhaTemCodigo(
+      falha,
+      CODIGOS_ERRO.TURMA_DUPLICADA,
+      (f) => f.message !== MENSAGEM_ALTERACAO_SIMULTANEA_TURMA,
+    )
+  );
 }
 
 /** Mensagem do 409 de turma repetida (texto do back-end, ou o mesmo texto fixo). */
@@ -91,7 +101,14 @@ export function mensagemTurmaDuplicada(falha) {
  */
 export function listaPodeEstarDesatualizada(falha) {
   if (falha?.status === 404) return true;
-  return falha?.status === 409 && falha?.message === MENSAGEM_ALTERACAO_SIMULTANEA_TURMA;
+  return (
+    falha?.status === 409 &&
+    falhaTemCodigo(
+      falha,
+      CODIGOS_ERRO.CONFLITO_CONCORRENTE,
+      (f) => f.message === MENSAGEM_ALTERACAO_SIMULTANEA_TURMA,
+    )
+  );
 }
 
 /**

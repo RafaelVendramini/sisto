@@ -8,6 +8,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -565,7 +566,7 @@ describe('POST /ocorrencias — autenticação', () => {
   it('com troca de senha pendente responde 403 (RN10)', async () => {
     const res = await postOcorrencia(corpoValido(), ID_TROCA_PENDENTE);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     esperarBancoVazio();
   });
 
@@ -1160,7 +1161,7 @@ describe('POST /ocorrencias — transação única', () => {
     mocks.$transaction.mockRejectedValue(erroPrisma('P2034'));
     const res = await postOcorrencia(corpoValido());
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_OCORRENCIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_OCORRENCIA, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
     expect(mocks.$transaction).toHaveBeenCalledTimes(3);
   });
 

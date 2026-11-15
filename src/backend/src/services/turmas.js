@@ -19,7 +19,7 @@
 // serialização (P2034) é repetido e, esgotadas as tentativas, responde 409.
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
-import { ErroHttp } from '../lib/erros.js';
+import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 
 /** Nome do recurso na API, usado no LogAuditoria ("turmas/<id>"). */
@@ -178,7 +178,7 @@ async function garantirTurmaDisponivel(tx, dados, idIgnorado) {
       chaveTurma({ nome: turma.nome, etapa: turma.etapa, anoLetivo: turma.ano_letivo }) === chave,
   );
   if (duplicada) {
-    throw new ErroHttp(409, MENSAGEM_TURMA_DUPLICADA);
+    throw new ErroHttp(409, MENSAGEM_TURMA_DUPLICADA, { codigo: CODIGOS_ERRO.TURMA_DUPLICADA });
   }
 }
 
@@ -196,7 +196,9 @@ async function emTransacaoSerializavel(db, operacao) {
       if (erro instanceof ErroHttp) throw erro;
       if (erro?.code === 'P2034') {
         if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_TURMA);
+        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_TURMA, {
+          codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
+        });
       }
       throw erro;
     }

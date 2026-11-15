@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -522,7 +523,7 @@ describe('PATCH /ocorrencias/{id}/status — autenticação e perfis (Seção 4,
   it('troca de senha pendente responde 403 sem gravar', async () => {
     const res = await encerrar(O_ACOMPANHAMENTO, CORPO, ID_TROCA_PENDENTE);
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_TROCA_SENHA_OBRIGATORIA, codigo: CODIGOS_ERRO.TROCA_SENHA_OBRIGATORIA });
     expect(mocks.$transaction).not.toHaveBeenCalled();
     esperarNadaGravado();
   });
@@ -590,14 +591,14 @@ describe('RN19/RN22 — Tutor', () => {
   it('Tutor responsável por ocorrência sem providência: 409 (passa da permissão e para na RN04)', async () => {
     const res = await encerrar(O_SEM_PROVIDENCIA, CORPO, ID_TUTOR_2);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA });
+    expect(res.body).toEqual({ erro: MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA, codigo: CODIGOS_ERRO.ENCERRAMENTO_SEM_PROVIDENCIA });
     esperarNadaGravado();
   });
 
   it('Tutor responsável por ocorrência ENCERRADO: 409', async () => {
     const res = await encerrar(O_ENCERRADA, CORPO, ID_TUTOR);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_JA_ENCERRADA });
+    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_JA_ENCERRADA, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
     esperarNadaGravado();
   });
 
@@ -753,14 +754,14 @@ describe('RN04 — só a partir de "em acompanhamento" e com providência', () =
     it(`ABERTO: 409 sem gravar, não pula etapa (${rotulo})`, async () => {
       const res = await encerrar(O_ABERTA, CORPO, id);
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ABERTA_ENCERRAMENTO });
+      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ABERTA_ENCERRAMENTO, codigo: CODIGOS_ERRO.OCORRENCIA_ABERTA });
       esperarNadaGravado();
     });
 
     it(`ENCERRADO: 409 sem gravar, sem reabertura nem nova data (${rotulo})`, async () => {
       const res = await encerrar(O_ENCERRADA, CORPO, id);
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_JA_ENCERRADA });
+      expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_JA_ENCERRADA, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
       expect(ocorrenciaNoBanco(O_ENCERRADA).data_encerramento).toEqual(DATA_ENCERRAMENTO_ANTIGA);
       esperarNadaGravado();
     });
@@ -768,7 +769,7 @@ describe('RN04 — só a partir de "em acompanhamento" e com providência', () =
     it(`EM_ACOMPANHAMENTO sem providência (só com comunicação): 409 sem gravar (${rotulo})`, async () => {
       const res = await encerrar(O_SEM_PROVIDENCIA, CORPO, id);
       expect(res.status).toBe(409);
-      expect(res.body).toEqual({ erro: MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA });
+      expect(res.body).toEqual({ erro: MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA, codigo: CODIGOS_ERRO.ENCERRAMENTO_SEM_PROVIDENCIA });
       esperarNadaGravado();
     });
   }
@@ -780,9 +781,16 @@ describe('RN04 — só a partir de "em acompanhamento" e com providência', () =
     expect(MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA).toMatch(/^Registre ao menos uma providência/);
   });
 
-  it('o 409 ainda não traz `codigo` (fica para a Issue #72)', async () => {
-    const res = await encerrar(O_SEM_PROVIDENCIA);
-    expect(Object.keys(res.body)).toEqual(['erro']);
+  it('os 409 trazem `codigo` estável, distinto por situação (Issue #72, D1)', async () => {
+    const semProvidencia = await encerrar(O_SEM_PROVIDENCIA);
+    expect(Object.keys(semProvidencia.body).sort()).toEqual(['codigo', 'erro']);
+    expect(semProvidencia.body.codigo).toBe(CODIGOS_ERRO.ENCERRAMENTO_SEM_PROVIDENCIA);
+    const aberta = await encerrar(O_ABERTA);
+    expect(aberta.body.codigo).toBe(CODIGOS_ERRO.OCORRENCIA_ABERTA);
+    const encerrada = await encerrar(O_ENCERRADA);
+    expect(encerrada.body.codigo).toBe(CODIGOS_ERRO.OCORRENCIA_ENCERRADA);
+    expect(new Set([semProvidencia, aberta, encerrada].map((r) => r.body.codigo)).size).toBe(3);
+    esperarNadaGravado();
   });
 
   it('depois de registrar uma providência pela API, a mesma ocorrência encerra (200)', async () => {
@@ -800,7 +808,7 @@ describe('RN04 — só a partir de "em acompanhamento" e com providência', () =
     await encerrarComSucesso(O_ACOMPANHAMENTO);
     const res = await encerrar(O_ACOMPANHAMENTO);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_JA_ENCERRADA });
+    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_JA_ENCERRADA, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
     expect(banco.historicos).toHaveLength(1);
     expect(banco.logs).toHaveLength(1);
   });
@@ -986,7 +994,7 @@ describe('regressão — depois de encerrada pelo PATCH', () => {
       destinatarioPerfil: 'GESTAO',
     });
     expect(enc.status).toBe(409);
-    expect(enc.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_ENCAMINHAMENTO });
+    expect(enc.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_ENCAMINHAMENTO, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
 
     const com = await comAuth(request(app).post(`/ocorrencias/${O_TUTOR_RESPONSAVEL}/comunicacoes`)).send({
       destinatario: 'Família fictícia',
@@ -995,13 +1003,13 @@ describe('regressão — depois de encerrada pelo PATCH', () => {
       dataHora: '2026-10-10T10:00:00.000Z',
     });
     expect(com.status).toBe(409);
-    expect(com.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO });
+    expect(com.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
 
     const prov = await comAuth(request(app).post(`/ocorrencias/${O_TUTOR_RESPONSAVEL}/providencias`)).send({
       descricao: 'Providência fictícia depois do encerramento.',
     });
     expect(prov.status).toBe(409);
-    expect(prov.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA });
+    expect(prov.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_PROVIDENCIA, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
 
     // Também o Tutor responsável (comunicação e providência).
     const provTutor = await comAuth(
@@ -1062,7 +1070,7 @@ describe('transação única SERIALIZABLE', () => {
     });
     const res = await encerrar(O_ACOMPANHAMENTO);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_JA_ENCERRADA });
+    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_JA_ENCERRADA, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
     expect(banco.historicos).toHaveLength(0);
     expect(banco.logs).toHaveLength(0);
   });
@@ -1098,7 +1106,7 @@ describe('transação única SERIALIZABLE', () => {
     mocks.$transaction.mockRejectedValue(erroPrisma('P2034'));
     const res = await encerrar(O_ACOMPANHAMENTO);
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_ENCERRAMENTO });
+    expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_ENCERRAMENTO, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
     expect(MENSAGEM_CONFLITO_CONCORRENTE_ENCERRAMENTO).toMatch(/Tente novamente\.$/);
     expect(mocks.$transaction).toHaveBeenCalledTimes(3);
     esperarNadaGravado();

@@ -569,7 +569,7 @@ describe('Encaminhamento no detalhe — complementares do QA (#50)', () => {
               ? DETALHE_ABERTO
               : { ...DETALHE_ABERTO, status: 'EM_ACOMPANHAMENTO', responsavelAcompanhamento: { id: 20, nome: 'Pedagoga Fictícia' } },
           ),
-        encaminhar: () => respostaFalsa(409, { erro: 'Conflito fictício.' }),
+        encaminhar: () => respostaFalsa(409, { erro: 'Conflito fictício.', codigo: 'CONFLITO_CONCORRENTE' }),
       });
       renderizarApp('/ocorrencias/12');
       const dialogo = await abrirNaPagina();

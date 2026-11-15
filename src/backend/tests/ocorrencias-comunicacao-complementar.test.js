@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -890,7 +891,7 @@ describe('QA — resposta e erros sem dados indevidos', () => {
     }
   });
 
-  it('erros têm só { erro } e não ecoam o conteúdo enviado', async () => {
+  it('erros têm só { erro } (o 409, também o codigo) e não ecoam o conteúdo enviado', async () => {
     const segredo = 'Conteúdo fictício sigiloso 123';
     const respostas = [
       await comunicar(O_ABERTA, corpo({ destinatario: `${segredo}${'x'.repeat(200)}` })),
@@ -901,9 +902,11 @@ describe('QA — resposta e erros sem dados indevidos', () => {
     ];
     expect(respostas.map((r) => r.status)).toEqual([400, 400, 409, 404, 403]);
     for (const r of respostas) {
-      expect(Object.keys(r.body)).toEqual(['erro']);
+      // Só o 409 traz, além de `erro`, o código estável (#72, D1).
+      expect(Object.keys(r.body)).toEqual(r.status === 409 ? ['erro', 'codigo'] : ['erro']);
       expect(r.text).not.toContain('sigiloso');
     }
+    expect(respostas[2].body.codigo).toBe(CODIGOS_ERRO.OCORRENCIA_ENCERRADA);
     esperarNadaGravado();
   });
 });
@@ -1018,7 +1021,7 @@ describe('QA — duas comunicações simultâneas', () => {
     });
     const res = await comunicar(O_ABERTA, corpo());
     expect(res.status).toBe(409);
-    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO });
+    expect(res.body).toEqual({ erro: MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO, codigo: CODIGOS_ERRO.OCORRENCIA_ENCERRADA });
     expect(banco.comunicacoes.filter((c) => c.ocorrencia_id === O_ABERTA)).toHaveLength(0);
   });
 });

@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { CODIGOS_ERRO } from '../src/lib/erros.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -487,7 +488,7 @@ describe('complementar — fluxo completo aberto -> em acompanhamento -> encerra
     // Responsável agora: sem providência -> 409 orientando a registrar.
     const semProv = await encerrar(O_ABERTA, CORPO, ID_TUTOR);
     expect(semProv.status).toBe(409);
-    expect(semProv.body).toEqual({ erro: MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA });
+    expect(semProv.body).toEqual({ erro: MENSAGEM_ENCERRAMENTO_SEM_PROVIDENCIA, codigo: CODIGOS_ERRO.ENCERRAMENTO_SEM_PROVIDENCIA });
 
     const prov = await comAuth(request(app).post(`/ocorrencias/${O_ABERTA}/providencias`), ID_TUTOR).send({
       descricao: 'Providência fictícia do tutor responsável.',

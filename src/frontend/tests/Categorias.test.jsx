@@ -297,7 +297,7 @@ describe('Tela de categorias de ocorrência (#39)', () => {
     });
 
     it('409 de nome repetido mostra mensagem clara junto ao campo Nome', async () => {
-      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_DUPLICADA }) });
+      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_DUPLICADA, codigo: 'CATEGORIA_DUPLICADA' }) });
       await abrirPagina();
 
       const c = formularioCadastro();
@@ -374,7 +374,7 @@ describe('Tela de categorias de ocorrência (#39)', () => {
     });
 
     it('409 de nome repetido some ao alterar o Nome; alterar a Descrição não apaga', async () => {
-      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_DUPLICADA }) });
+      mockarApi({ aoCriar: () => respostaFalsa(409, { erro: MSG_DUPLICADA, codigo: 'CATEGORIA_DUPLICADA' }) });
       await abrirPagina();
 
       const c = formularioCadastro();
@@ -464,7 +464,7 @@ describe('Tela de categorias de ocorrência (#39)', () => {
     });
 
     it('409 de nome repetido mostra mensagem clara no campo e mantém o diálogo aberto', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUPLICADA }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUPLICADA, codigo: 'CATEGORIA_DUPLICADA' }) });
       const dialogo = await abrirEdicao('Indisciplina');
 
       const nome = within(dialogo).getByLabelText('Nome');
@@ -480,7 +480,7 @@ describe('Tela de categorias de ocorrência (#39)', () => {
     });
 
     it('erro do campo Nome some assim que o usuário altera o campo', async () => {
-      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUPLICADA }) });
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_DUPLICADA, codigo: 'CATEGORIA_DUPLICADA' }) });
       const dialogo = await abrirEdicao('Indisciplina');
 
       const nome = within(dialogo).getByLabelText('Nome');
@@ -502,6 +502,50 @@ describe('Tela de categorias de ocorrência (#39)', () => {
     });
 
     it('409 de alteração simultânea mostra aviso geral e recarrega a lista', async () => {
+      mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_CONCORRENCIA, codigo: 'CONFLITO_CONCORRENTE' }) });
+      const dialogo = await abrirEdicao('Indisciplina');
+
+      await usuario.type(within(dialogo).getByLabelText('Nome'), ' escolar');
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }));
+
+      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_CONCORRENCIA);
+      expect(within(dialogo).getByLabelText('Nome')).toHaveAttribute('aria-invalid', 'false');
+      await waitFor(() => expect(chamadas('GET')).toHaveLength(2));
+    });
+
+    it('o tipo do 409 vem do código: texto de nome repetido com CONFLITO_CONCORRENTE é aviso geral e recarrega (#72)', async () => {
+      mockarApi({
+        aoAtualizar: () =>
+          respostaFalsa(409, { erro: MSG_DUPLICADA, codigo: 'CONFLITO_CONCORRENTE' }),
+      });
+      const dialogo = await abrirEdicao('Indisciplina');
+
+      await usuario.type(within(dialogo).getByLabelText('Nome'), ' escolar');
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }));
+
+      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_DUPLICADA);
+      expect(within(dialogo).getByLabelText('Nome')).toHaveAttribute('aria-invalid', 'false');
+      await waitFor(() => expect(chamadas('GET')).toHaveLength(2));
+    });
+
+    it('o tipo do 409 vem do código: texto de alteração simultânea com CATEGORIA_DUPLICADA vai para o campo Nome (#72)', async () => {
+      mockarApi({
+        aoAtualizar: () =>
+          respostaFalsa(409, { erro: MSG_CONCORRENCIA, codigo: 'CATEGORIA_DUPLICADA' }),
+      });
+      const dialogo = await abrirEdicao('Indisciplina');
+
+      const nome = within(dialogo).getByLabelText('Nome');
+      await usuario.type(nome, ' escolar');
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }));
+
+      expect(await within(dialogo).findByText(MSG_CONCORRENCIA)).toBeInTheDocument();
+      expect(nome).toHaveAttribute('aria-invalid', 'true');
+      expect(nome).toHaveFocus();
+      expect(chamadas('GET')).toHaveLength(1);
+    });
+
+    it('409 sem código cai na reserva pelo texto: alteração simultânea recarrega a lista (#72)', async () => {
       mockarApi({ aoAtualizar: () => respostaFalsa(409, { erro: MSG_CONCORRENCIA }) });
       const dialogo = await abrirEdicao('Indisciplina');
 
