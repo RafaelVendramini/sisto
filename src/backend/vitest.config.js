@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 // Mitigação de queda intermitente dos workers do Vitest no Windows
 // ("Worker exited unexpectedly with exit code 3221226505" = 0xC0000409,
@@ -13,8 +13,13 @@ import { defineConfig } from 'vitest/config';
 // causada pelo bcrypt. A evidência aponta para o compilador JIT Maglev do V8.
 // --no-maglev só afeta os processos de teste (os demais níveis do JIT seguem
 // ativos); não muda o comportamento do código testado.
+//
+// Os testes de ponta a ponta (tests/e2e, Issue #93) usam o banco de testes
+// real (PostgreSQL) e ficam FORA do `npm test`: rodam só com `npm run test:e2e`
+// (vitest.e2e.config.js), para não quebrar a suíte de quem não tem o banco.
 export default defineConfig({
   test: {
     execArgv: ['--no-maglev'],
+    exclude: [...configDefaults.exclude, 'tests/e2e/**'],
   },
 });
