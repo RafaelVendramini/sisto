@@ -426,7 +426,7 @@ describe('Recuperação de acesso (#18)', () => {
       expect(dialogo).toHaveTextContent('será obrigatório trocá-la');
       expect(dialogo).not.toHaveTextContent('continuará sem acesso');
       const campo = within(dialogo).getByLabelText('Nova senha temporária');
-      expect(campo).toHaveAttribute('autocomplete', 'off');
+      expect(campo).toHaveAttribute('autocomplete', 'new-password');
       expect(campo).toHaveAttribute('type', 'password');
       expect(campo).toHaveFocus();
 

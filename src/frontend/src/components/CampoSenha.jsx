@@ -13,7 +13,8 @@
  * @param {boolean} props.mostrar - true exibe a senha em texto
  * @param {() => void} props.aoAlternar - chamado ao clicar no botão
  * @param {import('react').Ref<HTMLInputElement>} [props.inputRef]
- * @param {string} props.autoComplete - ex.: "current-password" ou "off"
+ * @param {string} props.autoComplete - "current-password" (login) ou "new-password"
+ *   (senha nova ou temporária: o navegador não preenche com a senha salva — #56)
  * Demais props (name, value, onChange, aria-*) vão direto para o <input>.
  */
 export default function CampoSenha({ id, mostrar, aoAlternar, inputRef, ...propsInput }) {
