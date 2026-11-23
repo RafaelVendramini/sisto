@@ -1,0 +1,356 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Sisto — Visão geral</title><style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #1b2433; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.pagina { width: 210mm; height: 297mm; padding: 14mm 14mm 12mm; position: relative; overflow: hidden; page-break-after: always; break-after: page; }
+.pagina:last-child { page-break-after: auto; break-after: auto; }
+.topo { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #88185d; padding-bottom: 3mm; margin-bottom: 6mm; font-size: 11pt; color: #88185d; font-weight: 600; }
+.topo .marca { display: flex; align-items: center; gap: 2mm; }
+.topo .marca svg { width: 7mm; height: 7mm; }
+.rodape { position: absolute; left: 14mm; right: 14mm; bottom: 7mm; display: flex; justify-content: space-between; font-size: 9.5pt; color: #5b6575; }
+h1 { font-size: 26pt; color: #88185d; margin: 0 0 3mm; line-height: 1.1; }
+.secao { display: inline-block; background: #f8e6ef; color: #88185d; font-weight: 700; font-size: 10.5pt; border-radius: 20px; padding: 1mm 4mm; margin-bottom: 3mm; }
+.passo { display: grid; grid-template-columns: 92mm 1fr; gap: 9mm; align-items: start; }
+.passo img { width: 92mm; border: 1.5px solid #d9dee8; border-radius: 6mm; box-shadow: 0 2mm 5mm rgba(0,0,0,.12); }
+.texto { font-size: 15pt; line-height: 1.4; }
+.texto .intro { margin: 0 0 5mm; }
+.itens { list-style: none; padding: 0; margin: 0 0 5mm; }
+.itens li { display: grid; grid-template-columns: 10mm 1fr; gap: 3mm; margin-bottom: 4.5mm; align-items: start; }
+.num { width: 9mm; height: 9mm; border-radius: 50%; background: #e6371e; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13pt; margin-top: 0.5mm; }
+.lista { margin: 0 0 5mm; padding-left: 6mm; }
+.lista li { margin-bottom: 2.5mm; }
+.dica { background: #fff6e5; border-left: 5px solid #f0a500; border-radius: 3mm; padding: 3.5mm 4.5mm; font-size: 13pt; line-height: 1.4; }
+.dica b:first-child { color: #8a5a00; }
+.numero-passo { font-size: 11pt; font-weight: 700; color: #e6371e; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 1mm; }
+/* capa */
+.capa { background: #88185d; color: #fff; padding: 0; }
+.capa .faixa { background: #fff; height: 52mm; display: flex; align-items: center; padding: 0 16mm; gap: 6mm; }
+.capa .faixa svg { width: 30mm; height: 30mm; }
+.capa .faixa .nome { font-size: 38pt; font-weight: 800; color: #88185d; }
+.capa .faixa .nome span { color: #e6371e; }
+.capa .faixa .sub { font-size: 12pt; color: #5b6575; letter-spacing: .1em; text-transform: uppercase; }
+.capa .meio { padding: 22mm 16mm 0; }
+.capa .rot { font-size: 14pt; letter-spacing: .15em; text-transform: uppercase; color: #f3c4dc; }
+.capa h1 { color: #fff; font-size: 40pt; margin: 3mm 0 10mm; }
+.capa .aprender { font-size: 17pt; line-height: 1.6; margin: 0; padding-left: 8mm; }
+.capa .base { position: absolute; left: 16mm; right: 16mm; bottom: 16mm; font-size: 12pt; color: #f3c4dc; line-height: 1.6; border-top: 1px solid rgba(255,255,255,.3); padding-top: 5mm; }
+/* antes de começar e problemas */
+.cartao { border: 1.5px solid #d9dee8; border-radius: 4mm; padding: 5mm 6mm; margin-bottom: 5mm; font-size: 14pt; line-height: 1.45; }
+.cartao h2 { font-size: 16pt; color: #88185d; margin: 0 0 2mm; }
+.endereco { font-size: 22pt; font-weight: 800; color: #e6371e; background: #fdf1ee; border-radius: 3mm; padding: 3mm 5mm; display: inline-block; margin: 2mm 0; }
+.problema { display: grid; grid-template-columns: 1fr; gap: 1mm; border-left: 5px solid #88185d; padding: 2.5mm 5mm; margin-bottom: 4mm; background: #faf5f8; border-radius: 0 3mm 3mm 0; }
+.problema .p { font-weight: 700; font-size: 13.5pt; color: #88185d; }
+.problema .r { font-size: 12.5pt; line-height: 1.4; }
+.comp img { width: 100%; height: 100mm; object-fit: cover; object-position: top; border: 1.5px solid #d9dee8; border-radius: 3mm; margin-bottom: 5mm; }
+.duas-img { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; align-items: start; }
+.duas-img img { width: 100%; border: 1.5px solid #d9dee8; border-radius: 5mm; }
+
+.vg { font-size: 13pt; line-height: 1.45; }
+.vg p { margin: 0 0 3.5mm; }
+.vg .cartao { font-size: 13pt; padding: 4mm 5mm; margin-bottom: 4mm; }
+.vg .cartao h2 { font-size: 14.5pt; }
+.vg .cartao ul { margin: 1mm 0 0; padding-left: 6mm; }
+.vg .cartao li { margin-bottom: 1mm; }
+.figura { width: 100%; height: 88mm; object-fit: cover; object-position: top; border: 1.5px solid #d9dee8; border-radius: 3mm; margin: 1mm 0 4mm; }
+.figura.baixa { height: 72mm; }
+.legenda { font-size: 10.5pt; color: #5b6575; margin: -2.5mm 0 4mm; }
+.colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+.perfil { border: 1.5px solid #d9dee8; border-left: 6px solid #88185d; border-radius: 3mm; padding: 3.5mm 5mm; margin-bottom: 4mm; }
+.perfil h2 { font-size: 15pt; color: #88185d; margin: 0 0 1mm; }
+.perfil p { margin: 0; }
+.matriz { width: 100%; border-collapse: collapse; font-size: 11.5pt; }
+.matriz th, .matriz td { border: 1px solid #d9dee8; padding: 2.2mm 2mm; text-align: center; }
+.matriz th { background: #88185d; color: #fff; font-size: 10.5pt; }
+.matriz td:first-child, .matriz th:first-child { text-align: left; }
+.matriz tr:nth-child(even) td { background: #faf5f8; }
+.matriz .sim { color: #1e7a3c; font-weight: 800; }
+.matriz .nao { color: #9aa3b2; }
+.matriz .obs { font-size: 9.5pt; color: #5b6575; display: block; }
+.nota { font-size: 10.5pt; color: #5b6575; margin-top: 3mm; line-height: 1.4; }
+.fluxo { display: grid; grid-template-columns: 1fr 9mm 1fr 9mm 1fr; align-items: stretch; margin: 2mm 0 5mm; }
+.etapa { border-radius: 4mm; padding: 4mm; color: #1b2433; border: 2px solid; }
+.etapa .st { font-weight: 800; font-size: 13pt; margin-bottom: 1.5mm; }
+.etapa .qm { font-size: 11pt; line-height: 1.35; }
+.etapa.aberto { background: #eef4ff; border-color: #3b6fd8; }
+.etapa.aberto .st { color: #2453b3; }
+.etapa.acomp { background: #fff6e5; border-color: #f0a500; }
+.etapa.acomp .st { color: #8a5a00; }
+.etapa.encerrado { background: #edf7f0; border-color: #2e9b53; }
+.etapa.encerrado .st { color: #1e7a3c; }
+.seta { display: flex; align-items: center; justify-content: center; color: #88185d; font-size: 20pt; font-weight: 800; }
+.regras { margin: 0; padding-left: 6mm; }
+.regras li { margin-bottom: 2mm; }
+</style></head><body><section class="pagina capa">
+    <div class="faixa"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<div><div class="nome">Sisto<span>.</span></div><div class="sub">Gestão de ocorrências escolares</div></div></div>
+    <div class="meio">
+      <div class="rot">Visão geral da plataforma</div>
+      <h1>Conheça o Sisto</h1>
+      <p style="font-size:16pt;margin:0 0 4mm;color:#f3dce9">Neste material você vai conhecer:</p>
+      <ul class="aprender"><li>O que é o Sisto e para que ele serve</li><li>Quem usa e o que cada perfil pode fazer</li><li>O caminho de uma ocorrência, do registro ao encerramento</li><li>Tudo o que a plataforma faz e como ela protege os dados</li></ul>
+    </div>
+    <div class="base">EE José Carlos Nogueira Reverendo – Professor<br>As imagens deste material usam somente dados de exemplo (nomes fictícios).</div>
+  </section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>O que é o Sisto</h1>
+    <p>O Sisto é o sistema da escola para <b>registrar, encaminhar, acompanhar e consultar as ocorrências escolares</b>: indisciplina, conflitos, bullying, situações de sofrimento emocional e outras.</p>
+    <div class="cartao"><h2>Como era antes</h2>
+      As ocorrências eram anotadas em <b>formulários de papel</b>. Depois, a equipe pedagógica organizava tudo e passava as informações para a Plataforma Conviva. Isso gastava papel e tempo, e os registros podiam se perder ou ser difíceis de encontrar depois.</div>
+    <div class="cartao"><h2>O que muda com o Sisto</h2>
+      <ul>
+        <li>A ocorrência é registrada <b>no celular ou no computador</b>, na hora.</li>
+        <li>Ela já sai <b>encaminhada</b> para quem vai cuidar do caso.</li>
+        <li>Tudo o que acontece depois fica no <b>histórico</b>: quem fez, o quê e quando.</li>
+        <li>Fica fácil <b>procurar</b> registros antigos e ver <b>relatórios</b> por período, turma e categoria.</li>
+      </ul></div>
+    <img class="figura baixa" src="../img/prof-16-computador-lista.png" alt="">
+    <p class="legenda">A lista de ocorrências no computador.</p>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 2 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>Como acessar</h1>
+    <div class="cartao"><h2>Onde abrir</h2>
+      No celular, no tablet ou no computador, abra o navegador (Chrome, por exemplo) e digite:<br>
+      <span class="endereco">sisto.onrender.com</span><br>
+      Não precisa instalar nenhum aplicativo.</div>
+    <div class="cartao"><h2>Quem pode entrar</h2>
+      Só quem foi <b>cadastrado pela Gestão</b> da escola. Cada pessoa entra com o <b>próprio e-mail e a própria senha</b>, e vê apenas o que é da sua função.</div>
+    <div class="cartao"><h2>Primeiro acesso</h2>
+      A Gestão entrega uma <b>senha temporária</b>. No primeiro acesso, o Sisto pede para criar uma senha nova, só sua, com pelo menos 8 caracteres. Assim, nem a Gestão fica sabendo a sua senha.</div>
+    <div class="cartao"><h2>Durante o uso</h2>
+      <ul>
+        <li>Por segurança, a entrada vale por até <b>8 horas</b>. Depois disso, é preciso entrar de novo.</li>
+        <li>Ao terminar, toque em <b>Sair</b>, principalmente em aparelhos compartilhados.</li>
+        <li>Fora do horário da escola (antes das 7h, depois das 20h e nos fins de semana), a primeira abertura pode demorar cerca de 1 minuto.</li>
+      </ul></div>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 3 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>Quem usa o Sisto</h1>
+    <p>Cada pessoa tem um <b>perfil</b>, definido pela Gestão no cadastro. O perfil decide o que a pessoa vê e o que pode fazer.</p>
+    <div class="perfil"><h2>Professor</h2><p>Registra as ocorrências que observa em sala de aula ou na escola e consulta as que registrou.</p></div><div class="perfil"><h2>Técnico-administrativo</h2><p>Igual ao Professor: registra ocorrências e consulta as que registrou.</p></div><div class="perfil"><h2>Tutor</h2><p>Além de registrar, acompanha as ocorrências dos estudantes sob sua tutoria, as que recebe e as que acompanha como responsável. Registra comunicações com a família e, quando é o responsável pelo acompanhamento, registra providências e encerra a ocorrência.</p></div><div class="perfil"><h2>Equipe Pedagógica <span style="font-weight:400;font-size:11pt;color:#5b6575">(na tela, perfil "Pedagógico")</span></h2><p>Vê todas as ocorrências da escola, encaminha e define quem acompanha cada caso, registra comunicações e providências, encerra ocorrências, gera relatórios e cuida das categorias.</p></div><div class="perfil"><h2>Gestão</h2><p>Faz tudo o que a Equipe Pedagógica faz e, além disso, cadastra usuários, turmas e estudantes, liga cada estudante ao seu tutor, redefine senhas e bloqueia ou desativa o acesso de quem sai da escola.</p></div>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 4 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>Quem pode fazer o quê</h1>
+    <table class="matriz">
+      <thead><tr><th>O que fazer</th><th>Professor</th><th>Técnico-adm.</th><th>Tutor</th><th>Equipe Pedagógica</th><th>Gestão</th></tr></thead>
+      <tbody><tr><td>Registrar ocorrência</td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Ver as ocorrências que registrou</td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Ver as ocorrências dos seus tutorados</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Ver as ocorrências encaminhadas a você ou que você acompanha</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Ver todas as ocorrências da escola</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Encaminhar ocorrência e definir quem acompanha</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Registrar comunicação</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span><span class="obs">nas que vê</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Registrar providência e encerrar</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span><span class="obs">se for o responsável</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Ver relatórios</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Cadastrar e editar categorias</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr><tr><td>Cadastrar usuários, turmas e estudantes</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span></td></tr><tr><td>Redefinir a senha de outra pessoa</td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="nao">—</span></td><td><span class="sim">✔</span></td></tr><tr><td>Trocar a própria senha</td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td><td><span class="sim">✔</span></td></tr></tbody>
+    </table>
+    <p class="nota">✔ pode fazer · — não pode fazer.<br>
+    Professor e Técnico-administrativo não recebem encaminhamentos: a ocorrência é sempre encaminhada a um tutor, à Equipe Pedagógica ou à Gestão.<br>
+    Se a escola precisar de outra divisão, fale com a Gestão.</p>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 5 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>O caminho de uma ocorrência</h1>
+    <p>Toda ocorrência passa por <b>três situações</b> (status), sempre nesta ordem:</p>
+    <div class="fluxo">
+      <div class="etapa aberto"><div class="st">Aberto</div><div class="qm">Qualquer perfil registra a ocorrência e escolhe para quem ela vai: um tutor, a Equipe Pedagógica ou a Gestão.</div></div>
+      <div class="seta">→</div>
+      <div class="etapa acomp"><div class="st">Em acompanhamento</div><div class="qm">A Equipe Pedagógica ou a Gestão encaminha e define o <b>responsável pelo acompanhamento</b>. Nessa fase, a escola registra os contatos com a família e as providências tomadas.</div></div>
+      <div class="seta">→</div>
+      <div class="etapa encerrado"><div class="st">Encerrado</div><div class="qm">O responsável, a Equipe Pedagógica ou a Gestão encerra o caso. A ocorrência fica guardada para consulta.</div></div>
+    </div>
+    <div class="cartao"><h2>Regras do caminho</h2>
+      <ul class="regras">
+        <li>Uma ocorrência só é registrada se for <b>encaminhada</b> para alguém.</li>
+        <li>O status não volta atrás e não pula etapas. Uma ocorrência encerrada <b>não é reaberta</b>.</li>
+        <li>Para encerrar, é preciso ter registrado pelo menos <b>uma providência</b>.</li>
+        <li>Uma ocorrência registrada <b>não pode ser editada nem apagada</b>. Tudo o que acontece depois é acrescentado a ela.</li>
+        <li>Cada passo fica no <b>histórico</b>, com quem fez e quando.</li>
+      </ul></div>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 6 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>Registrar uma ocorrência</h1>
+    <p>Todos os perfis registram ocorrências. Quem registra fica gravado como o <b>profissional responsável</b> pelo registro.</p>
+    <div class="colunas">
+      <div class="cartao"><h2>O que se informa</h2>
+        <ul><li>Turma e estudante(s) envolvido(s): pode ser mais de um, até de turmas diferentes.</li><li>Categoria e descrição do fato.</li><li>Data, hora e local.</li><li>Opcionais: demais envolvidos, testemunhas, providências imediatas e observações.</li><li>Para quem a ocorrência vai.</li></ul></div>
+      <div class="cartao"><h2>Cuidados</h2>
+        <ul><li>A data e a hora do fato não podem estar no futuro.</li><li>Escreva de forma <b>objetiva</b>, contando o que aconteceu, sem rótulos ou palavras que ofendam o estudante.</li><li>Confira tudo antes de enviar: depois de registrada, a ocorrência não pode ser editada.</li></ul></div>
+    </div>
+    <img class="figura" src="../img/prof-17-computador-registrar.png" alt="">
+    <p class="legenda">A tela de registro no computador.</p>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 7 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>Acompanhar uma ocorrência</h1>
+    <div class="cartao"><h2>Encaminhar</h2>
+      A Equipe Pedagógica e a Gestão encaminham a ocorrência para um tutor, para a Equipe Pedagógica ou para a Gestão, e escolhem o <b>responsável pelo acompanhamento</b>. A ocorrência passa para "Em acompanhamento". Enquanto não estiver encerrada, ela pode ser encaminhada de novo, e o responsável pode ser trocado.</div>
+    <div class="cartao"><h2>Comunicação</h2>
+      Registra um contato que a escola fez <b>fora do sistema</b>, por exemplo, um telefonema para a família ou um contato com a rede de proteção. O Sisto <b>não envia</b> mensagens: ele guarda quem foi avisado, por qual meio e quando.</div>
+    <div class="cartao"><h2>Providência e encerramento</h2>
+      A providência é o que a escola fez para resolver o caso. Com pelo menos uma providência registrada, o responsável, a Equipe Pedagógica ou a Gestão podem encerrar a ocorrência.</div>
+    <img class="figura baixa" src="../img/tutor-09-computador-detalhe.png" alt="">
+    <p class="legenda">O detalhe de uma ocorrência no computador.</p>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 8 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>Consultar e ver o histórico</h1>
+    <p>Em <b>Ocorrências</b>, cada pessoa vê a lista das ocorrências que o seu perfil permite, da mais recente para a mais antiga, 20 por página.</p>
+    <div class="cartao"><h2>Filtros</h2>
+      Para encontrar um registro, é possível filtrar por <b>turma</b>, <b>categoria</b>, <b>status</b>, <b>estudante</b> e <b>período</b>. A Gestão também filtra pelo <b>profissional que registrou</b>.</div>
+    <div class="cartao"><h2>Detalhe e histórico</h2>
+      Ao abrir uma ocorrência, aparecem todos os dados do registro, os encaminhamentos, as comunicações, as providências e o <b>histórico</b>: a lista de tudo o que foi feito, com quem fez e quando.</div>
+    <img class="figura" src="../img/ped-10-computador-lista.png" alt="">
+    <p class="legenda">A lista com os filtros, no computador.</p>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 9 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>Relatórios e categorias</h1>
+    <div class="cartao"><h2>Relatórios</h2>
+      A Equipe Pedagógica e a Gestão veem a <b>quantidade de ocorrências</b> de um período, no total ou separada por <b>turma</b> ou por <b>categoria</b>. O relatório aparece na tela e pode ser impresso pelo botão <b>Imprimir</b>. Na janela de impressão do navegador, também dá para escolher "Salvar como PDF".</div>
+    <div class="cartao"><h2>Categorias</h2>
+      As categorias são os tipos de ocorrência (por exemplo, Indisciplina, Conflitos, Bullying). A Equipe Pedagógica e a Gestão podem cadastrar categorias novas e corrigir os nomes. Categorias não são apagadas, para não perder o que já foi registrado.</div>
+    <img class="figura" src="../img/ped-09-computador-relatorio.png" alt="">
+    <p class="legenda">Um relatório no computador.</p>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 10 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>Cadastros da Gestão</h1>
+    <div class="cartao"><h2>Usuários</h2>
+      <ul><li>Cadastrar as pessoas da escola, com nome, e-mail, perfil e senha temporária.</li><li><b>Redefinir a senha</b> de quem esqueceu.</li><li><b>Bloquear</b> ou <b>desativar</b> o acesso de quem saiu da escola, e <b>reativar</b> quando precisar. Ninguém é apagado: os registros da pessoa continuam guardados.</li><li>O Sisto mantém sempre <b>pelo menos duas pessoas da Gestão ativas</b>, para uma poder ajudar a outra: ele não deixa bloquear, desativar ou mudar o perfil de alguém da Gestão se sobrarem menos de duas.</li></ul></div>
+    <div class="colunas">
+      <div class="cartao"><h2>Turmas</h2>Nome, etapa e ano letivo. Cada ano letivo tem as suas turmas.</div>
+      <div class="cartao"><h2>Estudantes</h2>Nome, turma, código escolar (opcional) e <b>professor tutor</b> (pode ser ligado depois).</div>
+    </div>
+    <img class="figura baixa" src="../img/gestao-09-computador-usuarios.png" alt="">
+    <p class="legenda">A tela de usuários no computador.</p>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 11 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>Segurança e proteção dos dados</h1>
+    <p>As ocorrências têm informações de <b>estudantes menores de idade</b>. Por isso, o Sisto segue a Lei Geral de Proteção de Dados (LGPD):</p>
+    <div class="cartao"><h2>Cada um vê só o necessário</h2>Professor e Técnico-administrativo veem as ocorrências que registraram; o Tutor, também as dos seus tutorados, as que recebe e as que acompanha como responsável; só a Equipe Pedagógica e a Gestão veem todas.</div>
+    <div class="cartao"><h2>Senhas protegidas</h2>A senha é pessoal e fica guardada de forma embaralhada: ninguém consegue lê-la, nem a Gestão. Depois de 5 senhas erradas, o Sisto pede para esperar alguns minutos (até 15) antes de tentar de novo. A conta não fica bloqueada.</div>
+    <div class="cartao"><h2>Tudo fica registrado</h2>O Sisto guarda quem fez cada registro ou alteração e quando. Uma ocorrência não é editada nem apagada.</div>
+    <div class="cartao"><h2>Acesso cortado na hora</h2>Quando a Gestão bloqueia ou desativa uma pessoa, ela perde o acesso imediatamente, mesmo que esteja com o Sisto aberto.</div>
+    <div class="cartao"><h2>A sua parte</h2>Não compartilhe a sua senha, não mostre a tela a outras pessoas e saia do Sisto ao terminar.</div>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 12 de 13</span></div></section>
+<section class="pagina vg"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Sisto · Visão geral</span></div><span>sisto.onrender.com</span></div>
+    <h1>O que o Sisto não faz</h1>
+    <p>Para evitar dúvidas, esta versão do Sisto <b>não</b>:</p>
+    <div class="cartao"><ul class="regras">
+      <li>tem aplicativo para instalar: ele funciona pelo navegador;</li>
+      <li>envia mensagens, SMS ou e-mails para as famílias (a comunicação é feita pela escola e só registrada no Sisto);</li>
+      <li>envia dados para a Plataforma Conviva ou para outros sistemas da Secretaria da Educação;</li>
+      <li>importa turmas e estudantes de outros sistemas (o cadastro é feito pela Gestão);</li>
+      <li>exporta relatórios em PDF ou planilha (eles podem ser impressos pelo navegador);</li>
+      <li>tem painel de gráficos, assinatura eletrônica, módulo de mediação de conflitos ou banco de orientações e procedimentos da escola;</li>
+      <li>tem "esqueci minha senha" por e-mail: quem esqueceu pede à Gestão para redefinir;</li>
+      <li>permite editar ou apagar uma ocorrência registrada.</li>
+    </ul></div>
+    <h1 style="margin-top:8mm">Onde buscar ajuda</h1>
+    <div class="cartao"><h2>Guias de uso, passo a passo</h2>
+      Há um guia com imagens para cada perfil: <b>Professor e Técnico-administrativo</b>, <b>Tutor</b>, <b>Equipe Pedagógica</b> e <b>Gestão</b>.</div>
+    <div class="cartao"><h2>Ainda com dúvida?</h2>Procure a <b>Gestão</b> ou a <b>Equipe Pedagógica</b> da escola.</div>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 13 de 13</span></div></section></body></html>
