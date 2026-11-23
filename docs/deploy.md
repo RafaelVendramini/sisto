@@ -54,7 +54,7 @@ Crie um **Web Service** ligado ao repositório `STATURETECH/LTD.2026.2.006`:
 | `SEED_GESTAO_EMAIL` | e-mail da Gestão inicial (só no primeiro deploy; não use os e-mails fictícios `*@sisto.exemplo` do seed de desenvolvimento) |
 | `SEED_GESTAO_SENHA` | senha da Gestão inicial (só no primeiro deploy; mínimo 8 caracteres e máximo 72 bytes; não pode começar com `TROQUE_`) |
 
-> **Limitação conhecida:** o seed cria a Gestão inicial **sem** troca obrigatória de senha, e quem tem acesso ao painel conhece essa senha. Isso será revisto depois da homologação e fica registrado na entrega (#96). Por isso, logo depois do primeiro login: (1) a Gestão inicial **troca a própria senha** (Alterar minha senha — RF03); (2) cadastra a **segunda Gestão** (RN11).
+> **Primeiro acesso da Gestão inicial (RN10, RN11 — Issue #149):** o seed de produção cria a Gestão inicial com **troca obrigatória de senha**: a `SEED_GESTAO_SENHA` é temporária e o Sisto pede uma senha nova no primeiro login. Logo depois: (1) a Gestão inicial **troca a senha** na tela que o Sisto abre; (2) cadastra a **segunda Gestão** (RN11), que também precisa entrar e trocar a senha temporária para contar como Gestão ativa. (Antes da #149, a Gestão do seed era criada sem troca obrigatória; a Gestão da homologação atual já trocou a senha.)
 
 ## 4. Front-end — Render (site estático)
 
@@ -101,7 +101,7 @@ Crie um **Static Site** ligado ao mesmo repositório:
 2. Crie a API com todas as variáveis, exceto `CORS_ORIGIN` se ainda não souber o endereço do front-end. Aguarde o build e anote o endereço da API.
 3. Crie o front-end com `VITE_API_URL` = endereço da API. Anote o endereço do front-end.
 4. Na API, defina `CORS_ORIGIN` = endereço do front-end e faça um novo deploy (Manual Deploy).
-5. Entre com a Gestão inicial, troque a senha dela e cadastre a segunda Gestão (seção 3, limitação conhecida).
+5. Entre com a Gestão inicial, troque a senha temporária (o Sisto pede no primeiro login) e cadastre a segunda Gestão, que também precisa entrar e trocar a senha (seção 3).
 6. Na API, troque o Build Command para `npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy` e apague `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA`.
 7. Faça as conferências da seção 6.
 

@@ -201,7 +201,14 @@ describe('Seed — montagem dos usuários', () => {
     expect(payload).not.toContain(ENV_VALIDO.SEED_GESTAO_SENHA);
     expect(payload).not.toContain(ENV_VALIDO.SEED_SENHA_USUARIOS);
     for (const u of usuarios) {
-      expect(Object.keys(u).sort()).toEqual(['email', 'nome', 'perfil', 'senha_hash', 'status']);
+      expect(Object.keys(u).sort()).toEqual([
+        'email',
+        'nome',
+        'perfil',
+        'senha_hash',
+        'status',
+        'troca_senha_obrigatoria',
+      ]);
       expect(u.senha_hash).toMatch(/^\$2[aby]\$\d{2}\$/);
     }
 
@@ -216,6 +223,19 @@ describe('Seed — montagem dos usuários', () => {
     // Mesma senha, hashes distintos (salt por usuário).
     const demais = usuarios.filter((x) => x.perfil !== 'GESTAO').map((u) => u.senha_hash);
     expect(new Set(demais).size).toBe(USUARIOS_FICTICIOS.length);
+  });
+
+  it('fora de produção, nenhum usuário tem troca obrigatória de senha (dados fictícios)', async () => {
+    const usuarios = await montarUsuariosSeed(validarVariaveisSeed(ENV_VALIDO), RAPIDO);
+
+    expect(usuarios.every((u) => u.troca_senha_obrigatoria === false)).toBe(true);
+  });
+
+  it('em produção, a Gestão inicial é criada com troca obrigatória de senha (RN10, #149)', async () => {
+    const usuarios = await montarUsuariosSeed(validarVariaveisSeed(ENV_PRODUCAO), RAPIDO);
+
+    expect(usuarios).toHaveLength(1);
+    expect(usuarios[0]).toMatchObject({ perfil: 'GESTAO', troca_senha_obrigatoria: true });
   });
 
   it('usa o custo padrão do bcrypt (12) quando nenhum custo é injetado', async () => {
@@ -240,7 +260,7 @@ describe('Seed — execução com client injetado', () => {
     expect(JSON.stringify(resultado)).not.toMatch(/senha|\$2[aby]\$/);
   });
 
-  it('em produção cria somente o usuário de Gestão, ATIVO', async () => {
+  it('em produção cria somente o usuário de Gestão, ATIVO e com troca obrigatória de senha', async () => {
     const client = criarClientFake();
 
     const resultado = await executarSeedUsuarios(client, ENV_PRODUCAO, RAPIDO);
@@ -250,6 +270,7 @@ describe('Seed — execução com client injetado', () => {
       email: 'gestao.teste@sisto.exemplo',
       perfil: 'GESTAO',
       status: 'ATIVO',
+      troca_senha_obrigatoria: true,
     });
     expect(await bcrypt.compare(ENV_PRODUCAO.SEED_GESTAO_SENHA, client.usuarios[0].senha_hash)).toBe(true);
     expect(resultado.criados.map((u) => u.perfil)).toEqual(['GESTAO']);
