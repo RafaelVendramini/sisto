@@ -148,7 +148,7 @@ Na pasta `src/frontend`:
 
 ## Perfis e permissões
 
-Resumo da matriz de permissões da Seção 4 do [SSD](docs/SSD.md) (versão 1.12). **A matriz ainda é uma proposta e será validada com a escola na homologação (#95).**
+Resumo da matriz de permissões da Seção 4 do [SSD](docs/SSD.md) (versão 1.15). **A matriz ainda é uma proposta e será validada com a escola na homologação (#95).**
 
 | Ação | Professor | Tutor | Gestão | Pedagógico | Técnico-adm. |
 | ---- | :-------: | :---: | :----: | :--------: | :----------: |

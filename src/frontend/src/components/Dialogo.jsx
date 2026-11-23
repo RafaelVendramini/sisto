@@ -53,6 +53,9 @@ export function useConfirmacaoDescarte({ temTextoDigitado, aoFechar }) {
  *   fica oculto (sem perder o que foi digitado) e o diálogo pergunta se quer
  *   descartar o texto. O foco vai para "Continuar editando"; Esc também
  *   continua editando; ao continuar, o foco volta ao último campo usado.
+ *   A pergunta é um `group` rotulado e descrito dentro do próprio diálogo (e
+ *   não um alertdialog aninhado), e o diálogo deixa de apontar
+ *   `aria-describedby` para a descrição, que está oculta nesse momento (#129).
  *
  * @param {object} props
  * @param {string} props.id - prefixo dos ids internos (título)
@@ -182,7 +185,8 @@ export default function Dialogo({
         role={papel}
         aria-modal="true"
         aria-labelledby={idTitulo}
-        aria-describedby={descricaoId}
+        // Durante a confirmação, a descrição do diálogo fica oculta: não é apontada.
+        aria-describedby={confirmando ? undefined : descricaoId}
         tabIndex={-1}
         onKeyDown={aoTeclar}
         onFocus={aoFocarDentro}
@@ -198,7 +202,7 @@ export default function Dialogo({
           <div
             ref={confirmacaoRef}
             className="dialogo__confirmacao"
-            role="alertdialog"
+            role="group"
             aria-labelledby={idPergunta}
             aria-describedby={idAviso}
           >

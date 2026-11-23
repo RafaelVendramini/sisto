@@ -1,7 +1,7 @@
 // Fluxos da Issue #15 — gestão de usuários: listagem e cadastro (API mockada, sem rede).
 // Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   CHAVE_SESSAO,
@@ -95,6 +95,8 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });

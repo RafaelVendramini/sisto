@@ -577,7 +577,7 @@ describe('Tela de registro de ocorrência (#46)', () => {
 
       // #48: vai para o detalhe da ocorrência criada, com a confirmação no topo.
       const sucesso = await screen.findByText('Ocorrência nº 42 registrada com sucesso.');
-      expect(sucesso).toHaveFocus();
+      await waitFor(() => expect(sucesso).toHaveFocus());
       expect(
         await screen.findByRole('heading', { level: 1, name: 'Ocorrência nº 42' }),
       ).toBeInTheDocument();
@@ -628,7 +628,7 @@ describe('Tela de registro de ocorrência (#46)', () => {
       await usuario.click(c.enviar);
 
       const sucesso = await screen.findByText('Ocorrência registrada com sucesso.');
-      expect(sucesso).toHaveFocus();
+      await waitFor(() => expect(sucesso).toHaveFocus());
       expect(screen.getByRole('heading', { level: 1, name: 'Registrar ocorrência' })).toBeInTheDocument();
       expect(campos().descricao).toHaveValue('');
       expect(nomesSelecionados()).toEqual([]);

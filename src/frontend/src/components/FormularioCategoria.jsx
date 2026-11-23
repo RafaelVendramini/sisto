@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { criarCategoria } from '../services/categorias.js';
 import {
   ehConflitoDeNome,
@@ -8,6 +8,7 @@ import {
   validarCategoria,
 } from '../services/mensagensCategorias.js';
 import CamposCategoria from './CamposCategoria.jsx';
+import { useCamposFormulario } from './useCamposFormulario.js';
 
 const VAZIO = { nome: '', descricao: '' };
 const ORDEM_CAMPOS = ['nome', 'descricao'];
@@ -18,33 +19,22 @@ const ORDEM_CAMPOS = ['nome', 'descricao'];
  * aparece na página, junto da lista.
  */
 export default function FormularioCategoria({ aoCadastrar }) {
-  const [dados, setDados] = useState(VAZIO);
-  const [errosCampos, setErrosCampos] = useState({});
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
-  // Trava síncrona contra duplo envio (o estado só muda no próximo render).
-  const enviandoRef = useRef(false);
 
-  const refs = { nome: useRef(null), descricao: useRef(null) };
-
-  function alterar(campo) {
-    return (evento) => {
-      if (enviandoRef.current) return;
-      const { value } = evento.target;
-      setDados((atual) => ({ ...atual, [campo]: value }));
-      // Ao corrigir o campo, a mensagem de erro dele (e o aria-invalid) some.
-      setErrosCampos((atual) => {
-        if (!atual[campo]) return atual;
-        const { [campo]: _removido, ...restantes } = atual;
-        return restantes;
-      });
-    };
-  }
-
-  function focarPrimeiroInvalido(erros) {
-    const campo = ORDEM_CAMPOS.find((nome) => erros[nome]);
-    if (campo) refs[campo].current?.focus();
-  }
+  const {
+    dados,
+    setDados,
+    errosCampos,
+    setErrosCampos,
+    enviandoRef,
+    refs,
+    alterar,
+    focarPrimeiroInvalido,
+  } = useCamposFormulario(
+    VAZIO,
+    ORDEM_CAMPOS,
+  );
 
   async function aoEnviar(evento) {
     evento.preventDefault();

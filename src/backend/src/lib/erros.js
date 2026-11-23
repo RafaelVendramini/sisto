@@ -10,7 +10,7 @@
  * renomear um código quebra o contrato da API.
  */
 export const CODIGOS_ERRO = Object.freeze({
-  /** Transação serializável abortada (P2034) até esgotar as tentativas, em qualquer recurso. */
+  /** Transação serializável abortada (P2034 ou conflito no COMMIT) até esgotar as tentativas, ou com o tempo esgotado (P2028), em qualquer recurso (lib/transacao.js). */
   CONFLITO_CONCORRENTE: 'CONFLITO_CONCORRENTE',
   /** E-mail já usado por outro usuário. */
   EMAIL_DUPLICADO: 'EMAIL_DUPLICADO',

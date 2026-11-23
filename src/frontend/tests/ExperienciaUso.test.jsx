@@ -386,7 +386,7 @@ describe('Experiência de uso (#128)', () => {
       await usuario.type(campo, 'Texto fictício');
 
       await usuario.keyboard('{Escape}');
-      const confirmacao = within(dialogo).getByRole('alertdialog', { name: PERGUNTA_DESCARTE });
+      const confirmacao = within(dialogo).getByRole('group', { name: PERGUNTA_DESCARTE });
       const continuar = within(confirmacao).getByRole('button', { name: 'Continuar editando' });
       expect(continuar).toHaveFocus();
       // O formulário fica oculto, mas não é desmontado.
@@ -399,7 +399,7 @@ describe('Experiência de uso (#128)', () => {
       expect(continuar).toHaveFocus();
 
       await usuario.click(continuar);
-      expect(within(dialogo).queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(within(dialogo).queryByRole('group', { name: PERGUNTA_DESCARTE })).not.toBeInTheDocument();
       expect(campo).toBeVisible();
       expect(campo).toHaveValue('Texto fictício');
       expect(campo).toHaveFocus();
@@ -419,9 +419,9 @@ describe('Experiência de uso (#128)', () => {
       await usuario.type(campo, 'Texto fictício');
 
       await usuario.keyboard('{Escape}');
-      expect(within(dialogo).getByRole('alertdialog')).toBeInTheDocument();
+      expect(within(dialogo).getByRole('group', { name: PERGUNTA_DESCARTE })).toBeInTheDocument();
       await usuario.keyboard('{Escape}');
-      expect(within(dialogo).queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(within(dialogo).queryByRole('group', { name: PERGUNTA_DESCARTE })).not.toBeInTheDocument();
       expect(screen.getByRole('dialog', { name: 'Registrar providência' })).toBeInTheDocument();
       expect(campo).toHaveFocus();
     });
@@ -448,12 +448,31 @@ describe('Experiência de uso (#128)', () => {
       await usuario.type(meio, 'Telefone');
 
       await usuario.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
-      const confirmacao = within(dialogo).getByRole('alertdialog', { name: PERGUNTA_DESCARTE });
+      const confirmacao = within(dialogo).getByRole('group', { name: PERGUNTA_DESCARTE });
       expect(within(confirmacao).getByRole('button', { name: 'Continuar editando' })).toHaveFocus();
 
       await usuario.click(within(confirmacao).getByRole('button', { name: 'Continuar editando' }));
       expect(meio).toHaveFocus();
       expect(meio).toHaveValue('Telefone');
+    });
+
+    it('leitor de tela: a confirmação não é um alertdialog aninhado e o diálogo não aponta para texto oculto', async () => {
+      gravarSessaoFicticia();
+      mockarApi();
+      const dialogo = await abrirDialogoNoDetalhe(usuario, 'Registrar comunicação', 'Registrar comunicação');
+      const descricaoId = dialogo.getAttribute('aria-describedby');
+      expect(descricaoId).toBeTruthy();
+      await usuario.type(within(dialogo).getByLabelText('Meio'), 'Telefone');
+
+      await usuario.keyboard('{Escape}');
+      const confirmacao = within(dialogo).getByRole('group', { name: PERGUNTA_DESCARTE });
+      expect(confirmacao).toHaveAccessibleDescription('O que você escreveu neste formulário será perdido.');
+      expect(within(dialogo).queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(dialogo).not.toHaveAttribute('aria-describedby');
+
+      // Ao continuar editando, a descrição do diálogo volta.
+      await usuario.click(within(confirmacao).getByRole('button', { name: 'Continuar editando' }));
+      expect(dialogo).toHaveAttribute('aria-describedby', descricaoId);
     });
 
     it('encaminhamento: só a observação conta como texto digitado', async () => {
@@ -470,7 +489,7 @@ describe('Experiência de uso (#128)', () => {
       const observacao = await within(dialogo).findByLabelText('Observação (opcional)');
       await usuario.type(observacao, 'Observação fictícia.');
       await usuario.keyboard('{Escape}');
-      expect(within(dialogo).getByRole('alertdialog', { name: PERGUNTA_DESCARTE })).toBeInTheDocument();
+      expect(within(dialogo).getByRole('group', { name: PERGUNTA_DESCARTE })).toBeInTheDocument();
       await usuario.click(within(dialogo).getByRole('button', { name: 'Descartar' }));
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(chamadas('POST', '/encaminhamentos')).toHaveLength(0);

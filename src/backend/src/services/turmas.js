@@ -6,7 +6,10 @@
 //   (anoLetivo) e o banco snake_case (ano_letivo, Seção 11).
 // - RN18: o trio (nome, etapa, ano letivo) é único; os textos são comparados
 //   sem diferenciar maiúsculas/minúsculas e ignorando espaços nas pontas. A
-//   checagem fica aqui no service (sem índice no banco); duplicidade: 409.
+//   checagem principal fica aqui no service (NFC + trim + minúsculas); o
+//   índice único por expressão do banco (Issue #129) é a segunda barreira.
+//   Duplicidade: 409 nos dois casos (a violação do índice, P2002, vira o
+//   mesmo 409).
 //   A mesma turma (nome e etapa) em outro ano letivo é aceita.
 // - RN20: a listagem é a mesma para os 5 perfis (as restrições de perfil do
 //   POST/PUT ficam nas rotas, com permitirPerfis).
@@ -16,11 +19,13 @@
 //
 // Concorrência (RN18): como em services/categorias.js, leitura, checagem,
 // gravação e auditoria rodam numa transação SERIALIZABLE; conflito de
-// serialização (P2034) é repetido e, esgotadas as tentativas, responde 409.
-import { Prisma } from '@prisma/client';
+// serialização (P2034) é repetido e, esgotadas as tentativas, responde 409
+// (helper lib/transacao.js).
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { converterIdTexto } from '../lib/ids.js';
 import { garantirSemCaractereNulo } from '../lib/texto.js';
+import { emTransacaoSerializavel } from '../lib/transacao.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 
 /** Nome do recurso na API, usado no LogAuditoria ("turmas/<id>"). */
@@ -36,12 +41,6 @@ export const TAMANHO_MAXIMO_ETAPA_TURMA = 150;
 /** "Inteiro de 4 dígitos" (Seção 12): de 1000 a 9999. */
 export const MENOR_ANO_LETIVO = 1000;
 export const MAIOR_ANO_LETIVO = 9999;
-
-/** Maior valor de uma coluna Int do PostgreSQL (tipo do id, Seção 11). */
-const MAIOR_ID = 2_147_483_647;
-
-/** Tentativas da transação serializável antes de desistir com 409. */
-const TENTATIVAS_TRANSACAO = 3;
 
 export const MENSAGEM_CORPO_TURMA_INVALIDO =
   'Envie um objeto JSON com nome, etapa e anoLetivo.';
@@ -150,14 +149,7 @@ export function validarTurma(corpo) {
  * @throws {ErroHttp} 400
  */
 export function validarIdTurma(valor) {
-  if (typeof valor !== 'string' || !/^[1-9][0-9]{0,9}$/.test(valor)) {
-    throw new ErroHttp(400, MENSAGEM_ID_TURMA_INVALIDO);
-  }
-  const id = Number(valor);
-  if (id > MAIOR_ID) {
-    throw new ErroHttp(400, MENSAGEM_ID_TURMA_INVALIDO);
-  }
-  return id;
+  return converterIdTexto(valor, MENSAGEM_ID_TURMA_INVALIDO);
 }
 
 /**
@@ -180,32 +172,24 @@ async function garantirTurmaDisponivel(tx, dados, idIgnorado) {
       turma.id !== idIgnorado &&
       chaveTurma({ nome: turma.nome, etapa: turma.etapa, anoLetivo: turma.ano_letivo }) === chave,
   );
-  if (duplicada) {
-    throw new ErroHttp(409, MENSAGEM_TURMA_DUPLICADA, { codigo: CODIGOS_ERRO.TURMA_DUPLICADA });
-  }
+  if (duplicada) throw erroTurmaDuplicada();
+}
+
+function erroTurmaDuplicada() {
+  return new ErroHttp(409, MENSAGEM_TURMA_DUPLICADA, { codigo: CODIGOS_ERRO.TURMA_DUPLICADA });
 }
 
 /**
- * Executa a operação numa transação SERIALIZABLE, repetindo-a em conflito de
- * serialização (P2034). Esgotadas as tentativas, responde 409.
+ * Transação SERIALIZABLE das gravações de turma (lib/transacao.js).
+ * P2002: violação do índice único
+ * turmas_nome_etapa_ano_letivo_normalizado_key (Issue #129). Uma gravação que
+ * escapou da checagem do service responde o mesmo 409 de duplicidade.
  */
-async function emTransacaoSerializavel(db, operacao) {
-  for (let tentativa = 1; ; tentativa += 1) {
-    try {
-      return await db.$transaction(operacao, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
-    } catch (erro) {
-      if (erro instanceof ErroHttp) throw erro;
-      if (erro?.code === 'P2034') {
-        if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_TURMA, {
-          codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
-        });
-      }
-      throw erro;
-    }
-  }
+function emTransacaoTurma(db, operacao) {
+  return emTransacaoSerializavel(db, operacao, {
+    mensagemConflito: MENSAGEM_CONFLITO_CONCORRENTE_TURMA,
+    traduzirErro: (erro) => (erro?.code === 'P2002' ? erroTurmaDuplicada() : undefined),
+  });
 }
 
 /**
@@ -235,7 +219,7 @@ export async function listarTurmas({ db = prisma } = {}) {
 export async function criarTurma(corpo, solicitante, { db = prisma } = {}) {
   const dados = validarTurma(corpo);
 
-  return emTransacaoSerializavel(db, async (tx) => {
+  return emTransacaoTurma(db, async (tx) => {
     await garantirTurmaDisponivel(tx, dados);
     const turma = await tx.turma.create({
       data: { nome: dados.nome, etapa: dados.etapa, ano_letivo: dados.anoLetivo },
@@ -279,7 +263,7 @@ export async function atualizarTurma(idUrl, corpo, solicitante, { db = prisma } 
 }
 
 function editarEmTransacao(db, id, dados, solicitante) {
-  return emTransacaoSerializavel(db, async (tx) => {
+  return emTransacaoTurma(db, async (tx) => {
     const atual = await tx.turma.findUnique({ where: { id }, select: { id: true } });
     if (!atual) {
       throw new ErroHttp(404, MENSAGEM_TURMA_NAO_ENCONTRADA);

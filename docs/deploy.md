@@ -270,3 +270,22 @@ Os Build Commands da API e do front-end rodam os testes automatizados antes de p
 **Com que variáveis os testes rodam:** no Render, o build herda as variáveis do serviço. Na API, o `npm test` roda com `NODE_ENV=production`, o `CORS_ORIGIN`, o `JWT_SECRET` e a `DATABASE_URL` do Neon do painel. Isso foi simulado localmente numa cópia limpa (sem `.env`), com valores fictícios para essas variáveis, e todos os testes passaram. Para nenhum teste alcançar o banco de produção, o `npm test` troca a `DATABASE_URL` por um endereço fictício e inacessível antes de rodar (`src/backend/tests/setup-unitarios.js`): os testes usam o Prisma simulado e não precisam de banco. Os testes de ponta a ponta não usam essa troca, porque rodam só na máquina, contra o `sisto_test`.
 
 **Tempo de build:** estimativa de cerca de 1 minuto a mais por build no plano Free (na simulação local de 23/11/2026, o `npm test` levou 11 segundos na API e 33 segundos no front-end; no Render, que tem menos CPU, deve demorar mais, e a instalação das dependências de teste acrescenta alguns segundos).
+
+## 11. Migrations que criam restrições (ex.: unicidade da RN18, #129)
+
+Uma migration que cria um índice único falha se o banco já tiver dados que o violam. Por isso, **antes do merge na `developer`** (que publica sozinho):
+
+1. **Conferir o banco de produção.** No Neon, abra o projeto `sisto` → **SQL Editor**, cole o conteúdo de `src/backend/prisma/conferencias/conferir-duplicatas-rn18.sql` e clique em **Run**. O script é só leitura (`BEGIN TRANSACTION READ ONLY` … `ROLLBACK`). As consultas 1 e 2 precisam voltar **vazias**; se tiverem linhas, renomeie as categorias ou turmas duplicadas pela tela da Gestão e confira de novo.
+2. Só então faça o merge.
+
+**Se a migration falhar no build mesmo assim:** o build falha e a versão anterior continua no ar, mas a migration fica marcada como falha na tabela `_prisma_migrations`, e todo deploy seguinte é recusado (erro P3009). Para destravar:
+
+1. Corrija as duplicatas pela tela da Gestão e rode a conferência de novo.
+2. Na sua máquina, em `src/backend`, com a `DATABASE_URL` do Neon definida **só no terminal** (como na seção 9), rode:
+   ```
+   npx prisma migrate resolve --rolled-back 20261123120000_unicidade_rn18_turma_categoria
+   ```
+   e apague a variável do terminal em seguida.
+3. No Render, **Manual Deploy → Deploy latest commit**: o build aplica a migration de novo.
+
+Nada é criado pela metade: o PostgreSQL executa a migration inteira numa transação.

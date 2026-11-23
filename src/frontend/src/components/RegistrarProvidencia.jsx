@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   TAMANHO_MAXIMO_TEXTO_LONGO,
   atualizacaoOcorrenciaPedeAtualizacao,
@@ -8,6 +8,7 @@ import {
 import { registrarProvidencia } from '../services/ocorrencias.js';
 import AvisoSessaoExpirada, { sessaoExpirou } from './AvisoSessaoExpirada.jsx';
 import Dialogo, { useConfirmacaoDescarte } from './Dialogo.jsx';
+import { exibirFalha, useCarregamento } from './useCarregamento.js';
 
 const ID_DIALOGO = 'dialogo-providencia';
 const ID_CAMPO = 'providencia-descricao';
@@ -43,15 +44,8 @@ export default function RegistrarProvidencia({
   const [enviando, setEnviando] = useState(false);
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
-  const montado = useRef(true);
+  const { montado } = useCarregamento();
   const refDescricao = useRef(null);
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
 
   function alterar(evento) {
     if (enviandoRef.current) return; // campo travado durante o envio
@@ -107,7 +101,7 @@ export default function RegistrarProvidencia({
       enviandoRef.current = false;
       if (!montado.current) return;
       setEnviando(false);
-      if (falha?.status === 401) return; // tratamento central: volta ao login com aviso
+      if (!exibirFalha(falha)) return; // tratamento central: volta ao login com aviso
       setErro(mensagemErroProvidencia(falha));
       setPedeAtualizacao(atualizacaoOcorrenciaPedeAtualizacao(falha));
     }

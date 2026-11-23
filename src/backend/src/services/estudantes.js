@@ -23,11 +23,13 @@
 //
 // Concorrência: como em services/turmas.js, leitura, checagens, gravação e
 // auditoria rodam numa transação SERIALIZABLE; conflito de serialização
-// (P2034) é repetido e, esgotadas as tentativas, responde 409.
-import { Prisma } from '@prisma/client';
+// (P2034) é repetido e, esgotadas as tentativas, responde 409 (helper
+// lib/transacao.js).
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { converterIdTexto, ehIdNumerico } from '../lib/ids.js';
 import { garantirSemCaractereNulo } from '../lib/texto.js';
+import { emTransacaoSerializavel } from '../lib/transacao.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { paraRespostaTurma } from './turmas.js';
 
@@ -41,12 +43,6 @@ export const RECURSO_ESTUDANTES = 'estudantes';
  */
 export const TAMANHO_MAXIMO_NOME_ESTUDANTE = 150;
 export const TAMANHO_MAXIMO_CODIGO_ESCOLAR = 150;
-
-/** Maior valor de uma coluna Int do PostgreSQL (tipo dos ids, Seção 11). */
-const MAIOR_ID = 2_147_483_647;
-
-/** Tentativas da transação serializável antes de desistir com 409. */
-const TENTATIVAS_TRANSACAO = 3;
 
 export const MENSAGEM_CORPO_ESTUDANTE_INVALIDO =
   'Envie um objeto JSON com nomeCompleto, turmaId e, opcionalmente, codigoEscolar e tutorId.';
@@ -119,10 +115,6 @@ export function normalizarCodigoEscolar(codigo) {
   return codigo.normalize('NFC').trim();
 }
 
-function ehIdNumerico(valor) {
-  return Number.isInteger(valor) && valor >= 1 && valor <= MAIOR_ID;
-}
-
 /**
  * Valida e normaliza o corpo do POST e do PUT /estudantes.
  * - nomeCompleto: obrigatório, texto não vazio após trim (NFC), até 150.
@@ -186,18 +178,6 @@ export function validarEstudante(corpo) {
   return dados;
 }
 
-/** Converte um id da URL ou da query (texto decimal simples, inteiro positivo). */
-function converterIdTexto(valor, mensagem) {
-  if (typeof valor !== 'string' || !/^[1-9][0-9]{0,9}$/.test(valor)) {
-    throw new ErroHttp(400, mensagem);
-  }
-  const id = Number(valor);
-  if (id > MAIOR_ID) {
-    throw new ErroHttp(400, mensagem);
-  }
-  return id;
-}
-
 /** Valida o id da URL de PUT /estudantes/{id}. */
 export function validarIdEstudante(valor) {
   return converterIdTexto(valor, MENSAGEM_ID_ESTUDANTE_INVALIDO);
@@ -245,32 +225,20 @@ async function garantirCodigoDisponivel(tx, codigoEscolar, idIgnorado) {
 }
 
 /**
- * Executa a operação numa transação SERIALIZABLE, repetindo-a em conflito de
- * serialização (P2034). Violação do índice único (P2002, só codigo_escolar é
- * único em estudantes) vira 409 de duplicidade.
+ * Transação SERIALIZABLE das gravações de estudante (lib/transacao.js).
+ * Violação do índice único (P2002, só codigo_escolar é único em estudantes)
+ * vira 409 de duplicidade.
  */
-async function emTransacaoSerializavel(db, operacao) {
-  for (let tentativa = 1; ; tentativa += 1) {
-    try {
-      return await db.$transaction(operacao, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
-    } catch (erro) {
-      if (erro instanceof ErroHttp) throw erro;
-      if (erro?.code === 'P2034') {
-        if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_ESTUDANTE, {
-          codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
-        });
-      }
-      if (erro?.code === 'P2002') {
-        throw new ErroHttp(409, MENSAGEM_CODIGO_ESCOLAR_DUPLICADO, {
-          codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO,
-        });
-      }
-      throw erro;
-    }
-  }
+function emTransacaoEstudante(db, operacao) {
+  return emTransacaoSerializavel(db, operacao, {
+    mensagemConflito: MENSAGEM_CONFLITO_CONCORRENTE_ESTUDANTE,
+    traduzirErro: (erro) =>
+      erro?.code === 'P2002'
+        ? new ErroHttp(409, MENSAGEM_CODIGO_ESCOLAR_DUPLICADO, {
+            codigo: CODIGOS_ERRO.CODIGO_ESCOLAR_DUPLICADO,
+          })
+        : undefined,
+  });
 }
 
 /**
@@ -306,7 +274,7 @@ export async function listarEstudantes(solicitante, query = {}, { db = prisma } 
 export async function criarEstudante(corpo, solicitante, { db = prisma } = {}) {
   const { nomeCompleto, turmaId, codigoEscolar = null, tutorId = null } = validarEstudante(corpo);
 
-  return emTransacaoSerializavel(db, async (tx) => {
+  return emTransacaoEstudante(db, async (tx) => {
     await garantirTurmaExiste(tx, turmaId);
     if (tutorId !== null) await garantirTutorVinculavel(tx, tutorId);
     await garantirCodigoDisponivel(tx, codigoEscolar);
@@ -354,7 +322,7 @@ export async function atualizarEstudante(idUrl, corpo, solicitante, { db = prism
   const dados = validarEstudante(corpo);
 
   try {
-    return await emTransacaoSerializavel(db, async (tx) => {
+    return await emTransacaoEstudante(db, async (tx) => {
       const atual = await tx.estudante.findUnique({
         where: { id },
         select: { id: true, tutor_id: true },

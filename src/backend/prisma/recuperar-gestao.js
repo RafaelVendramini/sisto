@@ -36,6 +36,7 @@
 import { parseArgs } from 'node:util';
 import { Prisma } from '@prisma/client';
 import { criarPrismaClient } from '../src/lib/prisma.js';
+import { ehConflitoDeSerializacao } from '../src/lib/transacao.js';
 import { gerarHashSenha, mensagemPoliticaSenha } from '../src/services/senha.js';
 import { normalizarEmail } from '../src/services/email.js';
 import { proximaSenhaAlteradaEm } from '../src/services/troca-senha.js';
@@ -245,7 +246,9 @@ export async function recuperarGestao(
       if (erro instanceof ErroRecuperacaoGestao) throw erro;
       // Usuário removido entre a leitura e o update (usuários não são excluídos — RN07).
       if (erro?.code === 'P2025') throw new ErroRecuperacaoGestao(MENSAGEM_USUARIO_NAO_ENCONTRADO);
-      if (erro?.code === 'P2034') {
+      // P2034 ou o mesmo conflito detectado no COMMIT (DriverAdapterError
+      // "TransactionWriteConflict" do adapter-pg — Issue #129).
+      if (ehConflitoDeSerializacao(erro)) {
         if (tentativa < TENTATIVAS_TRANSACAO) continue;
         throw new ErroRecuperacaoGestao(MENSAGEM_CONFLITO);
       }

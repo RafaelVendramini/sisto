@@ -1,6 +1,6 @@
 // Fluxos da Issue #14 — login, logout e redirecionamentos (API mockada, sem rede).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { cleanup, act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { requisicaoAutenticada } from '../src/services/auth.js';
 import {
@@ -43,6 +43,8 @@ describe('Tela de login e logout (#14)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });

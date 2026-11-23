@@ -5,8 +5,9 @@
 // (GET /turmas) não muda: o filtro é só no front-end.
 // API mockada, sem rede. Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import OpcaoTurmasAnteriores from '../src/components/OpcaoTurmasAnteriores.jsx';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 import {
   anoLetivoAtual,
@@ -44,10 +45,10 @@ const ESTUDANTES_FICTICIOS = [
   { id: 2, nomeCompleto: 'Estudante Fictício Atual', codigoEscolar: null, turma: TURMA_2026, tutor: null },
 ];
 
-function mockarApi({ aoAtualizarEstudante } = {}) {
+function mockarApi({ aoAtualizarEstudante, turmas = TURMAS_FICTICIAS } = {}) {
   fetch.mockImplementation(async (url, opcoes = {}) => {
     if (opcoes.method === 'GET' && url === `${URL_API}/turmas`) {
-      return respostaFalsa(200, TURMAS_FICTICIAS);
+      return respostaFalsa(200, turmas);
     }
     if (opcoes.method === 'GET' && url === `${URL_API}/categorias`) {
       return respostaFalsa(200, [{ id: 5, nome: 'Categoria Fictícia X', descricao: null }]);
@@ -132,6 +133,35 @@ describe('filtrarTurmasPorAnoLetivo', () => {
     expect(filtrarTurmasPorAnoLetivo(undefined, { anoAtual: 2026 })).toEqual([]);
     expect(temTurmasAnteriores(TURMAS_FICTICIAS, 2026)).toBe(true);
     expect(temTurmasAnteriores([TURMA_2026, TURMA_2027], 2026)).toBe(false);
+  });
+});
+
+describe('OpcaoTurmasAnteriores — só leitura durante o envio', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('com somenteLeitura, fica aria-disabled, continua focável e não muda', async () => {
+    const aoAlterar = vi.fn();
+    render(
+      <OpcaoTurmasAnteriores id="teste-caixa" marcado={false} aoAlterar={aoAlterar} anoAtual={2026} somenteLeitura />,
+    );
+    const caixa = screen.getByRole('checkbox', { name: ROTULO_CAIXA });
+    expect(caixa).toHaveAttribute('aria-disabled', 'true');
+    expect(caixa).toBeEnabled();
+
+    await userEvent.setup().click(caixa);
+    expect(aoAlterar).not.toHaveBeenCalled();
+  });
+
+  it('sem somenteLeitura, não tem aria-disabled e avisa a alteração', async () => {
+    const aoAlterar = vi.fn();
+    render(<OpcaoTurmasAnteriores id="teste-caixa" marcado={false} aoAlterar={aoAlterar} anoAtual={2026} />);
+    const caixa = screen.getByRole('checkbox', { name: ROTULO_CAIXA });
+    expect(caixa).not.toHaveAttribute('aria-disabled');
+
+    await userEvent.setup().click(caixa);
+    expect(aoAlterar).toHaveBeenCalledWith(true);
   });
 });
 
@@ -222,6 +252,16 @@ describe('Telas com turmas filtradas pelo ano letivo (#134)', () => {
       expect(opcoes(turma)).toEqual([ROTULO_2027, ROTULO_2026]);
     });
 
+    it('sem turma de ano anterior, a caixa não aparece e as turmas são listadas', async () => {
+      iniciar();
+      mockarApi({ turmas: [TURMA_2027, TURMA_2026] });
+      renderizarApp('/ocorrencias/nova');
+      await screen.findByRole('button', { name: 'Registrar ocorrência' });
+
+      expect(screen.queryByRole('checkbox', { name: ROTULO_CAIXA })).not.toBeInTheDocument();
+      expect(opcoes(screen.getByLabelText('Turma da ocorrência'))).toEqual([ROTULO_2027, ROTULO_2026]);
+    });
+
     it('a partir de 01/01 à 0h em São Paulo, a turma do ano anterior sai da lista padrão', async () => {
       iniciar(ANO_NOVO);
       const { turma, caixa } = await abrirRegistro();
@@ -266,6 +306,17 @@ describe('Telas com turmas filtradas pelo ano letivo (#134)', () => {
       await usuario.click(caixa);
       expect(opcoes(filtro)).toEqual([ROTULO_2027, ROTULO_2026, ROTULO_2025]);
       expect(filtro).toHaveDisplayValue(ROTULO_2025);
+    });
+
+    it('sem turma de ano anterior, nem o filtro nem o cadastro mostram a caixa', async () => {
+      iniciar();
+      mockarApi({ turmas: [TURMA_2027, TURMA_2026] });
+      renderizarApp('/estudantes');
+      await screen.findByRole('button', { name: 'Cadastrar estudante' });
+      await screen.findByLabelText('Filtrar por turma');
+
+      expect(screen.queryByRole('checkbox', { name: ROTULO_CAIXA })).not.toBeInTheDocument();
+      expect(opcoes(screen.getByLabelText('Filtrar por turma'))).toEqual([ROTULO_2027, ROTULO_2026]);
     });
 
     it('cadastro: por padrão, só o ano atual em diante; a caixa mostra os anteriores', async () => {

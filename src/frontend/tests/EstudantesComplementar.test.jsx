@@ -6,7 +6,7 @@
 // marcação responsiva e funções puras de mensagensEstudantes/estudantes.
 // Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 import {
@@ -163,6 +163,8 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
@@ -660,6 +662,8 @@ describe('services/mensagensEstudantes e services/estudantes — funções puras
       gravarSessaoFicticia();
     });
     afterEach(() => {
+      // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+      cleanup();
       vi.unstubAllEnvs();
       vi.unstubAllGlobals();
     });

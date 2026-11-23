@@ -2,6 +2,7 @@
 // aparece na tela. Para 400/404/409 o texto vem do back-end (campo `erro`).
 import { CODIGOS_ERRO, falhaTemCodigo } from './codigosErro.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from './mensagens.js';
+import { anoLetivoAtual } from './turmasAnoLetivo.js';
 
 // Limites técnicos do back-end (Issue #40), após remover espaços nas pontas.
 export const TAMANHO_MAXIMO_NOME_TURMA = 150;
@@ -21,9 +22,14 @@ const MENSAGEM_NAO_ENCONTRADA = 'Turma não encontrada. Atualize a página e ten
 const MENSAGEM_GENERICA_CRIAR = 'Não foi possível cadastrar a turma agora. Tente novamente em instantes.';
 const MENSAGEM_GENERICA_EDITAR = 'Não foi possível salvar a alteração agora. Tente novamente em instantes.';
 
-/** Ano atual, sugerido no cadastro. */
-export function anoAtual() {
-  return new Date().getFullYear();
+/**
+ * Ano atual, sugerido no cadastro: o ano letivo no horário de São Paulo
+ * (RN17), e não no fuso do aparelho (#129).
+ * @param {number} [agoraMs] - instante (ms, UTC); padrão: agora
+ * @returns {number}
+ */
+export function anoAtual(agoraMs) {
+  return anoLetivoAtual(agoraMs);
 }
 
 /** Texto como o back-end compara e grava: forma NFC, sem espaços nas pontas. */

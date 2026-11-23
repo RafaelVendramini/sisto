@@ -570,7 +570,8 @@ describe('Lista e detalhe de ocorrências — complementar (#48)', () => {
       });
 
       const faixa = await screen.findByText('Ocorrência nº 12 registrada com sucesso.');
-      expect(faixa).toHaveFocus();
+      // O foco vem de um efeito que roda depois do texto aparecer.
+      await waitFor(() => expect(faixa).toHaveFocus());
       expect(screen.getAllByText('Ocorrência nº 12 registrada com sucesso.')).toHaveLength(1);
       await waitFor(() => expect(screen.getByTestId('estado-navegacao')).toHaveTextContent('null'));
       expect(await screen.findByText('Local fictício 12')).toBeInTheDocument();
@@ -700,7 +701,9 @@ describe('Registro -> detalhe -> lista, ponta a ponta (#46 + #48)', () => {
     await usuario.selectOptions(within(grupo).getByLabelText('Encaminhar para'), 'Equipe pedagógica');
     await usuario.click(screen.getByRole('button', { name: 'Registrar ocorrência' }));
 
-    expect(await screen.findByText('Ocorrência nº 77 registrada com sucesso.')).toHaveFocus();
+    const faixa = await screen.findByText('Ocorrência nº 77 registrada com sucesso.');
+    // O foco vem de um efeito que roda depois do texto aparecer.
+    await waitFor(() => expect(faixa).toHaveFocus());
     expect(await screen.findByRole('heading', { level: 1, name: 'Ocorrência nº 77' })).toBeInTheDocument();
     const dados = screen.getByRole('region', { name: 'Dados da ocorrência' });
     expect(valorDe(dados, 'Local')).toHaveTextContent('Quadra fictícia');

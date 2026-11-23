@@ -4,10 +4,11 @@
 // acessível na edição, duplo envio e ordenação após operações.
 // Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 import {
+  anoAtual,
   converterAnoLetivo,
   ehTurmaDuplicada,
   listaPodeEstarDesatualizada,
@@ -97,6 +98,29 @@ describe('mensagensTurmas — converterAnoLetivo (contrato #40)', () => {
   );
 });
 
+describe('mensagensTurmas — anoAtual no horário de São Paulo (RN17, #129)', () => {
+  it('usa o ano de São Paulo, e não o do fuso do aparelho, perto da virada do ano', () => {
+    // 31/12/2026 às 22h em São Paulo = 01/01/2027 01h UTC: ainda é 2026.
+    expect(anoAtual(new Date('2027-01-01T01:00:00.000Z').getTime())).toBe(2026);
+    // 31/12/2026 às 23h59 em São Paulo.
+    expect(anoAtual(new Date('2027-01-01T02:59:59.000Z').getTime())).toBe(2026);
+    // 01/01/2027 à 0h em São Paulo.
+    expect(anoAtual(new Date('2027-01-01T03:00:00.000Z').getTime())).toBe(2027);
+  });
+
+  it('sem argumento, usa o relógio atual (simulado)', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2027-01-01T01:00:00.000Z'));
+      expect(anoAtual()).toBe(2026);
+      vi.setSystemTime(new Date('2027-01-01T03:30:00.000Z'));
+      expect(anoAtual()).toBe(2027);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe('mensagensTurmas — validarTurma', () => {
   it('nome e etapa só com espaços são obrigatórios; limites de 150 após trim', () => {
     expect(validarTurma({ nome: '   ', etapa: '\t', anoLetivo: '2026' })).toEqual({
@@ -171,6 +195,8 @@ describe('Tela de turmas (#41) — complementar QA', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });

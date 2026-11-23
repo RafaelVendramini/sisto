@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { criarEstudante } from '../services/estudantes.js';
 import {
   codigoParaEnvio,
@@ -10,6 +10,7 @@ import {
   validarEstudante,
 } from '../services/mensagensEstudantes.js';
 import CamposEstudante, { CAMPOS_ESTUDANTE } from './CamposEstudante.jsx';
+import { useCamposFormulario } from './useCamposFormulario.js';
 
 const ID_CONFLITO = 'estudante-conflito';
 
@@ -29,41 +30,29 @@ function vazio() {
  * @param {(criado: object | null) => void} props.aoCadastrar
  */
 export default function FormularioEstudante({ turmas, tutores, aoCadastrar }) {
-  const [dados, setDados] = useState(vazio);
-  const [errosCampos, setErrosCampos] = useState({});
   const [erro, setErro] = useState('');
   const [conflito, setConflito] = useState('');
   const [enviando, setEnviando] = useState(false);
-  // Trava síncrona contra duplo envio (o estado só muda no próximo render).
-  const enviandoRef = useRef(false);
 
-  const refs = {
-    nomeCompleto: useRef(null),
-    codigoEscolar: useRef(null),
-    turmaId: useRef(null),
-    tutorId: useRef(null),
-  };
-
-  function alterar(campo) {
-    return (evento) => {
-      if (enviandoRef.current) return;
-      const { value } = evento.target;
-      setDados((atual) => ({ ...atual, [campo]: value }));
-      // Ao corrigir o campo, a mensagem de erro dele (e o aria-invalid) some.
-      setErrosCampos((atual) => {
-        if (!atual[campo]) return atual;
-        const { [campo]: _removido, ...restantes } = atual;
-        return restantes;
-      });
-      // O código repetido (409) só depende do código escolar.
-      if (campo === 'codigoEscolar') setConflito('');
-    };
-  }
-
-  function focarPrimeiroInvalido(erros) {
-    const campo = CAMPOS_ESTUDANTE.find((nome) => erros[nome]);
-    if (campo) refs[campo].current?.focus();
-  }
+  const {
+    dados,
+    setDados,
+    errosCampos,
+    setErrosCampos,
+    enviandoRef,
+    refs,
+    alterar,
+    focarPrimeiroInvalido,
+  } = useCamposFormulario(
+    vazio,
+    CAMPOS_ESTUDANTE,
+    {
+      aoAlterarCampo: (campo) => {
+        // O código repetido (409) só depende do código escolar.
+        if (campo === 'codigoEscolar') setConflito('');
+      },
+    },
+  );
 
   async function aoEnviar(evento) {
     evento.preventDefault();

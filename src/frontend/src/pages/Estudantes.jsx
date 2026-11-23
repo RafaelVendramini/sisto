@@ -4,12 +4,17 @@ import FormularioEdicaoEstudante from '../components/FormularioEdicaoEstudante.j
 import FormularioEstudante from '../components/FormularioEstudante.jsx';
 import OpcaoTurmasAnteriores from '../components/OpcaoTurmasAnteriores.jsx';
 import ListaEstudantes, { idBotaoEditarEstudante } from '../components/ListaEstudantes.jsx';
+import { exibirFalha, useCarregamento } from '../components/useCarregamento.js';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarEstudantes } from '../services/estudantes.js';
-import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
+import { mensagemErroCarga } from '../services/mensagens.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import { listarTurmas } from '../services/turmas.js';
-import { anoLetivoAtual, filtrarTurmasPorAnoLetivo } from '../services/turmasAnoLetivo.js';
+import {
+  anoLetivoAtual,
+  filtrarTurmasPorAnoLetivo,
+  temTurmasAnteriores,
+} from '../services/turmasAnoLetivo.js';
 import { listarUsuarios } from '../services/usuarios.js';
 
 const MENSAGEM_GENERICA_LISTA = 'Não foi possível carregar a lista de estudantes agora.';
@@ -20,12 +25,6 @@ export const AVISO_TUTORES_INDISPONIVEIS =
   'e vincular o tutor depois, em "Editar".';
 const ID_FILTRO = 'filtro-turma';
 const ID_TITULO_LISTA = 'titulo-lista-estudantes';
-
-function mensagemErroCarga(falha, generica) {
-  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
-  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
-  return generica;
-}
 
 /** Mesma ordem do GET /estudantes: nome completo, depois id. */
 function ordenar(lista) {
@@ -79,17 +78,9 @@ export default function Estudantes() {
   const [emEdicao, setEmEdicao] = useState(null);
   const [confirmacao, setConfirmacao] = useState('');
 
-  const montado = useRef(true);
   // Só a resposta da consulta mais recente atualiza a lista (troca rápida de filtro).
-  const consultaAtual = useRef(0);
+  const { montado, novaRequisicao } = useCarregamento();
   const filtroRef = useRef('');
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
 
   // As turmas são indispensáveis; a lista de tutores, não: com
   // Promise.allSettled, a falha só do GET /usuarios não trava o cadastro (#128).
@@ -101,7 +92,7 @@ export default function Estudantes() {
     if (!montado.current) return;
     if (listaTurmas.status === 'rejected') {
       // 401: o tratamento central já leva ao login com aviso.
-      if (listaTurmas.reason?.status !== 401) {
+      if (exibirFalha(listaTurmas.reason)) {
         setOpcoesErro(mensagemErroCarga(listaTurmas.reason, MENSAGEM_GENERICA_OPCOES));
       }
     } else {
@@ -111,10 +102,10 @@ export default function Estudantes() {
       setTutores(tutoresAtivos(usuarios.value));
     } else {
       setTutores([]);
-      if (usuarios.reason?.status !== 401) setTutoresIndisponiveis(true);
+      if (exibirFalha(usuarios.reason)) setTutoresIndisponiveis(true);
     }
     setOpcoesCarregando(false);
-  }, []);
+  }, [montado]);
 
   // Nova tentativa só da lista de tutores, sem esconder o formulário de cadastro
   // (o que já foi digitado continua na tela).
@@ -134,29 +125,29 @@ export default function Estudantes() {
   }
 
   const buscar = useCallback(async ({ emSegundoPlano = false } = {}) => {
-    const consulta = ++consultaAtual.current;
+    const vigente = novaRequisicao();
     if (!emSegundoPlano) {
       setCarregando(true);
       setErro('');
     }
     try {
       const lista = await listarEstudantes({ turmaId: filtroRef.current || undefined });
-      if (montado.current && consulta === consultaAtual.current) {
+      if (vigente()) {
         setEstudantes(ordenar(lista.map(camposExibidos)));
         if (emSegundoPlano) setErro('');
       }
     } catch (falha) {
       // Em segundo plano (404 ou 409 concorrente), a lista atual continua na tela.
       if (emSegundoPlano) return;
-      if (montado.current && consulta === consultaAtual.current && falha?.status !== 401) {
+      if (vigente() && exibirFalha(falha)) {
         setErro(mensagemErroCarga(falha, MENSAGEM_GENERICA_LISTA));
       }
     } finally {
-      if (!emSegundoPlano && montado.current && consulta === consultaAtual.current) {
+      if (!emSegundoPlano && vigente()) {
         setCarregando(false);
       }
     }
-  }, []);
+  }, [novaRequisicao]);
 
   const carregar = useCallback(() => buscar(), [buscar]);
   const recarregarEmSegundoPlano = useCallback(() => buscar({ emSegundoPlano: true }), [buscar]);
@@ -328,12 +319,15 @@ export default function Estudantes() {
                   </option>
                 ))}
               </select>
-              <OpcaoTurmasAnteriores
-                id="filtro-mostrarTurmasAnteriores"
-                marcado={mostrarTurmasAnteriores}
-                aoAlterar={setMostrarTurmasAnteriores}
-                anoAtual={anoAtual}
-              />
+              {/* Sem turma de ano anterior, a caixa não teria efeito: não aparece. */}
+              {temTurmasAnteriores(turmas, anoAtual) && (
+                <OpcaoTurmasAnteriores
+                  id="filtro-mostrarTurmasAnteriores"
+                  marcado={mostrarTurmasAnteriores}
+                  aoAlterar={setMostrarTurmasAnteriores}
+                  anoAtual={anoAtual}
+                />
+              )}
             </div>
           )}
 
