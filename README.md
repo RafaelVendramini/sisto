@@ -148,7 +148,7 @@ Na pasta `src/frontend`:
 
 ## Perfis e permissões
 
-Resumo da matriz de permissões da Seção 4 do [SSD](docs/SSD.md) (versão 1.15). **A matriz ainda é uma proposta e será validada com a escola na homologação (#95).**
+Resumo da matriz de permissões da Seção 4 do [SSD](docs/SSD.md) (versão 1.16). **A matriz ainda é uma proposta e será validada com a escola na homologação (#95).**
 
 | Ação | Professor | Tutor | Gestão | Pedagógico | Técnico-adm. |
 | ---- | :-------: | :---: | :----: | :--------: | :----------: |
@@ -193,7 +193,7 @@ Observações:
 - Os textos da Política de privacidade e dos Termos de uso são provisórios e ainda serão validados com a escola.
 - Os prints de evidência das telas da Sprint 3 ainda estão pendentes.
 - O script de recuperação da Gestão (#80) ainda não foi testado contra o banco do Neon; o teste fica para antes da homologação com a escola (#95).
-- No plano gratuito do Render, a API dorme depois de 15 minutos sem uso; o primeiro acesso seguinte leva cerca de 1 minuto.
+- No plano gratuito do Render, a API dorme depois de 15 minutos sem uso (o primeiro acesso seguinte leva cerca de 1 minuto). Na homologação, um cron externo chama `GET /saude` a cada 10 minutos nos dias úteis, das 6h às 23h, para mantê-la acordada ([docs/deploy.md](docs/deploy.md), seção 12); o plano pago (sempre ligado) será decidido com a escola na implantação (#95).
 
 ---
 

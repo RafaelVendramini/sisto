@@ -7,6 +7,7 @@ import rotasTurmas from './turmas.js';
 import rotasEstudantes from './estudantes.js';
 import rotasOcorrencias from './ocorrencias.js';
 import rotasRelatorios from './relatorios.js';
+import rotasSaude from './saude.js';
 import {
   bloquearComTrocaDeSenhaPendente,
   exigirAutenticacao,
@@ -19,6 +20,13 @@ const rotas = Router();
 // Rotas públicas: /auth/* não exige JWT (Seção 12). Um caminho inexistente
 // sob /auth responde 404 aqui mesmo, sem passar pela autenticação.
 rotas.use('/auth', rotasAuth, rotaNaoEncontrada);
+
+// Rota pública de saúde (Issue #138): GET/HEAD /saude, chamada por um cron
+// externo para manter a API acordada. Fica ANTES do sub-roteador `protegidas`
+// (sem JWT), não acessa o banco e não passa pelo limite de tentativas. Outros
+// métodos em /saude seguem para `protegidas` (401 sem token, 404 com token),
+// como qualquer rota/método inexistente.
+rotas.use('/saude', rotasSaude);
 
 /**
  * Sub-roteador das rotas de negócio: TODA rota registrada aqui exige JWT de

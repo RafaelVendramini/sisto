@@ -289,3 +289,24 @@ Uma migration que cria um índice único falha se o banco já tiver dados que o 
 3. No Render, **Manual Deploy → Deploy latest commit**: o build aplica a migration de novo.
 
 Nada é criado pela metade: o PostgreSQL executa a migration inteira numa transação.
+
+## 12. Manter a API acordada no plano gratuito (cron externo, #138)
+
+No plano gratuito do Render, a API dorme depois de **15 minutos sem uso**, e o primeiro acesso seguinte leva de 30 a 60 segundos. O front-end (site estático) não dorme, e o Neon volta em menos de 1 segundo. Para a homologação, um **cron externo gratuito** chama `GET /saude` a cada 10 minutos no horário de uso da escola. A rota não acessa o banco, então não gasta as horas do Neon. O plano pago (Render Starter, sempre ligado) fica para a implantação com a escola (#95).
+
+**Conta das horas:** o plano gratuito dá **750 horas por mês para o workspace inteiro**. Com o cron de segunda a sexta, das 6h às 23h, a API fica acordada cerca de 17 horas por dia útil, ou seja, cerca de **400 horas por mês**, com folga para acessos fora do horário. **Não** deixe o cron 24 horas por dia, 7 dias por semana: seriam cerca de 744 horas, praticamente todo o limite, e se ele acabar o Render suspende os serviços gratuitos até o mês seguinte.
+
+**Configuração no cron-job.org** (uma vez):
+
+1. Crie uma conta gratuita em https://cron-job.org e entre.
+2. Clique em **Create cronjob**:
+   - **Title:** `Sisto — manter API acordada`
+   - **URL:** `https://sisto-api.onrender.com/saude`
+   - **Execution schedule:** escolha **Custom** e marque: minutos `0, 10, 20, 30, 40, 50`; horas `6` a `22`; dias da semana **segunda a sexta**; todos os dias do mês e todos os meses.
+   - **Time zone** do cronjob: `America/Sao_Paulo`.
+3. Em **Notifications**, ative o aviso por e-mail quando o cronjob falhar várias vezes seguidas (serve de alerta de que a API caiu).
+4. Salve e clique em **Run now** (ou espere o próximo horário): o histórico do cronjob deve mostrar **200**.
+
+**Conferência:** num dia útil, abra `https://sisto.onrender.com` às 10h. A tela de login deve responder na hora, sem a espera de cerca de 1 minuto. No Render (`sisto-api` → **Logs**), não devem aparecer reinícios por inatividade durante o horário do cron.
+
+**Ao contratar o plano pago:** pause ou apague o cronjob no cron-job.org. Ele deixa de ser necessário, mas pode continuar como monitoramento: o aviso de falha avisa se a API cair.
