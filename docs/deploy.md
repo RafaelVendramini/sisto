@@ -128,19 +128,19 @@ Serviços criados em 15/11/2026: API `sisto-api` (<https://sisto-api.onrender.co
 - [x] `/robots.txt` abre como arquivo de texto (`curl -I <front>/robots.txt` mostra `content-type: text/plain`).
 - [x] Nenhum segredo no repositório nem no build do front-end (conferido em 15/11/2026: busca no repositório e nos arquivos `.js` publicados em https://sisto.onrender.com, que só contêm o endereço da API).
 - [ ] Script de recuperação (#80) testado contra o banco do Neon (seção 9), com uma Gestão fictícia. **Pendente:** não executado no primeiro deploy (15/11/2026); o script tem testes automatizados com banco simulado e deve ser testado no Neon antes da homologação com a escola (#95).
-- [ ] `trust proxy` conferido no Render (o limite de tentativas identifica o IP real do cliente, e não o IP do proxy). **Pendente:** não executado no primeiro deploy (15/11/2026); conferir antes da homologação com a escola (#95), com o procedimento abaixo (#127).
+- [x] `trust proxy` conferido no Render em 23/11/2026 (#127): o `X-Forwarded-For` chega com três endereços (cliente, borda Cloudflare, balanceador interno do Render), e o valor foi ajustado de `1` para `3`. Repetir a conferência abaixo se o Render mudar a infraestrutura ou se a API mudar de hospedagem.
 
-**Conferência do `trust proxy` (#127):** a API usa `trust proxy` = `1` (um proxy à frente dela). Para confirmar no Render:
+**Conferência do `trust proxy` (#127):** a API usa `trust proxy` = `3` (cliente → borda Cloudflare → balanceador interno do Render → API). Para confirmar no Render:
 
 1. No Web Service da API, em **Environment**, crie `DIAGNOSTICO_PROXY` com o valor `1` e salve (o serviço reinicia).
 2. Descubra o seu IP público (ex.: pesquisando "qual é o meu IP") e faça um login em https://sisto.onrender.com.
 3. Em **Logs**, procure a linha `[diagnostico-proxy]`. Ela traz `ip`, `quantidadeEnderecos` e `xForwardedFor`, sem e-mail nem senha.
-   - Se `ip` for o **seu IP público**, o valor `1` está certo.
+   - Se `ip` for o **seu IP público**, o valor atual está certo.
    - Se `ip` for um endereço interno (ex.: `10.x.x.x`) e o seu IP aparecer antes em `xForwardedFor`, há mais de um proxy: ajuste `trust proxy` em `src/backend/src/app.js` para a posição do seu IP contada a partir do fim da lista (último = 1, penúltimo = 2) e registre a mudança no SSD.
 4. **Apague a variável** `DIAGNOSTICO_PROXY` e salve. O IP é dado pessoal (RNF06): o diagnóstico só pode ficar ligado durante a conferência.
 5. Marque este item e anote a data.
 6. Depois da conferência, o código do diagnóstico (`middlewares/diagnostico-proxy.js`) pode ser removido numa Issue futura; enquanto existir, fica desligado sem a variável.
-- [ ] Cabeçalhos de segurança do front-end (seção 4) configurados e conferidos com `curl -I` (#127).
+- [x] Cabeçalhos de segurança do front-end (seção 4) configurados e conferidos com `curl -I` em 23/11/2026 (#127): os 4 cabeçalhos chegam, e o login em produção funciona sem bloqueio da CSP.
 - [x] Endereços registrados no README (Links do Projeto, linha "Deploy").
 
 ## 7. Lista de variáveis (resumo, sem valores)

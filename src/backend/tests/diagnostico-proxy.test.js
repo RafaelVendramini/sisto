@@ -71,17 +71,34 @@ describe('Diagnóstico do trust proxy — ligado (DIAGNOSTICO_PROXY=1)', () => {
   it('registra uma linha por login com req.ip, quantidade de endereços e o cabeçalho', async () => {
     process.env[VARIAVEL_DIAGNOSTICO_PROXY] = '1';
 
-    // O cliente inventa um endereço; o proxy (único confiável) acrescenta o real.
-    const res = await login('198.51.100.7, 203.0.113.10');
+    // Cadeia do Render: cliente, borda Cloudflare, balanceador interno.
+    const cadeia = '203.0.113.10, 198.51.100.35, 10.0.0.91';
+    const res = await login(cadeia);
 
     expect(res.status).toBe(401);
     const linhas = linhasDiagnostico([espiaoInfo]);
     expect(linhas).toHaveLength(1);
     expect(dadosDaLinha(linhas[0])).toEqual({
-      // trust proxy = 1: req.ip é o ÚLTIMO endereço (o que o proxy viu).
+      // trust proxy = 3: req.ip é o 3º endereço contado do FIM (o cliente).
       ip: '203.0.113.10',
-      quantidadeEnderecos: 2,
-      xForwardedFor: '198.51.100.7, 203.0.113.10',
+      quantidadeEnderecos: 3,
+      xForwardedFor: cadeia,
+    });
+  });
+
+  it('X-Forwarded-For forjado no começo: req.ip continua o cliente real', async () => {
+    process.env[VARIAVEL_DIAGNOSTICO_PROXY] = '1';
+
+    // O cliente inventa um endereço; os proxies acrescentam ao fim.
+    const cadeia = '198.51.100.7, 203.0.113.10, 198.51.100.35, 10.0.0.91';
+    await login(cadeia);
+
+    const linhas = linhasDiagnostico([espiaoInfo]);
+    expect(linhas).toHaveLength(1);
+    expect(dadosDaLinha(linhas[0])).toEqual({
+      ip: '203.0.113.10',
+      quantidadeEnderecos: 4,
+      xForwardedFor: cadeia,
     });
   });
 

@@ -1,8 +1,11 @@
 // Diagnóstico TEMPORÁRIO do 'trust proxy' (Issue #127, pendência de
 // docs/deploy.md).
 //
-// Objetivo: conferir no Render se app.set('trust proxy', 1) (app.js) faz o
-// req.ip ser o IP real do cliente, e não o do proxy. Para isso, cada
+// Objetivo: conferir no Render se o 'trust proxy' de app.js faz o req.ip ser
+// o IP real do cliente, e não o de um proxy. A conferência de 23/11/2026
+// mostrou 3 endereços no X-Forwarded-For (cliente, borda Cloudflare,
+// balanceador interno do Render): com 'trust proxy' = 1 o req.ip era o
+// balanceador; por isso o valor passou a ser 3. Para isso, cada
 // POST /auth/login registra no console UMA linha com:
 //   - o req.ip calculado pelo Express;
 //   - a quantidade de endereços no cabeçalho X-Forwarded-For;
