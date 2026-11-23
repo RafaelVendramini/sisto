@@ -20,6 +20,9 @@ import { configDefaults, defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     execArgv: ['--no-maglev'],
+    // Trava: DATABASE_URL fictícia em todos os testes do `npm test`, para que
+    // nenhum teste alcance o banco de produção no build do Render (Issue #134).
+    setupFiles: ['./tests/setup-unitarios.js'],
     exclude: [...configDefaults.exclude, 'tests/e2e/**'],
   },
 });

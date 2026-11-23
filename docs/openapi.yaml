@@ -74,7 +74,8 @@ info:
     * **404** recurso da URL inexistente ou fora da visibilidade (RN19), e rota
       inexistente (`Rota não encontrada`);
     * **409** duplicidade (RN18), operação recusada pelo estado da ocorrência
-      ou pelas regras de usuários e tutoria (RN04, RN11, RN13, RN15, RN16) e
+      ou pelas regras de usuários, tutoria e acompanhamento (RN04, RN11,
+      RN13, RN15, RN16, RN23) e
       conflito concorrente (transação serializável repetida sem sucesso —
       mensagem para tentar de novo);
     * **429** limite de tentativas do login ou da troca de senha excedido;
@@ -127,6 +128,13 @@ paths:
         status da conta (RN07). O contador fica em memória e zera quando a API
         reinicia.
 
+        **Limite por IP (SSD 1.13, Issue #134):** além do limite por IP +
+        e-mail, até 100 tentativas com falha (401) em 15 minutos por IP, com
+        qualquer e-mail — contra o teste de uma mesma senha em muitos e-mails.
+        Mesmo critério de falha, mesma mensagem do **429** e `Retry-After`;
+        contador também em memória, sem alterar o status da conta. O primeiro
+        dos dois limites atingido recusa a tentativa.
+
         Perfis: público.
       requestBody:
         required: true
@@ -175,7 +183,7 @@ paths:
               example:
                 erro: E-mail ou senha inválidos.
         '429':
-          $ref: '#/components/responses/MuitasTentativas'
+          $ref: '#/components/responses/MuitasTentativasLogin'
 
   /auth/recuperar-senha:
     post:
@@ -416,6 +424,14 @@ paths:
           `GESTAO_ATIVA_MINIMA`;
         * troca de perfil de um Tutor com estudantes vinculados (RN13) —
           `TUTOR_COM_TUTORADOS`;
+        * mudança para `PROFESSOR` ou `TECNICO_ADMINISTRATIVO` do perfil de
+          um usuário que é o responsável pelo acompanhamento
+          (`responsavel_acompanhamento_id`) de ao menos uma ocorrência não
+          encerrada (RN23, SSD 1.13) — `RESPONSAVEL_COM_OCORRENCIAS`. A
+          mudança entre `TUTOR`, `PEDAGOGICO` e `GESTAO`, a edição sem mudança
+          de perfil e o responsável só por ocorrências encerradas não são
+          recusados. Quando a RN13 e a RN23 se aplicam ao mesmo tempo, vale a
+          RN13 (`TUTOR_COM_TUTORADOS`), verificada primeiro;
         * e-mail já usado por outro usuário — `EMAIL_DUPLICADO`;
         * conflito concorrente — `CONFLITO_CONCORRENTE`.
 
@@ -459,8 +475,9 @@ paths:
                 erro: Usuário não encontrado.
         '409':
           description: |
-            Recusado pelas regras RN11/RN13 (`ALTERAR_PROPRIO_ACESSO`,
-            `GESTAO_ATIVA_MINIMA`, `TUTOR_COM_TUTORADOS`), e-mail duplicado
+            Recusado pelas regras RN11/RN13/RN23 (`ALTERAR_PROPRIO_ACESSO`,
+            `GESTAO_ATIVA_MINIMA`, `TUTOR_COM_TUTORADOS`,
+            `RESPONSAVEL_COM_OCORRENCIAS`), e-mail duplicado
             (`EMAIL_DUPLICADO`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
           content:
             application/json:
@@ -479,6 +496,10 @@ paths:
                   value:
                     erro: Este usuário Tutor tem estudantes vinculados. Desvincule os estudantes (ou troque o tutor deles) antes de alterar o perfil.
                     codigo: TUTOR_COM_TUTORADOS
+                responsavelComOcorrencias:
+                  value:
+                    erro: Este usuário é o responsável pelo acompanhamento de ocorrências que ainda não foram encerradas. Troque o responsável dessas ocorrências (por um novo encaminhamento) antes de alterar o perfil para Professor ou Técnico-administrativo.
+                    codigo: RESPONSAVEL_COM_OCORRENCIAS
                 emailDuplicado:
                   value:
                     erro: Já existe um usuário cadastrado com este e-mail.
@@ -1912,6 +1933,27 @@ components:
             $ref: '#/components/schemas/Erro'
           example:
             erro: Ocorrência não encontrada.
+    MuitasTentativasLogin:
+      description: |
+        Limite de tentativas com falha no login excedido: 5 em 15 minutos por
+        IP + e-mail (SSD 1.8, Seção 12; Issue #90) **ou** 100 em 15 minutos
+        só por IP, com qualquer e-mail (SSD 1.13; Issue #134) — o primeiro
+        atingido recusa. Mesmo corpo nos dois casos, igual para qualquer
+        e-mail; `Retry-After` e `RateLimit-Policy` são os do limite atingido.
+        O status da conta não muda (RN07).
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        RateLimit:
+          $ref: '#/components/headers/RateLimit'
+        RateLimit-Policy:
+          $ref: '#/components/headers/RateLimitPolicy'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: Muitas tentativas. Tente novamente em alguns minutos.
     MuitasTentativas:
       description: |
         Limite de tentativas com falha excedido (5 em 15 minutos — SSD 1.8,
@@ -2087,6 +2129,9 @@ components:
               própria conta (RF03); usar `PUT /conta/senha`.
             * `TUTOR_COM_TUTORADOS` (409): troca de perfil de um Tutor com
               estudantes vinculados (RN13).
+            * `RESPONSAVEL_COM_OCORRENCIAS` (409): mudança para Professor ou
+              Técnico-administrativo do perfil do responsável pelo
+              acompanhamento de ocorrências não encerradas (RN23, SSD 1.13).
             * `OCORRENCIA_ENCERRADA` (409): ocorrência encerrada não recebe
               encaminhamento, comunicação ou providência, nem é encerrada de
               novo (RN04, RN15, RN16).
@@ -2106,6 +2151,7 @@ components:
             - ALTERAR_PROPRIO_ACESSO
             - REDEFINIR_PROPRIA_SENHA
             - TUTOR_COM_TUTORADOS
+            - RESPONSAVEL_COM_OCORRENCIAS
             - OCORRENCIA_ENCERRADA
             - OCORRENCIA_ABERTA
             - ENCERRAMENTO_SEM_PROVIDENCIA

@@ -709,7 +709,11 @@ describe('Sessões depois de uma troca de senha (RN12)', () => {
   });
 
   it('token com iat no mesmo segundo da troca é rejeitado; no segundo seguinte, aceito', async () => {
-    const segundoDaTroca = 1_800_000_000;
+    // Relativo a "agora" (e não uma data fixa): os tokens do teste precisam
+    // estar dentro da validade de 8h em qualquer dia em que a suíte rode —
+    // inclusive no build do Render (#134). Com a data fixa 1_800_000_000
+    // (15/01/2027), o último token passaria a vencer e o teste quebraria.
+    const segundoDaTroca = Math.floor(Date.now() / 1000) - 120;
     buscar(ID_ALVO).senha_alterada_em = new Date(segundoDaTroca * 1000 + 500);
 
     expect((await get('/rota-inexistente', tokenComIat(ID_ALVO, segundoDaTroca - 60))).status).toBe(401);

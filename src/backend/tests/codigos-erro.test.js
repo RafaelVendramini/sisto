@@ -81,6 +81,7 @@ describe('CODIGOS_ERRO — catálogo único dos códigos estáveis', () => {
         'OCORRENCIA_ABERTA',
         'OCORRENCIA_ENCERRADA',
         'REDEFINIR_PROPRIA_SENHA',
+        'RESPONSAVEL_COM_OCORRENCIAS',
         'TROCA_SENHA_OBRIGATORIA',
         'TURMA_DUPLICADA',
         'TUTOR_COM_TUTORADOS',

@@ -917,6 +917,39 @@ h2 {
   accent-color: var(--cor-primaria);
 }
 
+/* Caixa "Mostrar turmas de anos anteriores" (Issue #134). */
+.opcao-turmas-anteriores {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.opcao-turmas-anteriores__rotulo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+/* Dentro de .campo, o rótulo da caixa não fica em negrito e a caixa não
+   herda o tamanho e a borda dos campos de texto. */
+.campo .opcao-turmas-anteriores__rotulo {
+  font-weight: 400;
+}
+
+.opcao-turmas-anteriores__rotulo input,
+.campo .opcao-turmas-anteriores__rotulo input {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--cor-primaria);
+}
+
 .selecao-estudantes__itens {
   display: flex;
   flex-direction: column;

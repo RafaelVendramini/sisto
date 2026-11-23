@@ -30,8 +30,8 @@ Crie um **Web Service** ligado ao repositório `STATURETECH/LTD.2026.2.006`:
 | Branch | `developer` |
 | Root Directory | `src/backend` |
 | Runtime | Node |
-| Build Command (primeiro deploy) | `npm ci && npm run db:deploy && npm run db:seed` |
-| Build Command (depois do primeiro deploy) | `npm ci && npm run db:deploy` |
+| Build Command (primeiro deploy) | `npm ci && npm run db:deploy && npm run db:seed` (sem testes: só para criar um serviço do zero; o deploy da homologação já foi feito) |
+| Build Command (depois do primeiro deploy) | `npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy` (testes no build — #134) |
 | Start Command | `npm start` |
 | Auto-Deploy | ligado (cada merge na `developer` publica) |
 | Plano | Free |
@@ -39,6 +39,7 @@ Crie um **Web Service** ligado ao repositório `STATURETECH/LTD.2026.2.006`:
 - O build aplica as migrations (`prisma migrate deploy`). No **primeiro** deploy ele também roda o seed, que, com `NODE_ENV=production`, cria **só** o usuário Gestão inicial.
 - Depois do primeiro deploy bem-sucedido, **tire o `&& npm run db:seed` do Build Command e apague `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA` do painel** (seção 5, passo 6). O seed identifica a Gestão pelo e-mail: se ele continuasse no build e a Gestão inicial mudasse o próprio e-mail, o deploy seguinte recriaria uma Gestão ativa com a senha do painel. Sem as variáveis, um seed no build falharia o deploy.
 - No plano gratuito a API dorme depois de 15 minutos sem acesso; o primeiro acesso seguinte leva cerca de 1 minuto.
+- **Testes no build (SSD 1.13, #134):** o Build Command roda os testes automatizados antes de aplicar as migrations e publicar. Como a API usa `NODE_ENV=production`, o `npm ci` normal não instalaria o `vitest` e o `supertest` (dependências de desenvolvimento); por isso o build usa `--include=dev`, roda `npm test` e remove essas dependências com `npm prune --omit=dev` antes de publicar. Se algum teste falhar, o build falha, as migrations **não** são aplicadas e a versão anterior continua no ar (veja a seção 10). Os testes de ponta a ponta (`npm run test:e2e`) continuam locais, porque precisam de banco próprio.
 - Depois do primeiro deploy, anote o endereço da API (ex.: `https://sisto-api.onrender.com`).
 
 **Variáveis de ambiente da API** (Environment, no painel; nunca no repositório):
@@ -63,7 +64,7 @@ Crie um **Static Site** ligado ao mesmo repositório:
 | ----- | ----- |
 | Branch | `developer` |
 | Root Directory | `src/frontend` |
-| Build Command | `npm ci && npm run build` |
+| Build Command | `npm ci && npm test && npm run build` (testes no build — #134) |
 | Publish Directory | `dist` |
 | Auto-Deploy | ligado |
 
@@ -101,7 +102,7 @@ Crie um **Static Site** ligado ao mesmo repositório:
 3. Crie o front-end com `VITE_API_URL` = endereço da API. Anote o endereço do front-end.
 4. Na API, defina `CORS_ORIGIN` = endereço do front-end e faça um novo deploy (Manual Deploy).
 5. Entre com a Gestão inicial, troque a senha dela e cadastre a segunda Gestão (seção 3, limitação conhecida).
-6. Na API, troque o Build Command para `npm ci && npm run db:deploy` e apague `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA`.
+6. Na API, troque o Build Command para `npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy` e apague `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA`.
 7. Faça as conferências da seção 6.
 
 Sem `CORS_ORIGIN` em produção, a API não libera nenhuma origem (falha fechada) e registra um aviso no log.
@@ -248,3 +249,24 @@ Saída esperada em caso de sucesso: a confirmação com o número (id) do usuár
 
 1. A pessoa entra com a senha temporária e o sistema exige a troca (RN10).
 2. Se o problema foi falta de Gestão ativa, cadastre ou reative a segunda Gestão (RN11).
+
+## 10. Testes no build do Render (SSD 1.13, #134)
+
+Os Build Commands da API e do front-end rodam os testes automatizados antes de publicar. Não há CI no GitHub, porque a pasta `.github/` não pode ser alterada.
+
+| Serviço | Build Command |
+| ------- | ------------- |
+| API (`sisto-api`) | `npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy` |
+| Front-end (`sisto`) | `npm ci && npm test && npm run build` |
+
+**Como trocar no painel** (uma vez):
+
+1. Abra o serviço (`sisto-api` ou `sisto`) → **Settings** → **Build & Deploy** → **Build Command** → **Edit**.
+2. Cole o comando da tabela e clique em **Save Changes**.
+3. Dispare um deploy (**Manual Deploy → Deploy latest commit**) e acompanhe o log: devem aparecer o resumo do Vitest (`Test Files … passed`) e, na API, as migrations depois dos testes.
+
+**Se um teste falhar no build:** o log mostra o teste com falha, o deploy é cancelado e a versão anterior continua no ar. Corrija na máquina (rode `npm test` na pasta do serviço), faça o PR e o merge; o próximo deploy roda os testes de novo. Na API, as migrations só são aplicadas depois que todos os testes passam.
+
+**Com que variáveis os testes rodam:** no Render, o build herda as variáveis do serviço. Na API, o `npm test` roda com `NODE_ENV=production`, o `CORS_ORIGIN`, o `JWT_SECRET` e a `DATABASE_URL` do Neon do painel. Isso foi simulado localmente numa cópia limpa (sem `.env`), com valores fictícios para essas variáveis, e todos os testes passaram. Para nenhum teste alcançar o banco de produção, o `npm test` troca a `DATABASE_URL` por um endereço fictício e inacessível antes de rodar (`src/backend/tests/setup-unitarios.js`): os testes usam o Prisma simulado e não precisam de banco. Os testes de ponta a ponta não usam essa troca, porque rodam só na máquina, contra o `sisto_test`.
+
+**Tempo de build:** estimativa de cerca de 1 minuto a mais por build no plano Free (na simulação local de 23/11/2026, o `npm test` levou 11 segundos na API e 33 segundos no front-end; no Render, que tem menos CPU, deve demorar mais, e a instalação das dependências de teste acrescenta alguns segundos).

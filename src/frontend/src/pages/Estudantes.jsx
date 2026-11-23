@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import FormularioEdicaoEstudante from '../components/FormularioEdicaoEstudante.jsx';
 import FormularioEstudante from '../components/FormularioEstudante.jsx';
+import OpcaoTurmasAnteriores from '../components/OpcaoTurmasAnteriores.jsx';
 import ListaEstudantes, { idBotaoEditarEstudante } from '../components/ListaEstudantes.jsx';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarEstudantes } from '../services/estudantes.js';
 import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import { listarTurmas } from '../services/turmas.js';
+import { anoLetivoAtual, filtrarTurmasPorAnoLetivo } from '../services/turmasAnoLetivo.js';
 import { listarUsuarios } from '../services/usuarios.js';
 
 const MENSAGEM_GENERICA_LISTA = 'Não foi possível carregar a lista de estudantes agora.';
@@ -59,6 +61,9 @@ export default function Estudantes() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [filtro, setFiltro] = useState('');
+  // Filtro da lista: por padrão, só as turmas do ano letivo atual em diante
+  // (SSD 1.13, Issue #134). A turma já escolhida no filtro continua na lista.
+  const [mostrarTurmasAnteriores, setMostrarTurmasAnteriores] = useState(false);
 
   const [turmas, setTurmas] = useState([]);
   const [tutores, setTutores] = useState([]);
@@ -235,6 +240,13 @@ export default function Estudantes() {
     return <FormularioEstudante turmas={turmas} tutores={tutores} aoCadastrar={aoCadastrar} />;
   }
 
+  const anoAtual = anoLetivoAtual();
+  const turmasDoFiltro = filtrarTurmasPorAnoLetivo(turmas, {
+    mostrarAnteriores: mostrarTurmasAnteriores,
+    idsMantidos: [filtro],
+    anoAtual,
+  });
+
   return (
     <div className="pagina-usuarios pagina-estudantes">
       <h1>Estudantes</h1>
@@ -263,12 +275,18 @@ export default function Estudantes() {
               <label htmlFor={ID_FILTRO}>Filtrar por turma</label>
               <select id={ID_FILTRO} name="filtroTurma" value={filtro} onChange={aoFiltrar}>
                 <option value="">Todas as turmas</option>
-                {turmas.map((turma) => (
+                {turmasDoFiltro.map((turma) => (
                   <option key={turma.id} value={String(turma.id)}>
                     {rotuloTurma(turma)}
                   </option>
                 ))}
               </select>
+              <OpcaoTurmasAnteriores
+                id="filtro-mostrarTurmasAnteriores"
+                marcado={mostrarTurmasAnteriores}
+                aoAlterar={setMostrarTurmasAnteriores}
+                anoAtual={anoAtual}
+              />
             </div>
           )}
 

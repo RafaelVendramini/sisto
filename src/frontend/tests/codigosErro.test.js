@@ -237,7 +237,13 @@ describe('usuários: 409 identificado pelo código', () => {
 
   it('recarga da lista: CONFLITO_CONCORRENTE pelo código; regras (RN11/RN13) não recarregam', () => {
     expect(usuarios.listaPodeEstarDesatualizada(falha409('Texto fictício.', 'CONFLITO_CONCORRENTE'))).toBe(true);
-    for (const codigo of ['GESTAO_ATIVA_MINIMA', 'ALTERAR_PROPRIO_ACESSO', 'TUTOR_COM_TUTORADOS', 'EMAIL_DUPLICADO']) {
+    for (const codigo of [
+      'GESTAO_ATIVA_MINIMA',
+      'ALTERAR_PROPRIO_ACESSO',
+      'TUTOR_COM_TUTORADOS',
+      'RESPONSAVEL_COM_OCORRENCIAS',
+      'EMAIL_DUPLICADO',
+    ]) {
       expect(usuarios.listaPodeEstarDesatualizada(falha409(MENSAGEM_ALTERACAO_SIMULTANEA, codigo))).toBe(false);
     }
     expect(usuarios.listaPodeEstarDesatualizada(falha409(MENSAGEM_ALTERACAO_SIMULTANEA))).toBe(true);

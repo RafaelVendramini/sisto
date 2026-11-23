@@ -25,13 +25,17 @@
 //   não bloqueia, desativa nem altera o próprio perfil (409).
 // - RN13 (Issue #44): o perfil de um usuário TUTOR com estudantes vinculados
 //   não pode ser alterado (409) até que os estudantes sejam desvinculados.
+// - RN23 (SSD 1.13, Issue #134): o perfil do responsável pelo acompanhamento
+//   de ocorrências não encerradas não pode mudar para PROFESSOR nem
+//   TECNICO_ADMINISTRATIVO (409) até a Gestão ou a Equipe Pedagógica trocar o
+//   responsável dessas ocorrências. A RN13 é verificada antes.
 //
 // Auditoria (Issue #91 — RNF04, RNF06): o cadastro grava "usuário criado" e a
 // edição (inclusive bloqueio, desativação e reativação) grava "usuário
 // editado", com recurso "usuarios/<id>" e usuario_id da Gestão logada, na
 // mesma transação da alteração (se o log falhar, a alteração é desfeita).
 // Operações recusadas (400, 403, 404, 409) não chegam a gravar o log.
-import { Perfil, Prisma, StatusUsuario } from '@prisma/client';
+import { Perfil, Prisma, StatusOcorrencia, StatusUsuario } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
 import { garantirSemCaractereNulo } from '../lib/texto.js';
@@ -331,6 +335,17 @@ export const MENSAGEM_MINIMO_GESTOES_ATIVAS =
 /** RN13: troca de perfil de um Tutor com estudantes vinculados (409). */
 export const MENSAGEM_TUTOR_COM_TUTORADOS =
   'Este usuário Tutor tem estudantes vinculados. Desvincule os estudantes (ou troque o tutor deles) antes de alterar o perfil.';
+/**
+ * RN23: perfis que não podem ser responsáveis pelo acompanhamento de uma
+ * ocorrência (só Tutor, Pedagógico e Gestão podem — RN15, RN22).
+ */
+export const PERFIS_SEM_ACOMPANHAMENTO = Object.freeze([
+  Perfil.PROFESSOR,
+  Perfil.TECNICO_ADMINISTRATIVO,
+]);
+/** RN23: mudança de perfil do responsável por ocorrências não encerradas (409). Sem dados de estudantes (RNF06). */
+export const MENSAGEM_RESPONSAVEL_COM_OCORRENCIAS =
+  'Este usuário é o responsável pelo acompanhamento de ocorrências que ainda não foram encerradas. Troque o responsável dessas ocorrências (por um novo encaminhamento) antes de alterar o perfil para Professor ou Técnico-administrativo.';
 export const MENSAGEM_CONFLITO_CONCORRENTE =
   'O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.';
 
@@ -445,6 +460,29 @@ async function verificarEAtualizar(tx, id, dados, solicitante) {
     }
   }
 
+  // RN23 — o responsável pelo acompanhamento de ocorrências não encerradas
+  // não passa a Professor nem a Técnico-administrativo (409). A mudança entre
+  // TUTOR, PEDAGOGICO e GESTAO e a edição sem mudança de perfil não são
+  // recusadas; ocorrências ENCERRADO não impedem (o responsável gravado nelas
+  // é mantido). Verificada DEPOIS da RN13 (decisão do Rafael, 23/11/2026).
+  // A contagem roda na mesma transação SERIALIZABLE do update: um
+  // encaminhamento simultâneo que defina este usuário como responsável (também
+  // serializável) faz uma das duas transações abortar (P2034) e ser repetida.
+  if (
+    dados.perfil !== undefined &&
+    dados.perfil !== atual.perfil &&
+    PERFIS_SEM_ACOMPANHAMENTO.includes(dados.perfil)
+  ) {
+    const emAcompanhamento = await tx.ocorrencia.count({
+      where: { responsavel_acompanhamento_id: id, status: { not: StatusOcorrencia.ENCERRADO } },
+    });
+    if (emAcompanhamento > 0) {
+      throw new ErroHttp(409, MENSAGEM_RESPONSAVEL_COM_OCORRENCIAS, {
+        codigo: CODIGOS_ERRO.RESPONSAVEL_COM_OCORRENCIAS,
+      });
+    }
+  }
+
   // RN11 — ao menos dois GESTAO ATIVO: se este usuário é Gestão ativa e
   // deixaria de ser (rebaixado, bloqueado ou desativado), precisam restar ao
   // menos MINIMO_GESTOES_ATIVAS outras Gestões ativas depois da edição.
@@ -485,7 +523,8 @@ async function verificarEAtualizar(tx, id, dados, solicitante) {
  * Edita um usuário: nome, e-mail, perfil e/ou status (RF01, RF04, RN07).
  *
  * Concorrência: a leitura, as verificações (e-mail único, tutor com
- * estudantes vinculados — RN13, mínimo de duas Gestões ativas — RN11), o
+ * estudantes vinculados — RN13, responsável por ocorrências não encerradas —
+ * RN23, mínimo de duas Gestões ativas — RN11), o
  * update e o LogAuditoria "usuário editado" (#91) rodam numa transação SERIALIZABLE. Duas edições simultâneas que, juntas, deixariam o sistema com menos de duas
  * Gestões ativas (ex.: com três Gestões ativas, cada uma rebaixa uma
  * Gestão diferente — isoladas, ambas passariam) não passam ambas: o PostgreSQL

@@ -79,7 +79,8 @@ export default function FormularioEdicaoEstudante({
   };
 
   // Turma atual sempre presente entre as opções (mesmo se a lista de turmas
-  // estiver desatualizada).
+  // estiver desatualizada). Se for de um ano anterior, continua na lista com o
+  // filtro padrão por ano letivo (decisão do Rafael, 23/11/2026 — Issue #134).
   const opcoesTurma = useMemo(() => {
     const atual = estudante.turma;
     if (!atual || turmas.some((t) => t.id === atual.id)) return turmas;
@@ -204,6 +205,7 @@ export default function FormularioEdicaoEstudante({
           aoAlterar={alterar}
           refs={refs}
           turmas={opcoesTurma}
+          idsTurmasMantidas={original.turmaId == null ? [] : [original.turmaId]}
           tutores={opcoesTutor}
           idConflito={conflito ? ID_CONFLITO : undefined}
           somenteLeitura={enviando}
