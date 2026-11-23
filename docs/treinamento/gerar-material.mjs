@@ -1,5 +1,6 @@
-// Gera o material de treinamento do Sisto (Issue #142): 4 guias em HTML e PDF,
-// um por perfil, com os prints de docs/treinamento/img (dados fictícios — RN05).
+// Gera o material de treinamento do Sisto: 4 guias em HTML e PDF, um por perfil
+// (Issue #142), e a visão geral da plataforma (Issue #146), com os prints de
+// docs/treinamento/img (dados fictícios — RN05).
 //
 // Uso (na raiz do repositório, com o Google Chrome instalado):
 //   node docs/treinamento/gerar-material.mjs
@@ -386,7 +387,7 @@ h1 { font-size: 26pt; color: #88185d; margin: 0 0 3mm; line-height: 1.1; }
 const img = (nome) => `../img/${nome}.png`;
 
 function topo(guia) {
-  return `<div class="topo"><div class="marca">${LOGO}<span>Guia do Sisto · ${guia.titulo}</span></div><span>${ENDERECO.replace('https://', '')}</span></div>`;
+  return `<div class="topo"><div class="marca">${LOGO}<span>${guia === VISAO ? 'Sisto' : 'Guia do Sisto'} · ${guia.titulo}</span></div><span>${ENDERECO.replace('https://', '')}</span></div>`;
 }
 function rodape(guia, n, total) {
   return `<div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página ${n} de ${total}</span></div>`;
@@ -468,6 +469,251 @@ function gerarHtml(guia) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Guia do Sisto — ${guia.titulo}</title><style>${CSS}</style></head><body>${corpo}</body></html>`;
 }
 
+// ---------------------------------------------------------------------------
+// Visão geral da plataforma (Issue #146): o que o Sisto faz, para qualquer
+// pessoa da escola. Usa só os prints de computador (sem os números dos guias).
+// ---------------------------------------------------------------------------
+const VISAO = { titulo: 'Visão geral', arquivo: 'Sisto-Visao-Geral' };
+// Estilos só da visão geral (os guias da #142 continuam com o CSS comum).
+const CSS_VISAO = `
+.vg { font-size: 13pt; line-height: 1.45; }
+.vg p { margin: 0 0 3.5mm; }
+.vg .cartao { font-size: 13pt; padding: 4mm 5mm; margin-bottom: 4mm; }
+.vg .cartao h2 { font-size: 14.5pt; }
+.vg .cartao ul { margin: 1mm 0 0; padding-left: 6mm; }
+.vg .cartao li { margin-bottom: 1mm; }
+.figura { width: 100%; height: 88mm; object-fit: cover; object-position: top; border: 1.5px solid #d9dee8; border-radius: 3mm; margin: 1mm 0 4mm; }
+.figura.baixa { height: 72mm; }
+.legenda { font-size: 10.5pt; color: #5b6575; margin: -2.5mm 0 4mm; }
+.colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+.perfil { border: 1.5px solid #d9dee8; border-left: 6px solid #88185d; border-radius: 3mm; padding: 3.5mm 5mm; margin-bottom: 4mm; }
+.perfil h2 { font-size: 15pt; color: #88185d; margin: 0 0 1mm; }
+.perfil p { margin: 0; }
+.matriz { width: 100%; border-collapse: collapse; font-size: 11.5pt; }
+.matriz th, .matriz td { border: 1px solid #d9dee8; padding: 2.2mm 2mm; text-align: center; }
+.matriz th { background: #88185d; color: #fff; font-size: 10.5pt; }
+.matriz td:first-child, .matriz th:first-child { text-align: left; }
+.matriz tr:nth-child(even) td { background: #faf5f8; }
+.matriz .sim { color: #1e7a3c; font-weight: 800; }
+.matriz .nao { color: #9aa3b2; }
+.matriz .obs { font-size: 9.5pt; color: #5b6575; display: block; }
+.nota { font-size: 10.5pt; color: #5b6575; margin-top: 3mm; line-height: 1.4; }
+.fluxo { display: grid; grid-template-columns: 1fr 9mm 1fr 9mm 1fr; align-items: stretch; margin: 2mm 0 5mm; }
+.etapa { border-radius: 4mm; padding: 4mm; color: #1b2433; border: 2px solid; }
+.etapa .st { font-weight: 800; font-size: 13pt; margin-bottom: 1.5mm; }
+.etapa .qm { font-size: 11pt; line-height: 1.35; }
+.etapa.aberto { background: #eef4ff; border-color: #3b6fd8; }
+.etapa.aberto .st { color: #2453b3; }
+.etapa.acomp { background: #fff6e5; border-color: #f0a500; }
+.etapa.acomp .st { color: #8a5a00; }
+.etapa.encerrado { background: #edf7f0; border-color: #2e9b53; }
+.etapa.encerrado .st { color: #1e7a3c; }
+.seta { display: flex; align-items: center; justify-content: center; color: #88185d; font-size: 20pt; font-weight: 800; }
+.regras { margin: 0; padding-left: 6mm; }
+.regras li { margin-bottom: 2mm; }
+`;
+const S = '<span class="sim">✔</span>';
+const N = '<span class="nao">—</span>';
+
+function gerarVisaoGeral() {
+  const t = topo(VISAO);
+  const paginas = [];
+  paginas.push(`<section class="pagina capa">
+    <div class="faixa">${LOGO}<div><div class="nome">Sisto<span>.</span></div><div class="sub">Gestão de ocorrências escolares</div></div></div>
+    <div class="meio">
+      <div class="rot">Visão geral da plataforma</div>
+      <h1>Conheça o Sisto</h1>
+      <p style="font-size:16pt;margin:0 0 4mm;color:#f3dce9">Neste material você vai conhecer:</p>
+      <ul class="aprender"><li>O que é o Sisto e para que ele serve</li><li>Quem usa e o que cada perfil pode fazer</li><li>O caminho de uma ocorrência, do registro ao encerramento</li><li>Tudo o que a plataforma faz e como ela protege os dados</li></ul>
+    </div>
+    <div class="base">EE José Carlos Nogueira Reverendo – Professor<br>As imagens deste material usam somente dados de exemplo (nomes fictícios).</div>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>O que é o Sisto</h1>
+    <p>O Sisto é o sistema da escola para <b>registrar, encaminhar, acompanhar e consultar as ocorrências escolares</b>: indisciplina, conflitos, bullying, situações de sofrimento emocional e outras.</p>
+    <div class="cartao"><h2>Como era antes</h2>
+      As ocorrências eram anotadas em <b>formulários de papel</b>. Depois, a equipe pedagógica organizava tudo e passava as informações para a Plataforma Conviva. Isso gastava papel e tempo, e os registros podiam se perder ou ser difíceis de encontrar depois.</div>
+    <div class="cartao"><h2>O que muda com o Sisto</h2>
+      <ul>
+        <li>A ocorrência é registrada <b>no celular ou no computador</b>, na hora.</li>
+        <li>Ela já sai <b>encaminhada</b> para quem vai cuidar do caso.</li>
+        <li>Tudo o que acontece depois fica no <b>histórico</b>: quem fez, o quê e quando.</li>
+        <li>Fica fácil <b>procurar</b> registros antigos e ver <b>relatórios</b> por período, turma e categoria.</li>
+      </ul></div>
+    <img class="figura baixa" src="${img('prof-16-computador-lista')}" alt="">
+    <p class="legenda">A lista de ocorrências no computador.</p>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>Como acessar</h1>
+    <div class="cartao"><h2>Onde abrir</h2>
+      No celular, no tablet ou no computador, abra o navegador (Chrome, por exemplo) e digite:<br>
+      <span class="endereco">${ENDERECO.replace('https://', '')}</span><br>
+      Não precisa instalar nenhum aplicativo.</div>
+    <div class="cartao"><h2>Quem pode entrar</h2>
+      Só quem foi <b>cadastrado pela Gestão</b> da escola. Cada pessoa entra com o <b>próprio e-mail e a própria senha</b>, e vê apenas o que é da sua função.</div>
+    <div class="cartao"><h2>Primeiro acesso</h2>
+      A Gestão entrega uma <b>senha temporária</b>. No primeiro acesso, o Sisto pede para criar uma senha nova, só sua, com pelo menos 8 caracteres. Assim, nem a Gestão fica sabendo a sua senha.</div>
+    <div class="cartao"><h2>Durante o uso</h2>
+      <ul>
+        <li>Por segurança, a entrada vale por até <b>8 horas</b>. Depois disso, é preciso entrar de novo.</li>
+        <li>Ao terminar, toque em <b>Sair</b>, principalmente em aparelhos compartilhados.</li>
+        <li>Fora do horário da escola (antes das 7h, depois das 20h e nos fins de semana), a primeira abertura pode demorar cerca de 1 minuto.</li>
+      </ul></div>
+  </section>`);
+
+  const perfis = [
+    ['Professor', 'Registra as ocorrências que observa em sala de aula ou na escola e consulta as que registrou.'],
+    ['Técnico-administrativo', 'Igual ao Professor: registra ocorrências e consulta as que registrou.'],
+    ['Tutor', 'Além de registrar, acompanha as ocorrências dos estudantes sob sua tutoria, as que recebe e as que acompanha como responsável. Registra comunicações com a família e, quando é o responsável pelo acompanhamento, registra providências e encerra a ocorrência.'],
+    ['Equipe Pedagógica <span style="font-weight:400;font-size:11pt;color:#5b6575">(na tela, perfil "Pedagógico")</span>', 'Vê todas as ocorrências da escola, encaminha e define quem acompanha cada caso, registra comunicações e providências, encerra ocorrências, gera relatórios e cuida das categorias.'],
+    ['Gestão', 'Faz tudo o que a Equipe Pedagógica faz e, além disso, cadastra usuários, turmas e estudantes, liga cada estudante ao seu tutor, redefine senhas e bloqueia ou desativa o acesso de quem sai da escola.'],
+  ];
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>Quem usa o Sisto</h1>
+    <p>Cada pessoa tem um <b>perfil</b>, definido pela Gestão no cadastro. O perfil decide o que a pessoa vê e o que pode fazer.</p>
+    ${perfis.map(([n, d]) => `<div class="perfil"><h2>${n}</h2><p>${d}</p></div>`).join('')}
+  </section>`);
+
+  const linhas = [
+    ['Registrar ocorrência', S, S, S, S, S],
+    ['Ver as ocorrências que registrou', S, S, S, S, S],
+    ['Ver as ocorrências dos seus tutorados', N, N, S, S, S],
+    ['Ver as ocorrências encaminhadas a você ou que você acompanha', N, N, S, S, S],
+    ['Ver todas as ocorrências da escola', N, N, N, S, S],
+    ['Encaminhar ocorrência e definir quem acompanha', N, N, N, S, S],
+    ['Registrar comunicação', N, N, `${S}<span class="obs">nas que vê</span>`, S, S],
+    ['Registrar providência e encerrar', N, N, `${S}<span class="obs">se for o responsável</span>`, S, S],
+    ['Ver relatórios', N, N, N, S, S],
+    ['Cadastrar e editar categorias', N, N, N, S, S],
+    ['Cadastrar usuários, turmas e estudantes', N, N, N, N, S],
+    ['Redefinir a senha de outra pessoa', N, N, N, N, S],
+    ['Trocar a própria senha', S, S, S, S, S],
+  ];
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>Quem pode fazer o quê</h1>
+    <table class="matriz">
+      <thead><tr><th>O que fazer</th><th>Professor</th><th>Técnico-adm.</th><th>Tutor</th><th>Equipe Pedagógica</th><th>Gestão</th></tr></thead>
+      <tbody>${linhas.map((l) => `<tr>${l.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>
+    <p class="nota">✔ pode fazer · — não pode fazer.<br>
+    Professor e Técnico-administrativo não recebem encaminhamentos: a ocorrência é sempre encaminhada a um tutor, à Equipe Pedagógica ou à Gestão.<br>
+    Se a escola precisar de outra divisão, fale com a Gestão.</p>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>O caminho de uma ocorrência</h1>
+    <p>Toda ocorrência passa por <b>três situações</b> (status), sempre nesta ordem:</p>
+    <div class="fluxo">
+      <div class="etapa aberto"><div class="st">Aberto</div><div class="qm">Qualquer perfil registra a ocorrência e escolhe para quem ela vai: um tutor, a Equipe Pedagógica ou a Gestão.</div></div>
+      <div class="seta">→</div>
+      <div class="etapa acomp"><div class="st">Em acompanhamento</div><div class="qm">A Equipe Pedagógica ou a Gestão encaminha e define o <b>responsável pelo acompanhamento</b>. Nessa fase, a escola registra os contatos com a família e as providências tomadas.</div></div>
+      <div class="seta">→</div>
+      <div class="etapa encerrado"><div class="st">Encerrado</div><div class="qm">O responsável, a Equipe Pedagógica ou a Gestão encerra o caso. A ocorrência fica guardada para consulta.</div></div>
+    </div>
+    <div class="cartao"><h2>Regras do caminho</h2>
+      <ul class="regras">
+        <li>Uma ocorrência só é registrada se for <b>encaminhada</b> para alguém.</li>
+        <li>O status não volta atrás e não pula etapas. Uma ocorrência encerrada <b>não é reaberta</b>.</li>
+        <li>Para encerrar, é preciso ter registrado pelo menos <b>uma providência</b>.</li>
+        <li>Uma ocorrência registrada <b>não pode ser editada nem apagada</b>. Tudo o que acontece depois é acrescentado a ela.</li>
+        <li>Cada passo fica no <b>histórico</b>, com quem fez e quando.</li>
+      </ul></div>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>Registrar uma ocorrência</h1>
+    <p>Todos os perfis registram ocorrências. Quem registra fica gravado como o <b>profissional responsável</b> pelo registro.</p>
+    <div class="colunas">
+      <div class="cartao"><h2>O que se informa</h2>
+        <ul><li>Turma e estudante(s) envolvido(s): pode ser mais de um, até de turmas diferentes.</li><li>Categoria e descrição do fato.</li><li>Data, hora e local.</li><li>Opcionais: demais envolvidos, testemunhas, providências imediatas e observações.</li><li>Para quem a ocorrência vai.</li></ul></div>
+      <div class="cartao"><h2>Cuidados</h2>
+        <ul><li>A data e a hora do fato não podem estar no futuro.</li><li>Escreva de forma <b>objetiva</b>, contando o que aconteceu, sem rótulos ou palavras que ofendam o estudante.</li><li>Confira tudo antes de enviar: depois de registrada, a ocorrência não pode ser editada.</li></ul></div>
+    </div>
+    <img class="figura" src="${img('prof-17-computador-registrar')}" alt="">
+    <p class="legenda">A tela de registro no computador.</p>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>Acompanhar uma ocorrência</h1>
+    <div class="cartao"><h2>Encaminhar</h2>
+      A Equipe Pedagógica e a Gestão encaminham a ocorrência para um tutor, para a Equipe Pedagógica ou para a Gestão, e escolhem o <b>responsável pelo acompanhamento</b>. A ocorrência passa para "Em acompanhamento". Enquanto não estiver encerrada, ela pode ser encaminhada de novo, e o responsável pode ser trocado.</div>
+    <div class="cartao"><h2>Comunicação</h2>
+      Registra um contato que a escola fez <b>fora do sistema</b>, por exemplo, um telefonema para a família ou um contato com a rede de proteção. O Sisto <b>não envia</b> mensagens: ele guarda quem foi avisado, por qual meio e quando.</div>
+    <div class="cartao"><h2>Providência e encerramento</h2>
+      A providência é o que a escola fez para resolver o caso. Com pelo menos uma providência registrada, o responsável, a Equipe Pedagógica ou a Gestão podem encerrar a ocorrência.</div>
+    <img class="figura baixa" src="${img('tutor-09-computador-detalhe')}" alt="">
+    <p class="legenda">O detalhe de uma ocorrência no computador.</p>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>Consultar e ver o histórico</h1>
+    <p>Em <b>Ocorrências</b>, cada pessoa vê a lista das ocorrências que o seu perfil permite, da mais recente para a mais antiga, 20 por página.</p>
+    <div class="cartao"><h2>Filtros</h2>
+      Para encontrar um registro, é possível filtrar por <b>turma</b>, <b>categoria</b>, <b>status</b>, <b>estudante</b> e <b>período</b>. A Gestão também filtra pelo <b>profissional que registrou</b>.</div>
+    <div class="cartao"><h2>Detalhe e histórico</h2>
+      Ao abrir uma ocorrência, aparecem todos os dados do registro, os encaminhamentos, as comunicações, as providências e o <b>histórico</b>: a lista de tudo o que foi feito, com quem fez e quando.</div>
+    <img class="figura" src="${img('ped-10-computador-lista')}" alt="">
+    <p class="legenda">A lista com os filtros, no computador.</p>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>Relatórios e categorias</h1>
+    <div class="cartao"><h2>Relatórios</h2>
+      A Equipe Pedagógica e a Gestão veem a <b>quantidade de ocorrências</b> de um período, no total ou separada por <b>turma</b> ou por <b>categoria</b>. O relatório aparece na tela e pode ser impresso pelo botão <b>Imprimir</b>. Na janela de impressão do navegador, também dá para escolher "Salvar como PDF".</div>
+    <div class="cartao"><h2>Categorias</h2>
+      As categorias são os tipos de ocorrência (por exemplo, Indisciplina, Conflitos, Bullying). A Equipe Pedagógica e a Gestão podem cadastrar categorias novas e corrigir os nomes. Categorias não são apagadas, para não perder o que já foi registrado.</div>
+    <img class="figura" src="${img('ped-09-computador-relatorio')}" alt="">
+    <p class="legenda">Um relatório no computador.</p>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>Cadastros da Gestão</h1>
+    <div class="cartao"><h2>Usuários</h2>
+      <ul><li>Cadastrar as pessoas da escola, com nome, e-mail, perfil e senha temporária.</li><li><b>Redefinir a senha</b> de quem esqueceu.</li><li><b>Bloquear</b> ou <b>desativar</b> o acesso de quem saiu da escola, e <b>reativar</b> quando precisar. Ninguém é apagado: os registros da pessoa continuam guardados.</li><li>O Sisto mantém sempre <b>pelo menos duas pessoas da Gestão ativas</b>, para uma poder ajudar a outra: ele não deixa bloquear, desativar ou mudar o perfil de alguém da Gestão se sobrarem menos de duas.</li></ul></div>
+    <div class="colunas">
+      <div class="cartao"><h2>Turmas</h2>Nome, etapa e ano letivo. Cada ano letivo tem as suas turmas.</div>
+      <div class="cartao"><h2>Estudantes</h2>Nome, turma, código escolar (opcional) e <b>professor tutor</b> (pode ser ligado depois).</div>
+    </div>
+    <img class="figura baixa" src="${img('gestao-09-computador-usuarios')}" alt="">
+    <p class="legenda">A tela de usuários no computador.</p>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>Segurança e proteção dos dados</h1>
+    <p>As ocorrências têm informações de <b>estudantes menores de idade</b>. Por isso, o Sisto segue a Lei Geral de Proteção de Dados (LGPD):</p>
+    <div class="cartao"><h2>Cada um vê só o necessário</h2>Professor e Técnico-administrativo veem as ocorrências que registraram; o Tutor, também as dos seus tutorados, as que recebe e as que acompanha como responsável; só a Equipe Pedagógica e a Gestão veem todas.</div>
+    <div class="cartao"><h2>Senhas protegidas</h2>A senha é pessoal e fica guardada de forma embaralhada: ninguém consegue lê-la, nem a Gestão. Depois de 5 senhas erradas, o Sisto pede para esperar alguns minutos (até 15) antes de tentar de novo. A conta não fica bloqueada.</div>
+    <div class="cartao"><h2>Tudo fica registrado</h2>O Sisto guarda quem fez cada registro ou alteração e quando. Uma ocorrência não é editada nem apagada.</div>
+    <div class="cartao"><h2>Acesso cortado na hora</h2>Quando a Gestão bloqueia ou desativa uma pessoa, ela perde o acesso imediatamente, mesmo que esteja com o Sisto aberto.</div>
+    <div class="cartao"><h2>A sua parte</h2>Não compartilhe a sua senha, não mostre a tela a outras pessoas e saia do Sisto ao terminar.</div>
+  </section>`);
+
+  paginas.push(`<section class="pagina vg">${t}
+    <h1>O que o Sisto não faz</h1>
+    <p>Para evitar dúvidas, esta versão do Sisto <b>não</b>:</p>
+    <div class="cartao"><ul class="regras">
+      <li>tem aplicativo para instalar: ele funciona pelo navegador;</li>
+      <li>envia mensagens, SMS ou e-mails para as famílias (a comunicação é feita pela escola e só registrada no Sisto);</li>
+      <li>envia dados para a Plataforma Conviva ou para outros sistemas da Secretaria da Educação;</li>
+      <li>importa turmas e estudantes de outros sistemas (o cadastro é feito pela Gestão);</li>
+      <li>exporta relatórios em PDF ou planilha (eles podem ser impressos pelo navegador);</li>
+      <li>tem painel de gráficos, assinatura eletrônica, módulo de mediação de conflitos ou banco de orientações e procedimentos da escola;</li>
+      <li>tem "esqueci minha senha" por e-mail: quem esqueceu pede à Gestão para redefinir;</li>
+      <li>permite editar ou apagar uma ocorrência registrada.</li>
+    </ul></div>
+    <h1 style="margin-top:8mm">Onde buscar ajuda</h1>
+    <div class="cartao"><h2>Guias de uso, passo a passo</h2>
+      Há um guia com imagens para cada perfil: <b>Professor e Técnico-administrativo</b>, <b>Tutor</b>, <b>Equipe Pedagógica</b> e <b>Gestão</b>.</div>
+    <div class="cartao"><h2>Ainda com dúvida?</h2>Procure a <b>Gestão</b> ou a <b>Equipe Pedagógica</b> da escola.</div>
+  </section>`);
+
+  const total = paginas.length;
+  const corpo = paginas.map((pg, i) => (i === 0 ? pg : pg.replace(/<\/section>$/, `${rodape(VISAO, i + 1, total)}</section>`))).join('\n');
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Sisto — ${VISAO.titulo}</title><style>${CSS}${CSS_VISAO}</style></head><body>${corpo}</body></html>`;
+}
+
 function acharChrome() {
   const caminhos = [
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -480,11 +726,12 @@ function acharChrome() {
 
 mkdirSync(SAIDA_HTML, { recursive: true });
 const chrome = acharChrome();
-for (const guia of GUIAS) {
-  const arquivoHtml = join(SAIDA_HTML, `${guia.arquivo}.html`);
-  writeFileSync(arquivoHtml, gerarHtml(guia), 'utf8');
+const documentos = [...GUIAS.map((guia) => [guia.arquivo, gerarHtml(guia)]), [VISAO.arquivo, gerarVisaoGeral()]];
+for (const [arquivo, html] of documentos) {
+  const arquivoHtml = join(SAIDA_HTML, `${arquivo}.html`);
+  writeFileSync(arquivoHtml, html, 'utf8');
   if (chrome) {
-    const pdf = join(SAIDA_PDF, `${guia.arquivo}.pdf`);
+    const pdf = join(SAIDA_PDF, `${arquivo}.pdf`);
     execFileSync(chrome, ['--headless=new', '--disable-gpu', '--no-pdf-header-footer', '--allow-file-access-from-files', `--user-data-dir=${join(tmpdir(), 'sisto-guias-chrome')}`, `--print-to-pdf=${pdf}`, pathToFileURL(arquivoHtml).href], { stdio: 'ignore' });
     console.log(`PDF: ${pdf}`);
   } else {
