@@ -3,7 +3,7 @@
 // mensagens de erro (RNF02) na edição e no cadastro, duplo envio e RN21.
 // Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 import { PERFIS_GESTAO_CATEGORIAS, podeGerenciarCategorias } from '../src/services/perfis.js';
@@ -158,6 +158,8 @@ describe('Tela de categorias — casos complementares (#39)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });

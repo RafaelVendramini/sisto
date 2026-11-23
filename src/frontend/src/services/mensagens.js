@@ -15,3 +15,14 @@ export const MENSAGEM_TROCA_SENHA_PENDENTE =
 // resposta vier sem ele. O 429 nunca é tratado como sessão expirada.
 export const MENSAGEM_MUITAS_TENTATIVAS =
   'Muitas tentativas. Tente novamente em alguns minutos.';
+
+/**
+ * Mensagem de erro ao carregar dados de apoio de uma tela (listas, opções):
+ * 403 -> sem permissão; status 0 -> sem conexão; demais -> `generica`, o
+ * texto próprio de cada tela. O 401 é tratado antes, pelo fluxo central.
+ */
+export function mensagemErroCarga(falha, generica) {
+  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
+  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
+  return generica;
+}

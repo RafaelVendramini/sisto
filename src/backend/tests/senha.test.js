@@ -1,13 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import bcrypt from 'bcrypt';
 import {
-  validarPoliticaSenha,
   mensagemPoliticaSenha,
   gerarHashSenha,
   TAMANHO_MINIMO_SENHA,
   TAMANHO_MAXIMO_BYTES_SENHA,
   CUSTO_BCRYPT,
 } from '../src/services/senha.js';
+
+/** A senha atende à política (RN10) e ao limite do bcrypt: sem mensagem de problema. */
+const validarPoliticaSenha = (senha) => mensagemPoliticaSenha(senha) === null;
 
 // Senhas fictícias, usadas só nos testes.
 const SENHA_VALIDA = 'senhaFicticia123';

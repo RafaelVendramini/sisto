@@ -7,9 +7,10 @@ import ListaDestinatarios, {
 } from '../components/ListaDestinatarios.jsx';
 import OpcaoTurmasAnteriores from '../components/OpcaoTurmasAnteriores.jsx';
 import SelecaoEstudantes from '../components/SelecaoEstudantes.jsx';
+import { exibirFalha, useCarregamento } from '../components/useCarregamento.js';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarCategorias } from '../services/categorias.js';
-import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
+import { mensagemErroCarga } from '../services/mensagens.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import {
   MAXIMO_DESTINATARIOS,
@@ -26,7 +27,11 @@ import {
 } from '../services/mensagensOcorrencias.js';
 import { registrarOcorrencia } from '../services/ocorrencias.js';
 import { listarTurmas } from '../services/turmas.js';
-import { anoLetivoAtual, filtrarTurmasPorAnoLetivo } from '../services/turmasAnoLetivo.js';
+import {
+  anoLetivoAtual,
+  filtrarTurmasPorAnoLetivo,
+  temTurmasAnteriores,
+} from '../services/turmasAnoLetivo.js';
 import { listarUsuarios } from '../services/usuarios.js';
 
 const MENSAGEM_GENERICA_OPCOES =
@@ -60,12 +65,6 @@ const CAMPOS_OPCIONAIS = Object.freeze([
   { campo: 'providenciasImediatas', rotulo: 'Providências imediatas (opcional)', ajuda: 'O que já foi feito no momento.' },
   { campo: 'observacoes', rotulo: 'Observações (opcional)', ajuda: '' },
 ]);
-
-function mensagemErroCarga(falha) {
-  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
-  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
-  return MENSAGEM_GENERICA_OPCOES;
-}
 
 /** Formulário vazio; a data e a hora sugeridas são as de agora em São Paulo (RN17). */
 function dadosVazios() {
@@ -133,16 +132,9 @@ export default function RegistrarOcorrencia() {
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
 
-  const montado = useRef(true);
+  const { montado } = useCarregamento();
   const refFiltro = useRef(null);
   const refSucesso = useRef(null);
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
 
   // Turmas e categorias são indispensáveis; a lista de usuários, não: com
   // Promise.allSettled, a falha só dela deixa o formulário utilizável (#128).
@@ -159,18 +151,18 @@ export default function RegistrarOcorrencia() {
     const falha = [listaTurmas, listaCategorias].find((r) => r.status === 'rejected')?.reason;
     if (falha) {
       // 401: o tratamento central já leva ao login com aviso.
-      if (falha?.status !== 401) setOpcoesErro(mensagemErroCarga(falha));
+      if (exibirFalha(falha)) setOpcoesErro(mensagemErroCarga(falha, MENSAGEM_GENERICA_OPCOES));
     } else {
       setTurmas(listaTurmas.value);
       setCategorias(listaCategorias.value);
     }
     if (usuarios.status === 'fulfilled') {
       setUsuariosPorDestinatario(separarUsuariosPorDestinatario(usuarios.value));
-    } else if (usuarios.reason?.status !== 401) {
+    } else if (exibirFalha(usuarios.reason)) {
       setUsuariosIndisponiveis(true);
     }
     setOpcoesCarregando(false);
-  }, []);
+  }, [montado]);
 
   // Nova tentativa só da lista de usuários, sem esconder o formulário.
   async function recarregarUsuarios() {
@@ -359,7 +351,7 @@ export default function RegistrarOcorrencia() {
       limparFormulario();
       setSucesso(mensagemOcorrenciaRegistrada(criada?.id));
     } catch (falha) {
-      if (falha?.status === 401) return; // tratamento central: volta ao login com aviso
+      if (!exibirFalha(falha)) return; // tratamento central: volta ao login com aviso
       if (montado.current) setErro(mensagemErroRegistro(falha));
     } finally {
       enviandoRef.current = false;
@@ -409,13 +401,16 @@ export default function RegistrarOcorrencia() {
       >
         <section className="registro-ocorrencia__secao" aria-labelledby="titulo-turma-estudantes">
           <h2 id="titulo-turma-estudantes">Turma e estudantes</h2>
-          <OpcaoTurmasAnteriores
-            id="ocorrencia-mostrarTurmasAnteriores"
-            marcado={mostrarTurmasAnteriores}
-            aoAlterar={alterarMostrarTurmasAnteriores}
-            anoAtual={anoAtual}
-            somenteLeitura={enviando}
-          />
+          {/* Sem turma de ano anterior, a caixa não teria efeito: não aparece. */}
+          {temTurmasAnteriores(turmas, anoAtual) && (
+            <OpcaoTurmasAnteriores
+              id="ocorrencia-mostrarTurmasAnteriores"
+              marcado={mostrarTurmasAnteriores}
+              aoAlterar={alterarMostrarTurmasAnteriores}
+              anoAtual={anoAtual}
+              somenteLeitura={enviando}
+            />
+          )}
           <div className="campo">
             <label htmlFor="ocorrencia-turmaId">Turma da ocorrência</label>
             <select

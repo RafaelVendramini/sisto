@@ -66,7 +66,9 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { converterIdTexto, ehIdNumerico } from '../lib/ids.js';
 import { MENSAGEM_TEXTO_CARACTERE_INVALIDO, garantirSemCaractereNulo } from '../lib/texto.js';
+import { emTransacaoSerializavel } from '../lib/transacao.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { interpretarPeriodo } from './periodo.js';
 import { paraRespostaTurma } from './turmas.js';
@@ -98,12 +100,6 @@ export const MAXIMO_ENCAMINHAMENTOS = 10;
  */
 const ANO_MINIMO_GRAVAVEL = 1;
 const ANO_MAXIMO_GRAVAVEL = 9999;
-
-/** Maior valor de uma coluna Int do PostgreSQL (tipo dos ids, Seção 11). */
-const MAIOR_ID = 2_147_483_647;
-
-/** Tentativas da transação serializável antes de desistir com 409. */
-const TENTATIVAS_TRANSACAO = 3;
 
 /** Valores técnicos do destinatário (Seção 11) e o perfil exigido do usuário. */
 export const PERFIL_DO_DESTINATARIO = Object.freeze({
@@ -278,10 +274,6 @@ async function lerOcorrenciaParaResposta(tx, id, { codigoEscolar = false } = {})
   return { ...ocorrencia, ...responsaveis, estudantes, encaminhamentos };
 }
 
-function ehIdNumerico(valor) {
-  return Number.isInteger(valor) && valor >= 1 && valor <= MAIOR_ID;
-}
-
 // ISO 8601 com data, hora (minutos obrigatórios; segundos e fração opcionais)
 // e fuso OBRIGATÓRIO (Z ou ±hh:mm). Sem fuso, a hora seria interpretada no
 // fuso do servidor, o que é ambíguo (RN17: gravação em UTC).
@@ -350,30 +342,18 @@ function garantirNaoFutura(dataHora, agora, mensagem) {
 }
 
 /**
- * Executa `operacao` numa transação SERIALIZABLE, repetindo-a quando o banco
- * aborta por conflito de serialização (P2034); esgotadas as tentativas,
- * responde 409 com `mensagemConflito` e o código CONFLITO_CONCORRENTE.
- * ErroHttp lançado dentro da operação sobe sem repetição. Compartilhada pelas gravações de ocorrências.
+ * Executa `operacao` numa transação SERIALIZABLE (lib/transacao.js): conflito
+ * de serialização (P2034) é repetido e, esgotadas as tentativas, responde 409
+ * com `mensagemConflito` e o código CONFLITO_CONCORRENTE (também no P2028).
+ * ErroHttp lançado dentro da operação sobe sem repetição. Compartilhada pelas
+ * gravações de ocorrências.
  * @param {object} db client Prisma
  * @param {(tx: object) => Promise<any>} operacao
  * @param {string} mensagemConflito
  * @throws {ErroHttp} 409 (conflito concorrente) ou o erro da operação
  */
-async function executarSerializavel(db, operacao, mensagemConflito) {
-  for (let tentativa = 1; ; tentativa += 1) {
-    try {
-      return await db.$transaction(operacao, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
-    } catch (erro) {
-      if (erro instanceof ErroHttp) throw erro;
-      if (erro?.code === 'P2034') {
-        if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, mensagemConflito, { codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
-      }
-      throw erro;
-    }
-  }
+function executarSerializavel(db, operacao, mensagemConflito) {
+  return emTransacaoSerializavel(db, operacao, { mensagemConflito });
 }
 
 /** Texto obrigatório: NFC, sem espaços nas pontas, não vazio, até `maximo`. */
@@ -727,12 +707,7 @@ const PERFIL_DADOS_COMPLETOS = 'GESTAO';
  * @throws {ErroHttp} 400
  */
 export function validarIdOcorrencia(valor) {
-  if (typeof valor !== 'string' || !/^[1-9][0-9]{0,9}$/.test(valor)) {
-    throw new ErroHttp(400, MENSAGEM_ID_OCORRENCIA_INVALIDO);
-  }
-  const id = Number(valor);
-  if (id > MAIOR_ID) throw new ErroHttp(400, MENSAGEM_ID_OCORRENCIA_INVALIDO);
-  return id;
+  return converterIdTexto(valor, MENSAGEM_ID_OCORRENCIA_INVALIDO);
 }
 
 /**
@@ -811,10 +786,7 @@ export const MENSAGEM_PAGINA_INVALIDA = 'O parâmetro pagina deve ser um número
  */
 function inteiroPositivoOpcional(valor, mensagem) {
   if (valor === undefined) return undefined;
-  if (typeof valor !== 'string' || !/^[1-9][0-9]{0,9}$/.test(valor) || Number(valor) > MAIOR_ID) {
-    throw new ErroHttp(400, mensagem);
-  }
-  return Number(valor);
+  return converterIdTexto(valor, mensagem);
 }
 
 /**

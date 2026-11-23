@@ -3,7 +3,7 @@
 // mostram, por padrão, só as do ano letivo atual e dos anos seguintes, com a
 // opção de ver também as dos anos anteriores. O filtro é só no front-end: o
 // GET /turmas não muda e continua devolvendo todas as turmas.
-import { agoraNoFusoDaEscola } from './mensagensOcorrencias.js';
+import { agoraNoFusoDaEscola } from './dataHora.js';
 
 /**
  * Ano de hoje no horário de São Paulo (RN17), e não no fuso do aparelho.

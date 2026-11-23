@@ -2,7 +2,7 @@
 // login e de troca de senha mostram a mensagem do 429, e o 429 NÃO é tratado
 // como sessão expirada. API mockada (sem rede). Somente dados fictícios (RN05).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { definirAoNaoAutenticado, requisicao } from '../src/services/api.js';
 import { MENSAGEM_MUITAS_TENTATIVAS } from '../src/services/mensagens.js';
@@ -38,6 +38,8 @@ describe('Limite de tentativas com falha — mensagem do 429 (#90)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();

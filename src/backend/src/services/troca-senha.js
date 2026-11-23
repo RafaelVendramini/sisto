@@ -22,9 +22,9 @@
 // - RN01: a restrição de PUT /usuarios/{id}/senha à Gestão fica na rota
 //   (permitirPerfis).
 import bcrypt from 'bcrypt';
-import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { emTransacaoSerializavel } from '../lib/transacao.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { TAMANHO_MAXIMO_BYTES_SENHA, gerarHashSenha, mensagemPoliticaSenha } from './senha.js';
 import { MENSAGEM_USUARIO_NAO_ENCONTRADO, validarIdUsuario } from './usuarios.js';
@@ -43,9 +43,6 @@ export const MENSAGEM_CONFLITO_TROCA_SENHA =
  */
 export const MENSAGEM_SENHA_ALTERADA_DURANTE_TROCA =
   'A sua senha foi alterada por outra operação enquanto a troca era feita. Entre novamente no sistema.';
-
-/** Tentativas da transação serializável antes de desistir com 409. */
-const TENTATIVAS_TRANSACAO = 3;
 
 /** Intervalo mínimo entre duas trocas registradas (desempate por segundo do RN12). */
 const UM_SEGUNDO_MS = 1000;
@@ -93,7 +90,8 @@ export function senhaMudouDesde(antes, depois) {
  * LogAuditoria numa única transação SERIALIZABLE: a leitura do
  * senha_alterada_em anterior e o update são atômicos. Se duas trocas
  * simultâneas partirem da mesma leitura, o PostgreSQL aborta uma delas
- * (P2034) e ela é repetida; esgotadas as tentativas, responde 409.
+ * (P2034) e ela é repetida; esgotadas as tentativas, responde 409 (helper
+ * lib/transacao.js, que também responde 409 no P2028).
  *
  * Troca pelo próprio usuário (Issue #127): `esperado` traz o senha_hash e o
  * senha_alterada_em lidos ANTES da conferência da senha atual (que roda fora
@@ -112,48 +110,39 @@ async function gravarNovaSenha(
   db,
   { id, senha_hash, trocaSenhaObrigatoria, auditoria, agora, esperado },
 ) {
-  for (let tentativa = 1; ; tentativa += 1) {
-    try {
-      await db.$transaction(
-        async (tx) => {
-          const atual = await tx.usuario.findUnique({
-            where: { id },
-            select: { id: true, senha_hash: true, senha_alterada_em: true },
-          });
-          if (!atual) throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
-          if (esperado && senhaMudouDesde(esperado, atual)) {
-            throw new ErroHttp(409, MENSAGEM_SENHA_ALTERADA_DURANTE_TROCA, {
-              codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
-            });
-          }
-
-          await tx.usuario.update({
-            where: { id },
-            data: {
-              senha_hash,
-              troca_senha_obrigatoria: trocaSenhaObrigatoria,
-              senha_alterada_em: proximaSenhaAlteradaEm(agora(), atual.senha_alterada_em),
-            },
-            select: { id: true },
-          });
-          await registrarAuditoria(auditoria, tx);
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
-      return;
-    } catch (erro) {
-      if (erro instanceof ErroHttp) throw erro;
-      // Registro removido entre a leitura e o update.
-      if (erro?.code === 'P2025') throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
-      if (erro?.code === 'P2034') {
-        if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_TROCA_SENHA, {
+  await emTransacaoSerializavel(
+    db,
+    async (tx) => {
+      const atual = await tx.usuario.findUnique({
+        where: { id },
+        select: { id: true, senha_hash: true, senha_alterada_em: true },
+      });
+      if (!atual) throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
+      // ErroHttp sobe sem nova tentativa (ver o comentário acima).
+      if (esperado && senhaMudouDesde(esperado, atual)) {
+        throw new ErroHttp(409, MENSAGEM_SENHA_ALTERADA_DURANTE_TROCA, {
           codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
         });
       }
-      throw erro;
-    }
-  }
+
+      await tx.usuario.update({
+        where: { id },
+        data: {
+          senha_hash,
+          troca_senha_obrigatoria: trocaSenhaObrigatoria,
+          senha_alterada_em: proximaSenhaAlteradaEm(agora(), atual.senha_alterada_em),
+        },
+        select: { id: true },
+      });
+      await registrarAuditoria(auditoria, tx);
+    },
+    {
+      mensagemConflito: MENSAGEM_CONFLITO_TROCA_SENHA,
+      // Registro removido entre a leitura e o update.
+      traduzirErro: (erro) =>
+        erro?.code === 'P2025' ? new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO) : undefined,
+    },
+  );
 }
 
 function ehObjeto(corpo) {

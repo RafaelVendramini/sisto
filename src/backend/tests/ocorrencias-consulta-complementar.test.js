@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { criarBancoEmMemoria } from './apoio/bancoEmMemoria.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -18,135 +19,6 @@ let consultasTx;
 // "Banco" em memória com avaliação de where/select/orderBy
 // ---------------------------------------------------------------------------
 
-const TABELA = {
-  usuario: 'usuarios',
-  turma: 'turmas',
-  categoria: 'categorias',
-  estudante: 'estudantes',
-  ocorrencia: 'ocorrencias',
-  ocorrenciaEstudante: 'ocorrenciasEstudantes',
-  encaminhamento: 'encaminhamentos',
-  comunicacao: 'comunicacoes',
-  providencia: 'providencias',
-  historicoOcorrencia: 'historicos',
-  logAuditoria: 'logs',
-};
-
-// Relações: ['um', modelo, campo FK] ou ['muitos', modelo, campo FK no filho].
-const RELACOES = {
-  ocorrencia: {
-    turma: ['um', 'turma', 'turma_id'],
-    categoria: ['um', 'categoria', 'categoria_id'],
-    profissional_responsavel: ['um', 'usuario', 'profissional_responsavel_id'],
-    responsavel_acompanhamento: ['um', 'usuario', 'responsavel_acompanhamento_id'],
-    estudantes: ['muitos', 'ocorrenciaEstudante', 'ocorrencia_id'],
-    encaminhamentos: ['muitos', 'encaminhamento', 'ocorrencia_id'],
-  },
-  ocorrenciaEstudante: {
-    ocorrencia: ['um', 'ocorrencia', 'ocorrencia_id'],
-    estudante: ['um', 'estudante', 'estudante_id'],
-  },
-  estudante: {
-    turma: ['um', 'turma', 'turma_id'],
-    tutor: ['um', 'usuario', 'tutor_id'],
-  },
-  encaminhamento: {
-    destinatario_usuario: ['um', 'usuario', 'destinatario_usuario_id'],
-    registrado_por: ['um', 'usuario', 'registrado_por_id'],
-  },
-  comunicacao: { registrado_por: ['um', 'usuario', 'registrado_por_id'] },
-  providencia: { registrado_por: ['um', 'usuario', 'registrado_por_id'] },
-};
-
-const linhas = (modelo) => banco[TABELA[modelo]];
-
-function relacionado(modelo, registro, campo) {
-  const [tipo, alvo, fk] = RELACOES[modelo][campo];
-  if (tipo === 'um') {
-    return registro[fk] == null ? null : linhas(alvo).find((r) => r.id === registro[fk]) ?? null;
-  }
-  return linhas(alvo).filter((r) => r[fk] === registro.id);
-}
-
-/** Avalia um `where` do Prisma sobre um registro. */
-function corresponde(modelo, registro, where = {}) {
-  return Object.entries(where).every(([chave, condicao]) => {
-    if (chave === 'AND') return condicao.every((w) => corresponde(modelo, registro, w));
-    if (chave === 'OR') return condicao.some((w) => corresponde(modelo, registro, w));
-    const relacao = RELACOES[modelo]?.[chave];
-    if (relacao) {
-      const [tipo, alvo] = relacao;
-      if (tipo === 'muitos') {
-        const operadores = Object.keys(condicao);
-        if (operadores.length !== 1 || operadores[0] !== 'some') {
-          throw new Error(`mock: operador de lista não suportado em ${modelo}.${chave}`);
-        }
-        return relacionado(modelo, registro, chave).some((f) => corresponde(alvo, f, condicao.some));
-      }
-      const pai = relacionado(modelo, registro, chave);
-      return pai !== null && corresponde(alvo, pai, condicao);
-    }
-    if (condicao !== null && typeof condicao === 'object' && !(condicao instanceof Date)) {
-      const operadores = Object.keys(condicao);
-      if (operadores.length !== 1 || operadores[0] !== 'in') {
-        throw new Error(`mock: operador não suportado em ${modelo}.${chave}`);
-      }
-      return condicao.in.includes(registro[chave]);
-    }
-    if (!(chave in registro)) throw new Error(`mock: campo inexistente ${modelo}.${chave}`);
-    return registro[chave] === condicao;
-  });
-}
-
-/** Total de relações num select (inclusive aninhadas) — limite do aviso do pg. */
-function contarRelacoes(select) {
-  return Object.values(select ?? {}).reduce(
-    (total, valor) => (valor && typeof valor === 'object' ? total + 1 + contarRelacoes(valor.select) : total),
-    0,
-  );
-}
-
-function selecionar(modelo, registro, select) {
-  if (!select) return { ...registro };
-  return Object.fromEntries(
-    Object.entries(select).map(([campo, valor]) => {
-      if (valor === true) {
-        if (!(campo in registro)) throw new Error(`mock: campo inexistente ${modelo}.${campo}`);
-        return [campo, registro[campo]];
-      }
-      const [tipo, alvo] = RELACOES[modelo][campo];
-      const rel = relacionado(modelo, registro, campo);
-      if (tipo === 'muitos') return [campo, rel.map((r) => selecionar(alvo, r, valor.select))];
-      return [campo, rel === null ? null : selecionar(alvo, rel, valor.select)];
-    }),
-  );
-}
-
-function valorOrdenacao(modelo, registro, especificacao) {
-  const [[campo, direcao]] = Object.entries(especificacao);
-  if (typeof direcao === 'object') {
-    const [, alvo] = RELACOES[modelo][campo];
-    return valorOrdenacao(alvo, relacionado(modelo, registro, campo), direcao);
-  }
-  const valor = registro[campo];
-  return { valor: valor instanceof Date ? valor.getTime() : valor, direcao };
-}
-
-function ordenar(modelo, registros, orderBy) {
-  if (!orderBy) return registros;
-  const criterios = Array.isArray(orderBy) ? orderBy : [orderBy];
-  return [...registros].sort((a, b) => {
-    for (const criterio of criterios) {
-      const va = valorOrdenacao(modelo, a, criterio);
-      const vb = valorOrdenacao(modelo, b, criterio);
-      if (va.valor === vb.valor) continue;
-      const menor = va.valor < vb.valor ? -1 : 1;
-      return va.direcao === 'desc' ? -menor : menor;
-    }
-    return 0;
-  });
-}
-
 const DEFAULTS = {
   ocorrencia: () => ({ responsavel_acompanhamento_id: null, data_encerramento: null }),
   encaminhamento: () => ({ data_hora: new Date(), observacao: null, destinatario_usuario_id: null }),
@@ -154,60 +26,17 @@ const DEFAULTS = {
   logAuditoria: () => ({ data_hora: new Date() }),
 };
 
-function inserir(modelo, data) {
-  const tabela = linhas(modelo);
-  const registro = { ...(DEFAULTS[modelo]?.() ?? {}), ...data };
-  if (modelo !== 'ocorrenciaEstudante') registro.id = Math.max(0, ...tabela.map((r) => r.id)) + 1;
-  tabela.push(registro);
-  return registro;
-}
-
-function delegado(modelo, emTransacao) {
-  const anotar = (operacao, args) => {
+// Motor do "banco" em memória: tests/apoio/bancoEmMemoria.js (Issue #129).
+// Dentro da transação (clientMock(true)), cada operação é registrada em
+// consultasTx ("modelo.operacao"), em ordem.
+const { clientMock } = criarBancoEmMemoria({
+  obterBanco: () => banco,
+  padroes: DEFAULTS,
+  limiteRelacoes: 2,
+  aoOperar: (modelo, operacao, _args, emTransacao) => {
     if (emTransacao) consultasTx.push(`${modelo}.${operacao}`);
-    if (contarRelacoes(args?.select) > 2) {
-      throw new Error(`mock: mais de 2 relações numa consulta de ${modelo} (aviso do pg)`);
-    }
-  };
-  const buscar = (args = {}) =>
-    ordenar(modelo, linhas(modelo).filter((r) => corresponde(modelo, r, args.where)), args.orderBy);
-  return {
-    findMany: async (args) => {
-      anotar('findMany', args);
-      // skip/take: paginação do GET /ocorrencias (Issue #86).
-      const inicio = args?.skip ?? 0;
-      const fim = args?.take === undefined ? undefined : inicio + args.take;
-      return buscar(args).slice(inicio, fim).map((r) => selecionar(modelo, r, args?.select));
-    },
-    count: async (args) => {
-      anotar('count', args);
-      return buscar(args).length;
-    },
-    findFirst: async (args) => {
-      anotar('findFirst', args);
-      const [r] = buscar(args);
-      return r ? selecionar(modelo, r, args.select) : null;
-    },
-    findUnique: async (args) => {
-      anotar('findUnique', args);
-      const [r] = buscar(args);
-      return r ? selecionar(modelo, r, args.select) : null;
-    },
-    create: async ({ data, select }) => {
-      anotar('create', { select });
-      return selecionar(modelo, inserir(modelo, data), select);
-    },
-    createMany: async ({ data }) => {
-      anotar('createMany');
-      data.forEach((d) => inserir(modelo, d));
-      return { count: data.length };
-    },
-  };
-}
-
-function clientMock(emTransacao) {
-  return Object.fromEntries(Object.keys(TABELA).map((m) => [m, delegado(m, emTransacao)]));
-}
+  },
+});
 
 vi.mock('../src/lib/prisma.js', () => ({
   default: new Proxy(

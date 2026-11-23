@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listarEstudantes } from '../services/estudantes.js';
-import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
+import { mensagemErroCarga } from '../services/mensagens.js';
 import {
   DESTINATARIOS,
   TAMANHO_MAXIMO_TEXTO_LONGO,
@@ -17,6 +17,7 @@ import { listarUsuarios } from '../services/usuarios.js';
 import AvisoSessaoExpirada, { sessaoExpirou } from './AvisoSessaoExpirada.jsx';
 import Dialogo, { useConfirmacaoDescarte } from './Dialogo.jsx';
 import { OpcoesDeUsuarios, OpcoesEquipe, OpcoesTutores } from './OpcoesUsuarios.jsx';
+import { exibirFalha, useCarregamento } from './useCarregamento.js';
 
 const PREFIXO = 'encaminhamento';
 const ID_DIALOGO = 'dialogo-encaminhar';
@@ -31,12 +32,6 @@ const ORDEM_CAMPOS = Object.freeze([
 
 const ROTULO_TUTORES_DA_OCORRENCIA = 'Tutores dos estudantes desta ocorrência';
 const MENSAGEM_GENERICA_CARGA = 'Não foi possível carregar a lista de pessoas agora.';
-
-function mensagemErroCarga(falha) {
-  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
-  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
-  return MENSAGEM_GENERICA_CARGA;
-}
 
 function idCampo(campo) {
   return `${PREFIXO}-${campo}`;
@@ -118,7 +113,7 @@ export default function EncaminharOcorrencia({
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
 
-  const montado = useRef(true);
+  const { montado } = useCarregamento();
   const refs = {
     destinatarioPerfil: useRef(null),
     destinatarioUsuarioId: useRef(null),
@@ -126,13 +121,6 @@ export default function EncaminharOcorrencia({
     observacao: useRef(null),
   };
   const refTentarNovamente = useRef(null);
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -149,7 +137,7 @@ export default function EncaminharOcorrencia({
       setResponsaveis(agruparResponsaveis(usuarios, estudantes));
     } catch (falha) {
       // 401: o tratamento central já leva ao login com aviso.
-      if (montado.current && falha?.status !== 401) setErroCarga(mensagemErroCarga(falha));
+      if (montado.current && exibirFalha(falha)) setErroCarga(mensagemErroCarga(falha, MENSAGEM_GENERICA_CARGA));
     } finally {
       if (montado.current) setCarregando(false);
     }
@@ -240,7 +228,7 @@ export default function EncaminharOcorrencia({
       enviandoRef.current = false;
       if (!montado.current) return;
       setEnviando(false);
-      if (falha?.status === 401) return; // tratamento central: volta ao login com aviso
+      if (!exibirFalha(falha)) return; // tratamento central: volta ao login com aviso
       setErro(mensagemErroEncaminhamento(falha));
       setPedeAtualizacao(encaminhamentoPedeAtualizacao(falha));
     }

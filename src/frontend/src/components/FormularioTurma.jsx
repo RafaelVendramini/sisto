@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { criarTurma } from '../services/turmas.js';
 import {
   anoAtual,
@@ -10,6 +10,7 @@ import {
   validarTurma,
 } from '../services/mensagensTurmas.js';
 import CamposTurma, { CAMPOS_TURMA } from './CamposTurma.jsx';
+import { useCamposFormulario } from './useCamposFormulario.js';
 
 const ID_CONFLITO = 'turma-conflito';
 
@@ -23,36 +24,29 @@ function vazio() {
  * `aoCadastrar` com a turma criada; a confirmação aparece junto da lista.
  */
 export default function FormularioTurma({ aoCadastrar }) {
-  const [dados, setDados] = useState(vazio);
-  const [errosCampos, setErrosCampos] = useState({});
   const [erro, setErro] = useState('');
   const [conflito, setConflito] = useState('');
   const [enviando, setEnviando] = useState(false);
-  // Trava síncrona contra duplo envio (o estado só muda no próximo render).
-  const enviandoRef = useRef(false);
 
-  const refs = { nome: useRef(null), etapa: useRef(null), anoLetivo: useRef(null) };
-
-  function alterar(campo) {
-    return (evento) => {
-      if (enviandoRef.current) return;
-      const { value } = evento.target;
-      setDados((atual) => ({ ...atual, [campo]: value }));
-      // Ao corrigir o campo, a mensagem de erro dele (e o aria-invalid) some.
-      setErrosCampos((atual) => {
-        if (!atual[campo]) return atual;
-        const { [campo]: _removido, ...restantes } = atual;
-        return restantes;
-      });
-      // Turma repetida envolve os três campos: alterar qualquer um limpa o aviso.
-      setConflito('');
-    };
-  }
-
-  function focarPrimeiroInvalido(erros) {
-    const campo = CAMPOS_TURMA.find((nome) => erros[nome]);
-    if (campo) refs[campo].current?.focus();
-  }
+  const {
+    dados,
+    setDados,
+    errosCampos,
+    setErrosCampos,
+    enviandoRef,
+    refs,
+    alterar,
+    focarPrimeiroInvalido,
+  } = useCamposFormulario(
+    vazio,
+    CAMPOS_TURMA,
+    {
+      aoAlterarCampo: () => {
+        // Turma repetida envolve os três campos: alterar qualquer um limpa o aviso.
+        setConflito('');
+      },
+    },
+  );
 
   async function aoEnviar(evento) {
     evento.preventDefault();

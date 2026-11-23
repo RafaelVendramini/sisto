@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ORIENTACAO_COMUNICACAO,
   TAMANHO_MAXIMO_DESTINATARIO_MEIO,
@@ -12,6 +12,7 @@ import {
 import { registrarComunicacao } from '../services/ocorrencias.js';
 import AvisoSessaoExpirada, { sessaoExpirou } from './AvisoSessaoExpirada.jsx';
 import Dialogo, { useConfirmacaoDescarte } from './Dialogo.jsx';
+import { exibirFalha, useCarregamento } from './useCarregamento.js';
 
 const PREFIXO = 'comunicacao';
 const ID_DIALOGO = 'dialogo-comunicacao';
@@ -67,20 +68,13 @@ export default function RegistrarComunicacao({
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
 
-  const montado = useRef(true);
+  const { montado } = useCarregamento();
   const refs = {
     destinatario: useRef(null),
     meio: useRef(null),
     descricao: useRef(null),
     dataHora: useRef(null),
   };
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
 
   function alterar(campo) {
     return (evento) => {
@@ -148,7 +142,7 @@ export default function RegistrarComunicacao({
       enviandoRef.current = false;
       if (!montado.current) return;
       setEnviando(false);
-      if (falha?.status === 401) return; // tratamento central: volta ao login com aviso
+      if (!exibirFalha(falha)) return; // tratamento central: volta ao login com aviso
       setErro(mensagemErroComunicacao(falha));
       setPedeAtualizacao(comunicacaoPedeAtualizacao(falha));
     }

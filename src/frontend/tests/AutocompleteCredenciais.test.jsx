@@ -3,7 +3,7 @@
 // Verifica o atributo autocomplete de cada campo (o comportamento real do
 // navegador é conferido manualmente). API mockada, somente dados fictícios (RN05).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 
@@ -43,6 +43,8 @@ describe('Preenchimento automático de credenciais (#56)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();

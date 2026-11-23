@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   PERGUNTA_ENCERRAMENTO,
   atualizacaoOcorrenciaPedeAtualizacao,
@@ -6,6 +6,7 @@ import {
 } from '../services/mensagensOcorrencias.js';
 import { encerrarOcorrencia } from '../services/ocorrencias.js';
 import Dialogo from './Dialogo.jsx';
+import { exibirFalha, useCarregamento } from './useCarregamento.js';
 
 const ID_DIALOGO = 'dialogo-encerramento';
 
@@ -34,15 +35,8 @@ export default function EncerrarOcorrencia({
   const [pedeAtualizacao, setPedeAtualizacao] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const enviandoRef = useRef(false);
-  const montado = useRef(true);
+  const { montado } = useCarregamento();
   const cancelarRef = useRef(null);
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
 
   function cancelar() {
     if (enviandoRef.current) return;
@@ -67,7 +61,7 @@ export default function EncerrarOcorrencia({
       enviandoRef.current = false;
       if (!montado.current) return;
       setEnviando(false);
-      if (falha?.status === 401) return; // tratamento central: volta ao login com aviso
+      if (!exibirFalha(falha)) return; // tratamento central: volta ao login com aviso
       setErro(mensagemErroEncerramento(falha));
       setPedeAtualizacao(atualizacaoOcorrenciaPedeAtualizacao(falha));
     }

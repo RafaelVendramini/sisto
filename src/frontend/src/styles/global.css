@@ -978,6 +978,17 @@ h2 {
   accent-color: var(--cor-primaria);
 }
 
+/* Durante o envio, a caixa fica só leitura (aria-disabled, sem `disabled`,
+   para continuar no foco do teclado): o visual acompanha o dos botões. */
+.opcao-turmas-anteriores__rotulo:has(input[aria-disabled='true']) {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.opcao-turmas-anteriores__rotulo input[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 .selecao-estudantes__itens {
   display: flex;
   flex-direction: column;

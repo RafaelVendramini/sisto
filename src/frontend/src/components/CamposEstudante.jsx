@@ -5,7 +5,11 @@ import {
   rotuloOpcaoTutor,
   rotuloTurma,
 } from '../services/mensagensEstudantes.js';
-import { anoLetivoAtual, filtrarTurmasPorAnoLetivo } from '../services/turmasAnoLetivo.js';
+import {
+  anoLetivoAtual,
+  filtrarTurmasPorAnoLetivo,
+  temTurmasAnteriores,
+} from '../services/turmasAnoLetivo.js';
 import OpcaoTurmasAnteriores from './OpcaoTurmasAnteriores.jsx';
 
 /** Ordem dos campos na tela (usada para focar o primeiro campo com erro). */
@@ -140,13 +144,16 @@ export default function CamposEstudante({
           Obrigatório.
         </span>
         {mensagemCampo('turmaId')}
-        <OpcaoTurmasAnteriores
-          id={`${prefixo}-mostrarTurmasAnteriores`}
-          marcado={mostrarTurmasAnteriores}
-          aoAlterar={setMostrarTurmasAnteriores}
-          anoAtual={anoAtual}
-          somenteLeitura={somenteLeitura}
-        />
+        {/* Sem turma de ano anterior, a caixa não teria efeito: não aparece. */}
+        {temTurmasAnteriores(turmas, anoAtual) && (
+          <OpcaoTurmasAnteriores
+            id={`${prefixo}-mostrarTurmasAnteriores`}
+            marcado={mostrarTurmasAnteriores}
+            aoAlterar={setMostrarTurmasAnteriores}
+            anoAtual={anoAtual}
+            somenteLeitura={somenteLeitura}
+          />
+        )}
       </div>
 
       <div className="campo">

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { atualizarCategoria } from '../services/categorias.js';
 import {
   ehConflitoDeNome,
@@ -10,6 +10,7 @@ import {
 } from '../services/mensagensCategorias.js';
 import CamposCategoria from './CamposCategoria.jsx';
 import Dialogo from './Dialogo.jsx';
+import { useCamposFormulario } from './useCamposFormulario.js';
 
 const ORDEM_CAMPOS = ['nome', 'descricao'];
 const MENSAGEM_SEM_ALTERACAO =
@@ -34,35 +35,24 @@ export default function FormularioEdicaoCategoria({
   aoRestaurarFoco,
   aoListaDesatualizada,
 }) {
-  const [dados, setDados] = useState({
-    nome: categoria.nome ?? '',
-    descricao: categoria.descricao ?? '',
-  });
-  const [errosCampos, setErrosCampos] = useState({});
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const enviandoRef = useRef(false);
 
-  const refs = { nome: useRef(null), descricao: useRef(null) };
-
-  function alterar(campo) {
-    return (evento) => {
-      if (enviandoRef.current) return; // campos travados durante o envio
-      const { value } = evento.target;
-      setDados((atual) => ({ ...atual, [campo]: value }));
-      // Ao corrigir o campo, a mensagem de erro dele (e o aria-invalid) some.
-      setErrosCampos((atual) => {
-        if (!atual[campo]) return atual;
-        const { [campo]: _removido, ...restantes } = atual;
-        return restantes;
-      });
-    };
-  }
-
-  function focarPrimeiroInvalido(erros) {
-    const campo = ORDEM_CAMPOS.find((nome) => erros[nome]);
-    if (campo) refs[campo].current?.focus();
-  }
+  const {
+    dados,
+    errosCampos,
+    setErrosCampos,
+    enviandoRef,
+    refs,
+    alterar,
+    focarPrimeiroInvalido,
+  } = useCamposFormulario(
+    {
+      nome: categoria.nome ?? '',
+      descricao: categoria.descricao ?? '',
+    },
+    ORDEM_CAMPOS,
+  );
 
   function cancelar() {
     if (enviandoRef.current) return;
