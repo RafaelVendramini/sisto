@@ -78,11 +78,27 @@ info:
       RN13, RN15, RN16, RN23) e
       conflito concorrente (transação serializável repetida sem sucesso —
       mensagem para tentar de novo);
+    * **413** corpo acima do limite (512 kB; 10 kB no `POST /auth/login`) —
+      `O corpo da requisição passa do tamanho máximo permitido.` (resposta
+      `CorpoGrandeDemais`);
+    * **415** corpo em codificação de caracteres diferente de UTF-8
+      (`charset` do `Content-Type`) ou com `Content-Encoding` não suportado,
+      com mensagem em português (resposta `CodificacaoNaoSuportada`);
     * **429** limite de tentativas do login ou da troca de senha excedido;
     * **500** `{ "erro": "Erro interno do servidor" }`, sem detalhes.
 
-    Nota técnica: o corpo JSON é lido pelo `express.json()` com o limite
-    padrão de 100 kB; acima dele a resposta é 413, no mesmo formato `Erro`.
+    **Limite do corpo (Issue #128).** O corpo JSON é lido pelo
+    `express.json()` com limite de **512 kB** (524.288 bytes) em todas as
+    rotas, exceto o `POST /auth/login`, rota anônima, que aceita até
+    **10 kB** (um login legítimo fica em cerca de 1 kB). O maior corpo válido
+    pelos limites da Seção 11 do SSD, sem espaços nas pontas dos textos nem
+    campos extras (o que o front-end envia), é o do `POST /ocorrencias`: 15
+    textos de até 5000 caracteres (5 da ocorrência e 10 observações de
+    encaminhamento) e o local (150), ou seja, 75.150 unidades UTF-16; com até
+    6 bytes por unidade (caractere escapado como `\uXXXX`) e cerca de 2 kB do
+    restante do corpo, chega a ~453 kB. Acima do limite, a resposta é
+    **413**, no formato `Erro`. Outros erros de leitura do corpo também
+    respondem em português, no formato `Erro`.
 
     **Exemplos.** Todos os nomes, e-mails e códigos dos exemplos são
     fictícios (RN05 / LGPD).
@@ -182,6 +198,10 @@ paths:
                 $ref: '#/components/schemas/Erro'
               example:
                 erro: E-mail ou senha inválidos.
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
         '429':
           $ref: '#/components/responses/MuitasTentativasLogin'
 
@@ -277,6 +297,10 @@ paths:
               example:
                 erro: A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.
                 codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
         '429':
           $ref: '#/components/responses/MuitasTentativas'
 
@@ -401,6 +425,10 @@ paths:
               example:
                 erro: Já existe um usuário cadastrado com este e-mail.
                 codigo: EMAIL_DUPLICADO
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /usuarios/{id}:
     put:
@@ -508,6 +536,10 @@ paths:
                   value:
                     erro: O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /usuarios/{id}/senha:
     put:
@@ -569,6 +601,10 @@ paths:
                   value:
                     erro: A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /turmas:
     get:
@@ -642,6 +678,10 @@ paths:
           $ref: '#/components/responses/Proibido'
         '409':
           $ref: '#/components/responses/ConflitoTurma'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /turmas/{id}:
     put:
@@ -695,6 +735,10 @@ paths:
                 erro: Turma não encontrada.
         '409':
           $ref: '#/components/responses/ConflitoTurma'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /estudantes:
     get:
@@ -833,6 +877,10 @@ paths:
           $ref: '#/components/responses/Proibido'
         '409':
           $ref: '#/components/responses/ConflitoEstudante'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /estudantes/{id}:
     put:
@@ -894,6 +942,10 @@ paths:
                 erro: Estudante não encontrado.
         '409':
           $ref: '#/components/responses/ConflitoEstudante'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /categorias:
     get:
@@ -963,6 +1015,10 @@ paths:
           $ref: '#/components/responses/Proibido'
         '409':
           $ref: '#/components/responses/ConflitoCategoria'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /categorias/{id}:
     put:
@@ -1014,6 +1070,10 @@ paths:
                 erro: Categoria não encontrada.
         '409':
           $ref: '#/components/responses/ConflitoCategoria'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias:
     post:
@@ -1161,6 +1221,10 @@ paths:
               example:
                 erro: Não foi possível registrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.
                 codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
     get:
       tags: [Ocorrências]
       summary: Consultar ocorrências com filtros e paginação
@@ -1414,6 +1478,10 @@ paths:
                   value:
                     erro: Não foi possível registrar o encaminhamento por causa de outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias/{id}/comunicacoes:
     post:
@@ -1481,6 +1549,10 @@ paths:
                   value:
                     erro: Não foi possível registrar a comunicação por causa de outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias/{id}/providencias:
     post:
@@ -1546,6 +1618,10 @@ paths:
                   value:
                     erro: Não foi possível registrar a providência por causa de outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias/{id}/status:
     patch:
@@ -1629,6 +1705,10 @@ paths:
                   value:
                     erro: Não foi possível encerrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias/{id}/historico:
     get:
@@ -1890,6 +1970,41 @@ components:
             $ref: '#/components/schemas/Erro'
           example:
             erro: Informe nome (texto não vazio).
+    CorpoGrandeDemais:
+      description: |
+        Corpo da requisição acima do limite do leitor de JSON (Issue #128):
+        512 kB (524.288 bytes) em todas as rotas, exceto o `POST /auth/login`,
+        que aceita até 10 kB (10.240 bytes) por ser anônimo — um login
+        legítimo fica em cerca de 1 kB. O limite de 512 kB cobre, com folga, o
+        maior corpo válido pelos limites da Seção 11 do SSD, sem espaços nas
+        pontas dos textos nem campos extras (o que o front-end envia): o do
+        `POST /ocorrencias`, cerca de 453 kB no pior caso. Como o corpo é
+        lido antes da autenticação, esta resposta pode vir antes do 401.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: O corpo da requisição passa do tamanho máximo permitido.
+    CodificacaoNaoSuportada:
+      description: |
+        Corpo em codificação de caracteres diferente de UTF-8 (`charset` do
+        `Content-Type`, ex.: `application/json; charset=latin1`) ou com
+        `Content-Encoding` não suportado (Issue #128). Como o corpo é lido
+        antes da autenticação, esta resposta pode vir antes do 401.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          examples:
+            charset:
+              summary: Charset diferente de UTF-8
+              value:
+                erro: Codificação de caracteres não suportada no corpo da requisição. Use UTF-8.
+            contentEncoding:
+              summary: Content-Encoding não suportado
+              value:
+                erro: Compressão (Content-Encoding) não suportada no corpo da requisição.
     NaoAutenticado:
       description: |
         Token ausente, malformado, inválido ou expirado; usuário inexistente,

@@ -623,10 +623,10 @@ describe('QA — validação do corpo', () => {
     expect(mocks.$transaction).not.toHaveBeenCalled();
   });
 
-  it('corpo muito grande (acima do limite do express.json) responde 413, não 500', async () => {
-    const res = await providenciar(O_ACOMPANHAMENTO, { descricao: 'z'.repeat(200_000) });
+  it('corpo muito grande (acima do limite de 512 kB do express.json — Issue #128) responde 413, não 500', async () => {
+    const res = await providenciar(O_ACOMPANHAMENTO, { descricao: 'z'.repeat(600_000) });
     expect(res.status).toBe(413);
-    expect(res.body).toHaveProperty('erro');
+    expect(res.body).toEqual({ erro: 'O corpo da requisição passa do tamanho máximo permitido.' });
     esperarNadaGravado();
   });
 

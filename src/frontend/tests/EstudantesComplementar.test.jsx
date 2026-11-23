@@ -267,29 +267,36 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
     });
   });
 
-  describe('falha de GET /usuarios (d)', () => {
-    it('403 em /usuarios: lista carrega, cadastro mostra aviso e "Tentar novamente"', async () => {
+  // #128: com Promise.allSettled, a falha só do GET /usuarios não trava o
+  // cadastro: as turmas carregam, o formulário aparece "Sem tutor" e um aviso
+  // explica o que não carregou.
+  describe('falha de GET /usuarios (d, #128)', () => {
+    const AVISO_TUTORES =
+      'Não foi possível carregar a lista de tutores. Você pode cadastrar o estudante "Sem tutor" ' +
+      'e vincular o tutor depois, em "Editar".';
+
+    it('403 em /usuarios: lista e formulário carregam, com aviso sobre os tutores', async () => {
       mockarApi({ usuarios: () => respostaFalsa(403, { erro: MSG_SEM_PERMISSAO }) });
       renderizarApp('/estudantes');
 
       await screen.findByRole('table');
       const cadastro = screen.getByRole('region', { name: 'Cadastrar estudante' });
-      const alerta = await within(cadastro).findByRole('alert');
-      expect(alerta).toHaveTextContent(MSG_SEM_PERMISSAO);
-      expect(within(alerta).getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
-      expect(within(cadastro).queryByLabelText('Nome completo')).not.toBeInTheDocument();
+      expect(await within(cadastro).findByText(AVISO_TUTORES)).toBeInTheDocument();
+      expect(within(cadastro).queryByRole('alert')).not.toBeInTheDocument();
+      expect(within(cadastro).getByLabelText('Nome completo')).toBeInTheDocument();
+      expect(textosDasOpcoes(formularioCadastro().tutor)).toEqual(['Sem tutor']);
       expect(nomesNaTabela()).toHaveLength(3);
     });
 
-    it('comportamento atual: com /usuarios falhando, o filtro por turma também some (turmas descartadas)', async () => {
+    it('com /usuarios falhando, as turmas continuam no filtro e no cadastro', async () => {
       mockarApi({ usuarios: () => respostaFalsa(500, { erro: 'Erro interno do servidor.' }) });
       renderizarApp('/estudantes');
       await screen.findByRole('table');
-      await within(screen.getByRole('region', { name: 'Cadastrar estudante' })).findByRole('alert');
+      const cadastro = screen.getByRole('region', { name: 'Cadastrar estudante' });
+      await within(cadastro).findByText(AVISO_TUTORES);
 
-      // Achado não bloqueante: GET /turmas respondeu 200, mas o Promise.all
-      // descarta as turmas e o filtro não aparece.
-      expect(screen.queryByLabelText('Filtrar por turma')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Filtrar por turma')).toBeInTheDocument();
+      expect(textosDasOpcoes(formularioCadastro().turma).length).toBeGreaterThan(1);
     });
 
     it('com /usuarios falhando, a edição mantém turma e tutor atuais (bloqueado) e envia os 4 campos', async () => {
@@ -299,7 +306,9 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
       });
       renderizarApp('/estudantes');
       await screen.findByRole('table');
-      await within(screen.getByRole('region', { name: 'Cadastrar estudante' })).findByRole('alert');
+      await within(screen.getByRole('region', { name: 'Cadastrar estudante' })).findByText(
+        AVISO_TUTORES,
+      );
 
       await usuario.click(screen.getByRole('button', { name: 'Editar Estudante Fictício 02' }));
       const d = dialogoEdicao();
@@ -318,7 +327,7 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
       });
     });
 
-    it('após falha, "Tentar novamente" recarrega turmas e tutores e mostra o filtro', async () => {
+    it('"Carregar a lista de tutores" busca só os usuários e preserva o que foi digitado', async () => {
       let tentativa = 0;
       mockarApi({
         usuarios: () => {
@@ -328,15 +337,22 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
       });
       renderizarApp('/estudantes');
       const cadastro = screen.getByRole('region', { name: 'Cadastrar estudante' });
-      const alerta = await within(cadastro).findByRole('alert');
-      await usuario.click(within(alerta).getByRole('button', { name: 'Tentar novamente' }));
+      await within(cadastro).findByText(AVISO_TUTORES);
+      await usuario.type(formularioCadastro().nome, 'Estudante Fictício 00');
+      const turmasAntes = chamadas('GET').filter(([url]) => url.endsWith('/turmas')).length;
 
-      expect(await screen.findByLabelText('Filtrar por turma')).toBeInTheDocument();
-      expect(textosDasOpcoes(formularioCadastro().tutor)).toEqual([
-        'Sem tutor',
-        'Tutor Fictício Ativo',
-        'Tutora Fictícia Dois',
-      ]);
+      await usuario.click(within(cadastro).getByRole('button', { name: 'Carregar a lista de tutores' }));
+
+      await waitFor(() =>
+        expect(textosDasOpcoes(formularioCadastro().tutor)).toEqual([
+          'Sem tutor',
+          'Tutor Fictício Ativo',
+          'Tutora Fictícia Dois',
+        ]),
+      );
+      expect(within(cadastro).queryByText(AVISO_TUTORES)).not.toBeInTheDocument();
+      expect(formularioCadastro().nome).toHaveValue('Estudante Fictício 00');
+      expect(chamadas('GET').filter(([url]) => url.endsWith('/turmas'))).toHaveLength(turmasAntes);
     });
   });
 

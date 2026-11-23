@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { definirAoNaoAutenticado, definirAoTrocaSenhaPendente } from '../services/api.js';
 import * as auth from '../services/auth.js';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
+import { estadoVoltarPara } from '../services/destinoLogin.js';
 
 export const AVISO_SESSAO_ENCERRADA =
   'Sua sessão expirou ou seu acesso foi encerrado. Entre novamente.';
@@ -17,21 +18,30 @@ const SessaoContexto = createContext(null);
  * Também concentra a troca de senha obrigatória (RN10): enquanto ela estiver
  * pendente, o app só mostra a tela de troca; o 403 de troca pendente vindo
  * de qualquer chamada leva a essa tela.
+ * Ao voltar ao login por sessão vencida, guarda em `state.de` a tela de origem
+ * (caminho + busca), para que a pessoa volte a ela depois de entrar (#128).
  */
 export function SessaoProvider({ children }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Tela atual (caminho + busca), lida no momento do redirecionamento ao login.
+  const localAtual = useRef(location);
   const [usuario, setUsuario] = useState(() => auth.obterUsuario());
   const [trocaSenhaPendente, setTrocaSenhaPendente] = useState(() => auth.trocaSenhaPendente());
   // Aviso exibido na tela de login quando a sessão foi encerrada pelo sistema.
   const [aviso, setAviso] = useState('');
   // Confirmação exibida na tela de login (ex.: depois de trocar a senha — RN12).
   const [sucesso, setSucesso] = useState('');
+  // A pessoa saiu por vontade própria ("Sair" ou depois de trocar a senha):
+  // o login não guarda a tela de origem para voltar a ela (#128).
+  const [saiuDaConta, setSaiuDaConta] = useState(false);
 
   const entrar = useCallback(async (email, senha) => {
     const logado = await auth.login(email, senha);
     const pendente = auth.trocaSenhaPendente();
     setAviso('');
     setSucesso('');
+    setSaiuDaConta(false);
     setUsuario(logado);
     setTrocaSenhaPendente(pendente);
     return { usuario: logado, trocaSenhaObrigatoria: pendente };
@@ -45,6 +55,7 @@ export function SessaoProvider({ children }) {
     setTrocaSenhaPendente(false);
     setAviso(avisar ? AVISO_SESSAO_ENCERRADA : '');
     setSucesso('');
+    setSaiuDaConta(!avisar);
   }, []);
 
   // Reflete na hora (ex.: cabeçalho) a edição do próprio nome pela Gestão.
@@ -52,6 +63,17 @@ export function SessaoProvider({ children }) {
     const atualizado = auth.atualizarNomeNaSessao(nome);
     if (atualizado) setUsuario(atualizado);
   }, []);
+
+  useEffect(() => {
+    localAtual.current = location;
+  }, [location]);
+
+  // Sessão vencida: descarta a sessão e vai ao login com aviso, guardando a
+  // tela de origem para voltar a ela depois de entrar (#128).
+  const voltarAoLogin = useCallback(() => {
+    limparSessao(true);
+    navigate('/login', { replace: true, state: estadoVoltarPara(localAtual.current) });
+  }, [limparSessao, navigate]);
 
   const sair = useCallback(() => {
     limparSessao(false);
@@ -67,11 +89,8 @@ export function SessaoProvider({ children }) {
   }, [limparSessao, navigate]);
 
   useEffect(() => {
-    return definirAoNaoAutenticado(() => {
-      limparSessao(true);
-      navigate('/login', { replace: true });
-    });
-  }, [limparSessao, navigate]);
+    return definirAoNaoAutenticado(voltarAoLogin);
+  }, [voltarAoLogin]);
 
   useEffect(() => {
     return definirAoTrocaSenhaPendente(() => {
@@ -87,9 +106,11 @@ export function SessaoProvider({ children }) {
       trocaSenhaPendente,
       aviso,
       sucesso,
+      saiuDaConta,
       entrar,
       sair,
       limparSessao,
+      voltarAoLogin,
       atualizarNomeUsuario,
       concluirTrocaSenha,
     }),
@@ -98,9 +119,11 @@ export function SessaoProvider({ children }) {
       trocaSenhaPendente,
       aviso,
       sucesso,
+      saiuDaConta,
       entrar,
       sair,
       limparSessao,
+      voltarAoLogin,
       atualizarNomeUsuario,
       concluirTrocaSenha,
     ],

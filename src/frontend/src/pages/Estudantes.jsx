@@ -14,6 +14,10 @@ import { listarUsuarios } from '../services/usuarios.js';
 
 const MENSAGEM_GENERICA_LISTA = 'Não foi possível carregar a lista de estudantes agora.';
 const MENSAGEM_GENERICA_OPCOES = 'Não foi possível carregar as turmas e os tutores agora.';
+// Só a lista de usuários falhou (#128): o cadastro continua, sem a lista de tutores.
+export const AVISO_TUTORES_INDISPONIVEIS =
+  'Não foi possível carregar a lista de tutores. Você pode cadastrar o estudante "Sem tutor" ' +
+  'e vincular o tutor depois, em "Editar".';
 const ID_FILTRO = 'filtro-turma';
 const ID_TITULO_LISTA = 'titulo-lista-estudantes';
 
@@ -69,6 +73,8 @@ export default function Estudantes() {
   const [tutores, setTutores] = useState([]);
   const [opcoesCarregando, setOpcoesCarregando] = useState(true);
   const [opcoesErro, setOpcoesErro] = useState('');
+  const [tutoresIndisponiveis, setTutoresIndisponiveis] = useState(false);
+  const [tutoresCarregando, setTutoresCarregando] = useState(false);
 
   const [emEdicao, setEmEdicao] = useState(null);
   const [confirmacao, setConfirmacao] = useState('');
@@ -85,23 +91,47 @@ export default function Estudantes() {
     };
   }, []);
 
+  // As turmas são indispensáveis; a lista de tutores, não: com
+  // Promise.allSettled, a falha só do GET /usuarios não trava o cadastro (#128).
   const carregarOpcoes = useCallback(async () => {
     setOpcoesCarregando(true);
     setOpcoesErro('');
-    try {
-      const [listaTurmas, usuarios] = await Promise.all([listarTurmas(), listarUsuarios()]);
-      if (!montado.current) return;
-      setTurmas(listaTurmas);
-      setTutores(tutoresAtivos(usuarios));
-    } catch (falha) {
+    setTutoresIndisponiveis(false);
+    const [listaTurmas, usuarios] = await Promise.allSettled([listarTurmas(), listarUsuarios()]);
+    if (!montado.current) return;
+    if (listaTurmas.status === 'rejected') {
       // 401: o tratamento central já leva ao login com aviso.
-      if (montado.current && falha?.status !== 401) {
-        setOpcoesErro(mensagemErroCarga(falha, MENSAGEM_GENERICA_OPCOES));
+      if (listaTurmas.reason?.status !== 401) {
+        setOpcoesErro(mensagemErroCarga(listaTurmas.reason, MENSAGEM_GENERICA_OPCOES));
       }
-    } finally {
-      if (montado.current) setOpcoesCarregando(false);
+    } else {
+      setTurmas(listaTurmas.value);
     }
+    if (usuarios.status === 'fulfilled') {
+      setTutores(tutoresAtivos(usuarios.value));
+    } else {
+      setTutores([]);
+      if (usuarios.reason?.status !== 401) setTutoresIndisponiveis(true);
+    }
+    setOpcoesCarregando(false);
   }, []);
+
+  // Nova tentativa só da lista de tutores, sem esconder o formulário de cadastro
+  // (o que já foi digitado continua na tela).
+  async function recarregarTutores() {
+    if (tutoresCarregando) return;
+    setTutoresCarregando(true);
+    try {
+      const usuarios = await listarUsuarios();
+      if (!montado.current) return;
+      setTutores(tutoresAtivos(usuarios));
+      setTutoresIndisponiveis(false);
+    } catch {
+      // Continua o aviso; 401 vai para o tratamento central.
+    } finally {
+      if (montado.current) setTutoresCarregando(false);
+    }
+  }
 
   const buscar = useCallback(async ({ emSegundoPlano = false } = {}) => {
     const consulta = ++consultaAtual.current;
@@ -237,7 +267,24 @@ export default function Estudantes() {
         </p>
       );
     }
-    return <FormularioEstudante turmas={turmas} tutores={tutores} aoCadastrar={aoCadastrar} />;
+    return (
+      <>
+        {tutoresIndisponiveis && (
+          <div className="mensagem mensagem--aviso" role="status">
+            <p>{AVISO_TUTORES_INDISPONIVEIS}</p>
+            <button
+              type="button"
+              className="botao botao--secundario"
+              onClick={recarregarTutores}
+              aria-disabled={tutoresCarregando || undefined}
+            >
+              {tutoresCarregando ? 'Carregando...' : 'Carregar a lista de tutores'}
+            </button>
+          </div>
+        )}
+        <FormularioEstudante turmas={turmas} tutores={tutores} aoCadastrar={aoCadastrar} />
+      </>
+    );
   }
 
   const anoAtual = anoLetivoAtual();

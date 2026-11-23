@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AvisoSessaoExpirada, { sessaoExpirou } from '../components/AvisoSessaoExpirada.jsx';
 import ListaDestinatarios, {
   CAMPOS_DESTINATARIO,
   idCampoDestinatario,
@@ -29,7 +30,12 @@ import { anoLetivoAtual, filtrarTurmasPorAnoLetivo } from '../services/turmasAno
 import { listarUsuarios } from '../services/usuarios.js';
 
 const MENSAGEM_GENERICA_OPCOES =
-  'Não foi possível carregar as turmas, as categorias e os destinatários agora.';
+  'Não foi possível carregar as turmas e as categorias agora.';
+// Só a lista de usuários falhou (#128): o formulário continua utilizável.
+export const AVISO_USUARIOS_INDISPONIVEIS =
+  'Não foi possível carregar a lista de usuários. Você ainda pode encaminhar para toda a ' +
+  'equipe pedagógica ou para toda a gestão; para escolher um tutor ou uma pessoa da equipe, ' +
+  'tente carregar a lista de novo.';
 const ID_SUCESSO = 'ocorrencia-sucesso';
 
 // Ordem dos campos na tela (UC01), usada para focar o primeiro com erro.
@@ -102,6 +108,10 @@ export default function RegistrarOcorrencia() {
   );
   const [opcoesCarregando, setOpcoesCarregando] = useState(true);
   const [opcoesErro, setOpcoesErro] = useState('');
+  // A lista de usuários (GET /usuarios) é carregada à parte: se só ela falhar,
+  // o registro continua possível (#128).
+  const [usuariosIndisponiveis, setUsuariosIndisponiveis] = useState(false);
+  const [usuariosCarregando, setUsuariosCarregando] = useState(false);
 
   const [dados, setDados] = useState(dadosVazios);
   const [filtroTurma, setFiltroTurma] = useState('');
@@ -117,6 +127,8 @@ export default function RegistrarOcorrencia() {
   const [errosDestinatarios, setErrosDestinatarios] = useState({});
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  // Token vencido antes do envio (#128): nada é enviado nem apagado.
+  const [sessaoVencida, setSessaoVencida] = useState(false);
   const [enviando, setEnviando] = useState(false);
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
@@ -132,26 +144,49 @@ export default function RegistrarOcorrencia() {
     };
   }, []);
 
+  // Turmas e categorias são indispensáveis; a lista de usuários, não: com
+  // Promise.allSettled, a falha só dela deixa o formulário utilizável (#128).
   const carregarOpcoes = useCallback(async () => {
     setOpcoesCarregando(true);
     setOpcoesErro('');
-    try {
-      const [listaTurmas, listaCategorias, usuarios] = await Promise.all([
-        listarTurmas(),
-        listarCategorias(),
-        listarUsuarios(),
-      ]);
-      if (!montado.current) return;
-      setTurmas(listaTurmas);
-      setCategorias(listaCategorias);
-      setUsuariosPorDestinatario(separarUsuariosPorDestinatario(usuarios));
-    } catch (falha) {
+    setUsuariosIndisponiveis(false);
+    const [listaTurmas, listaCategorias, usuarios] = await Promise.allSettled([
+      listarTurmas(),
+      listarCategorias(),
+      listarUsuarios(),
+    ]);
+    if (!montado.current) return;
+    const falha = [listaTurmas, listaCategorias].find((r) => r.status === 'rejected')?.reason;
+    if (falha) {
       // 401: o tratamento central já leva ao login com aviso.
-      if (montado.current && falha?.status !== 401) setOpcoesErro(mensagemErroCarga(falha));
-    } finally {
-      if (montado.current) setOpcoesCarregando(false);
+      if (falha?.status !== 401) setOpcoesErro(mensagemErroCarga(falha));
+    } else {
+      setTurmas(listaTurmas.value);
+      setCategorias(listaCategorias.value);
     }
+    if (usuarios.status === 'fulfilled') {
+      setUsuariosPorDestinatario(separarUsuariosPorDestinatario(usuarios.value));
+    } else if (usuarios.reason?.status !== 401) {
+      setUsuariosIndisponiveis(true);
+    }
+    setOpcoesCarregando(false);
   }, []);
+
+  // Nova tentativa só da lista de usuários, sem esconder o formulário.
+  async function recarregarUsuarios() {
+    if (usuariosCarregando) return;
+    setUsuariosCarregando(true);
+    try {
+      const usuarios = await listarUsuarios();
+      if (!montado.current) return;
+      setUsuariosPorDestinatario(separarUsuariosPorDestinatario(usuarios));
+      setUsuariosIndisponiveis(false);
+    } catch {
+      // Continua o aviso; 401 vai para o tratamento central.
+    } finally {
+      if (montado.current) setUsuariosCarregando(false);
+    }
+  }
 
   useEffect(() => {
     carregarOpcoes();
@@ -304,6 +339,13 @@ export default function RegistrarOcorrencia() {
       focarPrimeiroInvalido(validacao.erros, validacao.errosDestinatarios);
       return;
     }
+
+    // Sessão vencida antes do envio: não envia nem limpa o formulário (#128).
+    if (sessaoExpirou()) {
+      setSessaoVencida(true);
+      return;
+    }
+    setSessaoVencida(false);
 
     enviandoRef.current = true;
     setEnviando(true);
@@ -524,18 +566,34 @@ export default function RegistrarOcorrencia() {
             Escolha ao menos um responsável interno para receber a ocorrência (tutor, equipe
             pedagógica ou gestão). O mesmo destinatário não pode ser repetido.
           </p>
+          {usuariosIndisponiveis && (
+            <div className="mensagem mensagem--aviso" role="status">
+              <p>{AVISO_USUARIOS_INDISPONIVEIS}</p>
+              <button
+                type="button"
+                className="botao botao--secundario"
+                onClick={recarregarUsuarios}
+                aria-disabled={usuariosCarregando || undefined}
+              >
+                {usuariosCarregando ? 'Carregando...' : 'Carregar a lista de usuários'}
+              </button>
+            </div>
+          )}
           <ListaDestinatarios
             destinatarios={destinatarios}
             aoAlterar={alterarDestinatario}
             aoAdicionar={adicionarDestinatario}
             aoRemover={removerDestinatario}
             usuariosPorDestinatario={usuariosPorDestinatario}
+            usuariosIndisponiveis={usuariosIndisponiveis}
             estudantesSelecionados={estudantes}
             erros={errosDestinatarios}
             erroGeral={erros.destinatarios}
             somenteLeitura={enviando}
           />
         </section>
+
+        {sessaoVencida && <AvisoSessaoExpirada />}
 
         {erro && (
           <p className="mensagem mensagem--erro" role="alert">
