@@ -31,14 +31,22 @@ export function criarApp({
   const app = express();
 
   app.disable('x-powered-by');
-  // Na homologação (Render), a API fica atrás de UM proxy reverso, que
-  // acrescenta o IP do cliente ao fim do X-Forwarded-For. Com 'trust proxy' = 1,
-  // req.ip é esse último endereço (o cliente visto pelo proxy), e não o IP do
-  // proxy; endereços que o próprio cliente inventar no começo do cabeçalho são
-  // ignorados. Sem isso, o limite de tentativas (Issue #90) contaria todos os
-  // usuários como um único IP. Não usar `true`: confiaria em qualquer
-  // X-Forwarded-For e permitiria trocar de IP a cada tentativa.
-  app.set('trust proxy', 1);
+  // Na homologação (Render), a requisição percorre a cadeia
+  //   cliente → borda Cloudflare do Render → balanceador interno do Render → API,
+  // conferida em 23/11/2026 pelo diagnóstico da Issue #127 (DIAGNOSTICO_PROXY=1):
+  // o X-Forwarded-For chega como "cliente, borda, balanceador" (3 endereços; os
+  // da borda e do balanceador mudam, mas são sempre 2 saltos depois do cliente).
+  // Com 'trust proxy' = 3, o Express confia no socket e nos 2 últimos endereços
+  // do cabeçalho, e req.ip passa a ser o 3º endereço contado do FIM: o cliente.
+  // Com 1, req.ip seria o balanceador e todos os usuários dividiriam o mesmo
+  // limite de tentativas (Issue #90).
+  // Um X-Forwarded-For forjado pelo cliente não engana: cada proxy ACRESCENTA
+  // ao fim do cabeçalho, então o que o cliente inventar fica no começo
+  // ("forjado, cliente, borda, balanceador") e a contagem a partir do fim
+  // continua chegando ao cliente real. Não usar `true`: confiaria em qualquer
+  // X-Forwarded-For e permitiria trocar de IP a cada tentativa. Se a cadeia do
+  // Render mudar, refazer a conferência com o diagnóstico antes de alterar.
+  app.set('trust proxy', 3);
   // Limitadores de tentativas com falha (login e troca de senha), um conjunto
   // por app: o contador fica em memória (Seção 10).
   app.locals[CHAVE_LIMITADORES] = criarLimitadoresTentativas(limiteTentativas);
