@@ -172,28 +172,35 @@ describe('/saude e o limite de tentativas (Issue #138)', () => {
 });
 
 describe('/saude e o CORS (Issue #138)', () => {
+  // App com a allowlist FIXA: o teste não pode depender do CORS_ORIGIN do
+  // ambiente. No build do Render, o npm test roda com o CORS_ORIGIN de
+  // produção (só o endereço do front publicado), e um teste que usasse o app
+  // padrão com http://localhost:5173 falharia (foi o que derrubou o primeiro
+  // deploy da #138).
+  const appCors = criarApp({ cors: { corsOrigin: ORIGEM_PERMITIDA, ambiente: 'test' } });
+
   it('cron sem cabeçalho Origin recebe 200 (sem Access-Control-Allow-Origin)', async () => {
-    const res = await request(app).get('/saude');
+    const res = await request(appCors).get('/saude');
 
     expect(res.status).toBe(200);
     expect(res.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   it('origem permitida recebe Access-Control-Allow-Origin', async () => {
-    const res = await request(app).get('/saude').set('Origin', ORIGEM_PERMITIDA);
+    const res = await request(appCors).get('/saude').set('Origin', ORIGEM_PERMITIDA);
 
     expect(res.status).toBe(200);
     expect(res.headers['access-control-allow-origin']).toBe(ORIGEM_PERMITIDA);
   });
 
   it('origem fora da allowlist não recebe Access-Control-Allow-Origin', async () => {
-    const res = await request(app).get('/saude').set('Origin', 'https://site-ficticio.exemplo');
+    const res = await request(appCors).get('/saude').set('Origin', 'https://site-ficticio.exemplo');
 
     expect(res.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   it('preflight OPTIONS segue a regra das demais rotas (204, no-store)', async () => {
-    const res = await request(app)
+    const res = await request(appCors)
       .options('/saude')
       .set('Origin', ORIGEM_PERMITIDA)
       .set('Access-Control-Request-Method', 'GET');
