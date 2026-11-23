@@ -310,6 +310,34 @@ p {
   border: 0;
 }
 
+/* "Pular para o conteúdo" (#128): fora da tela até receber o foco pelo teclado. */
+.pular-conteudo {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 200;
+  padding: 0.75rem 1rem;
+  border-radius: var(--raio);
+  background-color: var(--cor-primaria);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.pular-conteudo:focus {
+  transform: none;
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+/* Foco levado pelo app ao conteúdo ou ao título da página (troca de página):
+   sem contorno, pois não são elementos de ação. */
+.layout__principal:focus,
+.layout__principal h1[tabindex='-1']:focus {
+  outline: none;
+}
+
 h2 {
   margin: 0 0 0.75rem;
   font-size: 1.25rem;
@@ -917,6 +945,50 @@ h2 {
   accent-color: var(--cor-primaria);
 }
 
+/* Caixa "Mostrar turmas de anos anteriores" (Issue #134). */
+.opcao-turmas-anteriores {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.opcao-turmas-anteriores__rotulo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+/* Dentro de .campo, o rótulo da caixa não fica em negrito e a caixa não
+   herda o tamanho e a borda dos campos de texto. */
+.campo .opcao-turmas-anteriores__rotulo {
+  font-weight: 400;
+}
+
+.opcao-turmas-anteriores__rotulo input,
+.campo .opcao-turmas-anteriores__rotulo input {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--cor-primaria);
+}
+
+/* Durante o envio, a caixa fica só leitura (aria-disabled, sem `disabled`,
+   para continuar no foco do teclado): o visual acompanha o dos botões. */
+.opcao-turmas-anteriores__rotulo:has(input[aria-disabled='true']) {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.opcao-turmas-anteriores__rotulo input[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 .selecao-estudantes__itens {
   display: flex;
   flex-direction: column;
@@ -1391,7 +1463,8 @@ a.botao {
 
 .filtros-ocorrencias__campos {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr): a coluna não cresce até a opção mais longa dos selects no celular (#143) */
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
@@ -1460,7 +1533,7 @@ a.botao {
   }
 
   .filtros-ocorrencias__campos {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .filtros-ocorrencias__grupo {

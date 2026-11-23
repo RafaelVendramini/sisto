@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { listarEstudantes } from '../services/estudantes.js';
-import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
+import { mensagemErroCarga } from '../services/mensagens.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
+import { exibirFalha, useCarregamento } from './useCarregamento.js';
 
 const MENSAGEM_GENERICA_LISTA = 'Não foi possível carregar os estudantes desta turma agora.';
-
-function mensagemErroCarga(falha) {
-  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
-  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
-  return MENSAGEM_GENERICA_LISTA;
-}
 
 /**
  * Guarda só o necessário para o registro (minimização, LGPD): id, nome,
@@ -58,19 +53,11 @@ export default function SelecaoEstudantes({
   const [carregando, setCarregando] = useState(false);
   const [erroCarga, setErroCarga] = useState('');
 
-  const montado = useRef(true);
   // Só a resposta da consulta mais recente atualiza a lista (troca rápida de filtro).
-  const consultaAtual = useRef(0);
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
+  const { novaRequisicao } = useCarregamento();
 
   const carregar = useCallback(async (turmaId) => {
-    const consulta = ++consultaAtual.current;
+    const vigente = novaRequisicao();
     if (!turmaId) {
       setEstudantes([]);
       setErroCarga('');
@@ -81,19 +68,19 @@ export default function SelecaoEstudantes({
     setErroCarga('');
     try {
       const lista = await listarEstudantes({ turmaId });
-      if (montado.current && consulta === consultaAtual.current) {
+      if (vigente()) {
         setEstudantes(lista.map(camposUsados));
       }
     } catch (falha) {
       // 401: o tratamento central já leva ao login com aviso.
-      if (montado.current && consulta === consultaAtual.current && falha?.status !== 401) {
+      if (vigente() && exibirFalha(falha)) {
         setEstudantes([]);
-        setErroCarga(mensagemErroCarga(falha));
+        setErroCarga(mensagemErroCarga(falha, MENSAGEM_GENERICA_LISTA));
       }
     } finally {
-      if (montado.current && consulta === consultaAtual.current) setCarregando(false);
+      if (vigente()) setCarregando(false);
     }
-  }, []);
+  }, [novaRequisicao]);
 
   useEffect(() => {
     carregar(filtroTurma);

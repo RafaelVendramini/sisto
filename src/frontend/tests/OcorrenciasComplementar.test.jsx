@@ -570,7 +570,8 @@ describe('Lista e detalhe de ocorrências — complementar (#48)', () => {
       });
 
       const faixa = await screen.findByText('Ocorrência nº 12 registrada com sucesso.');
-      expect(faixa).toHaveFocus();
+      // O foco vem de um efeito que roda depois do texto aparecer.
+      await waitFor(() => expect(faixa).toHaveFocus());
       expect(screen.getAllByText('Ocorrência nº 12 registrada com sucesso.')).toHaveLength(1);
       await waitFor(() => expect(screen.getByTestId('estado-navegacao')).toHaveTextContent('null'));
       expect(await screen.findByText('Local fictício 12')).toBeInTheDocument();
@@ -620,6 +621,12 @@ describe('Registro -> detalhe -> lista, ponta a ponta (#46 + #48)', () => {
   let usuario;
 
   beforeEach(() => {
+    // Relógio fixo em 2026 (Issue #134): a turma fictícia é de 2026 e, com o
+    // filtro padrão por ano letivo, sumiria da lista a partir de 2027; a data
+    // do fato (20/10/2026) também precisa continuar no passado. Só o Date é
+    // simulado; os temporizadores continuam reais.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-23T13:00:00.000Z'));
     sessionStorage.clear();
     localStorage.clear();
     vi.stubEnv('VITE_API_URL', URL_API);
@@ -629,6 +636,7 @@ describe('Registro -> detalhe -> lista, ponta a ponta (#46 + #48)', () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -693,7 +701,9 @@ describe('Registro -> detalhe -> lista, ponta a ponta (#46 + #48)', () => {
     await usuario.selectOptions(within(grupo).getByLabelText('Encaminhar para'), 'Equipe pedagógica');
     await usuario.click(screen.getByRole('button', { name: 'Registrar ocorrência' }));
 
-    expect(await screen.findByText('Ocorrência nº 77 registrada com sucesso.')).toHaveFocus();
+    const faixa = await screen.findByText('Ocorrência nº 77 registrada com sucesso.');
+    // O foco vem de um efeito que roda depois do texto aparecer.
+    await waitFor(() => expect(faixa).toHaveFocus());
     expect(await screen.findByRole('heading', { level: 1, name: 'Ocorrência nº 77' })).toBeInTheDocument();
     const dados = screen.getByRole('region', { name: 'Dados da ocorrência' });
     expect(valorDe(dados, 'Local')).toHaveTextContent('Quadra fictícia');

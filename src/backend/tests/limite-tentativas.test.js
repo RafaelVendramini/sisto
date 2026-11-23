@@ -55,6 +55,18 @@ const EMAIL_INEXISTENTE = 'ninguem.limite@sisto.exemplo';
 // IPs de documentação (RFC 5737), fictícios.
 const IP_A = '203.0.113.10';
 const IP_B = '203.0.113.20';
+// Saltos fictícios da cadeia do Render (cliente → borda → balanceador → API):
+// 198.51.100.0/24 (RFC 5737) para a borda e 10.0.0.0/8 (rede privada) para o
+// balanceador interno. Mudam entre requisições, como no Render.
+const BORDA_1 = '198.51.100.35';
+const BORDA_2 = '198.51.100.69';
+const BALANCEADOR_1 = '10.0.0.91';
+const BALANCEADOR_2 = '10.0.0.140';
+
+/** X-Forwarded-For como chega à API no Render: "cliente, borda, balanceador". */
+function cadeiaRender(cliente, borda = BORDA_1, balanceador = BALANCEADOR_1) {
+  return `${cliente}, ${borda}, ${balanceador}`;
+}
 
 let hashSenha;
 let banco;
@@ -183,9 +195,9 @@ describe('Configuração (SSD 1.8, Seção 12)', () => {
     expect(JANELA_TENTATIVAS_MS).toBe(15 * 60 * 1000);
   });
 
-  it('trust proxy = 1 (um proxy reverso à frente, como no Render)', () => {
-    expect(app.get('trust proxy')).toBe(1);
-    expect(appPadrao.get('trust proxy')).toBe(1);
+  it('trust proxy = 3 (borda Cloudflare + balanceador interno, como no Render)', () => {
+    expect(app.get('trust proxy')).toBe(3);
+    expect(appPadrao.get('trust proxy')).toBe(3);
   });
 
   it('a chave do login normaliza o e-mail como o login faz', () => {
@@ -210,7 +222,8 @@ describe('Configuração (SSD 1.8, Seção 12)', () => {
   });
 
   it('e-mail muito longo: o limite vale e a resposta 429 não ecoa o e-mail', async () => {
-    const longo = `${'b'.repeat(50_000)}@sisto.exemplo`;
+    // Abaixo do limite de 10 kB do corpo do login (Issue #128).
+    const longo = `${'b'.repeat(8_000)}@sisto.exemplo`;
     await falharLogin(5, longo);
     const res = await login(`  ${longo.toUpperCase()} `, SENHA_ERRADA);
     esperar429(res);
@@ -480,27 +493,64 @@ describe('Demais rotas não são afetadas', () => {
 });
 
 describe('trust proxy com X-Forwarded-For', () => {
-  it('o IP considerado é o do cliente informado pelo proxy, não o da conexão', async () => {
-    // Todas as requisições chegam do mesmo socket (127.0.0.1); só o
-    // X-Forwarded-For muda. Se o limite usasse o IP da conexão, o IP_B
-    // também estaria barrado.
-    await falharLogin(5, EMAIL_PROFESSOR, { ip: IP_A });
-    esperar429(await login(EMAIL_PROFESSOR, SENHA_ERRADA, { ip: IP_A }));
-    const outroCliente = await login(EMAIL_PROFESSOR, SENHA_ERRADA, { ip: IP_B });
+  it('req.ip é o cliente na cadeia "cliente, borda, balanceador" (3º endereço do fim)', async () => {
+    const appIp = criarApp({
+      registrarRotasExtras: (a) => a.get('/ip', (req, res) => res.json({ ip: req.ip })),
+    });
+    // Rotas extras passam pela autenticação global: precisa de token.
+    const token = await tokenPorLogin(EMAIL_PROFESSOR, SENHA_CORRETA, { alvo: appIp });
+    const ipDe = async (xForwardedFor) => {
+      const req = request(appIp).get('/ip').set('Authorization', `Bearer ${token}`);
+      if (xForwardedFor !== undefined) req.set('X-Forwarded-For', xForwardedFor);
+      const res = await req;
+      expect(res.status).toBe(200);
+      return res.body.ip;
+    };
+
+    expect(await ipDe(cadeiaRender(IP_A))).toBe(IP_A);
+    expect(await ipDe(cadeiaRender(IP_A, BORDA_2, BALANCEADOR_2))).toBe(IP_A);
+    // Forjado no começo: continua o cliente real.
+    expect(await ipDe(`198.51.100.1, ${cadeiaRender(IP_A)}`)).toBe(IP_A);
+    // Sem X-Forwarded-For (local/testes): o IP da conexão.
+    expect(await ipDe()).toMatch(/127\.0\.0\.1|::1/);
+  });
+
+  it('separa dois clientes reais que passam pela mesma borda e pelo mesmo balanceador', async () => {
+    // Todas as requisições chegam do mesmo socket (127.0.0.1) e com os mesmos
+    // 2 saltos finais; só o cliente muda. Se o limite usasse o balanceador
+    // (trust proxy = 1) ou o IP da conexão, o IP_B também estaria barrado.
+    await falharLogin(5, EMAIL_PROFESSOR, { ip: cadeiaRender(IP_A) });
+    esperar429(await login(EMAIL_PROFESSOR, SENHA_ERRADA, { ip: cadeiaRender(IP_A) }));
+    const outroCliente = await login(EMAIL_PROFESSOR, SENHA_ERRADA, { ip: cadeiaRender(IP_B) });
     expect(outroCliente.status).toBe(401);
     expect(outroCliente.body).toEqual({ erro: MENSAGEM_CREDENCIAIS_INVALIDAS });
   });
 
-  it('só o último salto é confiável: endereço inventado no começo do cabeçalho não muda a chave', async () => {
-    await falharLogin(5, EMAIL_PROFESSOR, { ip: IP_A });
-    // O cliente tenta se passar por outro IP; o proxy acrescenta o IP real (IP_A) ao fim.
-    for (const falso of ['198.51.100.1', '198.51.100.2', '10.0.0.1']) {
-      const res = await login(EMAIL_PROFESSOR, SENHA_ERRADA, { ip: `${falso}, ${IP_A}` });
-      esperar429(res);
-    }
+  it('o mesmo cliente continua barrado quando a borda e o balanceador mudam', async () => {
+    await falharLogin(5, EMAIL_PROFESSOR, { ip: cadeiaRender(IP_A, BORDA_1, BALANCEADOR_1) });
+    esperar429(
+      await login(EMAIL_PROFESSOR, SENHA_ERRADA, {
+        ip: cadeiaRender(IP_A, BORDA_2, BALANCEADOR_2),
+      }),
+    );
   });
 
-  it('sem X-Forwarded-For, usa o IP da conexão', async () => {
+  it('X-Forwarded-For forjado ("forjado, cliente, borda, balanceador") ainda resulta no cliente real', async () => {
+    await falharLogin(5, EMAIL_PROFESSOR, { ip: cadeiaRender(IP_A) });
+    // O cliente inventa um endereço no começo; os proxies acrescentam ao fim,
+    // então a contagem a partir do fim continua chegando ao IP_A.
+    for (const forjado of ['198.51.100.1', IP_B, '10.0.0.1']) {
+      const res = await login(EMAIL_PROFESSOR, SENHA_ERRADA, {
+        ip: `${forjado}, ${cadeiaRender(IP_A)}`,
+      });
+      esperar429(res);
+    }
+    // E o forjado não "rouba" o limite de quem ele imitou: o IP_B real segue livre.
+    const real = await login(EMAIL_PROFESSOR, SENHA_ERRADA, { ip: cadeiaRender(IP_B) });
+    expect(real.status).toBe(401);
+  });
+
+  it('sem X-Forwarded-For (local e testes), usa o IP da conexão e o limite continua funcionando', async () => {
     for (let i = 0; i < 5; i += 1) {
       const res = await request(app)
         .post('/auth/login')
@@ -511,7 +561,9 @@ describe('trust proxy com X-Forwarded-For', () => {
       .post('/auth/login')
       .send({ email: EMAIL_PROFESSOR, senha: SENHA_ERRADA });
     esperar429(res);
-    // Um cliente atrás do proxy (outro IP) não é afetado.
-    expect((await login(EMAIL_PROFESSOR, SENHA_ERRADA, { ip: IP_A })).status).toBe(401);
+    // Um cliente atrás dos proxies (outro IP) não é afetado.
+    expect(
+      (await login(EMAIL_PROFESSOR, SENHA_ERRADA, { ip: cadeiaRender(IP_A) })).status,
+    ).toBe(401);
   });
 });

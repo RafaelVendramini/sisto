@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { atualizarEstudante } from '../services/estudantes.js';
 import {
   codigoParaEnvio,
@@ -12,6 +12,7 @@ import {
 } from '../services/mensagensEstudantes.js';
 import CamposEstudante, { CAMPOS_ESTUDANTE } from './CamposEstudante.jsx';
 import Dialogo from './Dialogo.jsx';
+import { useCamposFormulario } from './useCamposFormulario.js';
 
 const ID_CONFLITO = 'edicao-estudante-conflito';
 const MENSAGEM_SEM_ALTERACAO =
@@ -59,27 +60,36 @@ export default function FormularioEdicaoEstudante({
     [estudante],
   );
 
-  const [dados, setDados] = useState({
-    nomeCompleto: original.nomeCompleto,
-    codigoEscolar: original.codigoEscolar ?? '',
-    turmaId: original.turmaId == null ? '' : String(original.turmaId),
-    tutorId: original.tutorId == null ? '' : String(original.tutorId),
-  });
-  const [errosCampos, setErrosCampos] = useState({});
   const [erro, setErro] = useState('');
   const [conflito, setConflito] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const enviandoRef = useRef(false);
 
-  const refs = {
-    nomeCompleto: useRef(null),
-    codigoEscolar: useRef(null),
-    turmaId: useRef(null),
-    tutorId: useRef(null),
-  };
+  const {
+    dados,
+    errosCampos,
+    setErrosCampos,
+    enviandoRef,
+    refs,
+    alterar,
+    focarPrimeiroInvalido,
+  } = useCamposFormulario(
+    {
+      nomeCompleto: original.nomeCompleto,
+      codigoEscolar: original.codigoEscolar ?? '',
+      turmaId: original.turmaId == null ? '' : String(original.turmaId),
+      tutorId: original.tutorId == null ? '' : String(original.tutorId),
+    },
+    CAMPOS_ESTUDANTE,
+    {
+      aoAlterarCampo: (campo) => {
+        if (campo === 'codigoEscolar') setConflito('');
+      },
+    },
+  );
 
   // Turma atual sempre presente entre as opções (mesmo se a lista de turmas
-  // estiver desatualizada).
+  // estiver desatualizada). Se for de um ano anterior, continua na lista com o
+  // filtro padrão por ano letivo (decisão do Rafael, 23/11/2026 — Issue #134).
   const opcoesTurma = useMemo(() => {
     const atual = estudante.turma;
     if (!atual || turmas.some((t) => t.id === atual.id)) return turmas;
@@ -93,25 +103,6 @@ export default function FormularioEdicaoEstudante({
     if (!atual || tutores.some((t) => t.id === atual.id)) return tutores;
     return [atual, ...tutores];
   }, [estudante.tutor, tutores]);
-
-  function alterar(campo) {
-    return (evento) => {
-      if (enviandoRef.current) return; // campos travados durante o envio
-      const { value } = evento.target;
-      setDados((atual) => ({ ...atual, [campo]: value }));
-      setErrosCampos((atual) => {
-        if (!atual[campo]) return atual;
-        const { [campo]: _removido, ...restantes } = atual;
-        return restantes;
-      });
-      if (campo === 'codigoEscolar') setConflito('');
-    };
-  }
-
-  function focarPrimeiroInvalido(erros) {
-    const campo = CAMPOS_ESTUDANTE.find((nome) => erros[nome]);
-    if (campo) refs[campo].current?.focus();
-  }
 
   function cancelar() {
     if (enviandoRef.current) return;
@@ -204,6 +195,7 @@ export default function FormularioEdicaoEstudante({
           aoAlterar={alterar}
           refs={refs}
           turmas={opcoesTurma}
+          idsTurmasMantidas={original.turmaId == null ? [] : [original.turmaId]}
           tutores={opcoesTutor}
           idConflito={conflito ? ID_CONFLITO : undefined}
           somenteLeitura={enviando}

@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AvisoSessaoExpirada, { sessaoExpirou } from '../components/AvisoSessaoExpirada.jsx';
 import ListaDestinatarios, {
   CAMPOS_DESTINATARIO,
   idCampoDestinatario,
 } from '../components/ListaDestinatarios.jsx';
+import OpcaoTurmasAnteriores from '../components/OpcaoTurmasAnteriores.jsx';
 import SelecaoEstudantes from '../components/SelecaoEstudantes.jsx';
+import { exibirFalha, useCarregamento } from '../components/useCarregamento.js';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarCategorias } from '../services/categorias.js';
-import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
+import { mensagemErroCarga } from '../services/mensagens.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import {
   MAXIMO_DESTINATARIOS,
@@ -24,10 +27,20 @@ import {
 } from '../services/mensagensOcorrencias.js';
 import { registrarOcorrencia } from '../services/ocorrencias.js';
 import { listarTurmas } from '../services/turmas.js';
+import {
+  anoLetivoAtual,
+  filtrarTurmasPorAnoLetivo,
+  temTurmasAnteriores,
+} from '../services/turmasAnoLetivo.js';
 import { listarUsuarios } from '../services/usuarios.js';
 
 const MENSAGEM_GENERICA_OPCOES =
-  'Não foi possível carregar as turmas, as categorias e os destinatários agora.';
+  'Não foi possível carregar as turmas e as categorias agora.';
+// Só a lista de usuários falhou (#128): o formulário continua utilizável.
+export const AVISO_USUARIOS_INDISPONIVEIS =
+  'Não foi possível carregar a lista de usuários. Você ainda pode encaminhar para toda a ' +
+  'equipe pedagógica ou para toda a gestão; para escolher um tutor ou uma pessoa da equipe, ' +
+  'tente carregar a lista de novo.';
 const ID_SUCESSO = 'ocorrencia-sucesso';
 
 // Ordem dos campos na tela (UC01), usada para focar o primeiro com erro.
@@ -52,12 +65,6 @@ const CAMPOS_OPCIONAIS = Object.freeze([
   { campo: 'providenciasImediatas', rotulo: 'Providências imediatas (opcional)', ajuda: 'O que já foi feito no momento.' },
   { campo: 'observacoes', rotulo: 'Observações (opcional)', ajuda: '' },
 ]);
-
-function mensagemErroCarga(falha) {
-  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
-  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
-  return MENSAGEM_GENERICA_OPCOES;
-}
 
 /** Formulário vazio; a data e a hora sugeridas são as de agora em São Paulo (RN17). */
 function dadosVazios() {
@@ -100,12 +107,18 @@ export default function RegistrarOcorrencia() {
   );
   const [opcoesCarregando, setOpcoesCarregando] = useState(true);
   const [opcoesErro, setOpcoesErro] = useState('');
+  // A lista de usuários (GET /usuarios) é carregada à parte: se só ela falhar,
+  // o registro continua possível (#128).
+  const [usuariosIndisponiveis, setUsuariosIndisponiveis] = useState(false);
+  const [usuariosCarregando, setUsuariosCarregando] = useState(false);
 
   const [dados, setDados] = useState(dadosVazios);
   const [filtroTurma, setFiltroTurma] = useState('');
   // Enquanto o usuário não troca o filtro, ele acompanha a turma da ocorrência.
   const [filtroManual, setFiltroManual] = useState(false);
   const [estudantes, setEstudantes] = useState([]);
+  // Por padrão, só as turmas do ano letivo atual em diante (SSD 1.13, Issue #134).
+  const [mostrarTurmasAnteriores, setMostrarTurmasAnteriores] = useState(false);
   const proximaChave = useRef(2);
   const [destinatarios, setDestinatarios] = useState(() => [destinatarioVazio(1)]);
 
@@ -113,41 +126,59 @@ export default function RegistrarOcorrencia() {
   const [errosDestinatarios, setErrosDestinatarios] = useState({});
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
+  // Token vencido antes do envio (#128): nada é enviado nem apagado.
+  const [sessaoVencida, setSessaoVencida] = useState(false);
   const [enviando, setEnviando] = useState(false);
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
 
-  const montado = useRef(true);
+  const { montado } = useCarregamento();
   const refFiltro = useRef(null);
   const refSucesso = useRef(null);
 
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
-
+  // Turmas e categorias são indispensáveis; a lista de usuários, não: com
+  // Promise.allSettled, a falha só dela deixa o formulário utilizável (#128).
   const carregarOpcoes = useCallback(async () => {
     setOpcoesCarregando(true);
     setOpcoesErro('');
-    try {
-      const [listaTurmas, listaCategorias, usuarios] = await Promise.all([
-        listarTurmas(),
-        listarCategorias(),
-        listarUsuarios(),
-      ]);
-      if (!montado.current) return;
-      setTurmas(listaTurmas);
-      setCategorias(listaCategorias);
-      setUsuariosPorDestinatario(separarUsuariosPorDestinatario(usuarios));
-    } catch (falha) {
+    setUsuariosIndisponiveis(false);
+    const [listaTurmas, listaCategorias, usuarios] = await Promise.allSettled([
+      listarTurmas(),
+      listarCategorias(),
+      listarUsuarios(),
+    ]);
+    if (!montado.current) return;
+    const falha = [listaTurmas, listaCategorias].find((r) => r.status === 'rejected')?.reason;
+    if (falha) {
       // 401: o tratamento central já leva ao login com aviso.
-      if (montado.current && falha?.status !== 401) setOpcoesErro(mensagemErroCarga(falha));
-    } finally {
-      if (montado.current) setOpcoesCarregando(false);
+      if (exibirFalha(falha)) setOpcoesErro(mensagemErroCarga(falha, MENSAGEM_GENERICA_OPCOES));
+    } else {
+      setTurmas(listaTurmas.value);
+      setCategorias(listaCategorias.value);
     }
-  }, []);
+    if (usuarios.status === 'fulfilled') {
+      setUsuariosPorDestinatario(separarUsuariosPorDestinatario(usuarios.value));
+    } else if (exibirFalha(usuarios.reason)) {
+      setUsuariosIndisponiveis(true);
+    }
+    setOpcoesCarregando(false);
+  }, [montado]);
+
+  // Nova tentativa só da lista de usuários, sem esconder o formulário.
+  async function recarregarUsuarios() {
+    if (usuariosCarregando) return;
+    setUsuariosCarregando(true);
+    try {
+      const usuarios = await listarUsuarios();
+      if (!montado.current) return;
+      setUsuariosPorDestinatario(separarUsuariosPorDestinatario(usuarios));
+      setUsuariosIndisponiveis(false);
+    } catch {
+      // Continua o aviso; 401 vai para o tratamento central.
+    } finally {
+      if (montado.current) setUsuariosCarregando(false);
+    }
+  }
 
   useEffect(() => {
     carregarOpcoes();
@@ -177,6 +208,11 @@ export default function RegistrarOcorrencia() {
     if (enviandoRef.current) return;
     setFiltroManual(true);
     setFiltroTurma(valor);
+  }
+
+  function alterarMostrarTurmasAnteriores(marcado) {
+    if (enviandoRef.current) return;
+    setMostrarTurmasAnteriores(marcado);
   }
 
   function alternarEstudante(estudante) {
@@ -296,6 +332,13 @@ export default function RegistrarOcorrencia() {
       return;
     }
 
+    // Sessão vencida antes do envio: não envia nem limpa o formulário (#128).
+    if (sessaoExpirou()) {
+      setSessaoVencida(true);
+      return;
+    }
+    setSessaoVencida(false);
+
     enviandoRef.current = true;
     setEnviando(true);
     try {
@@ -308,7 +351,7 @@ export default function RegistrarOcorrencia() {
       limparFormulario();
       setSucesso(mensagemOcorrenciaRegistrada(criada?.id));
     } catch (falha) {
-      if (falha?.status === 401) return; // tratamento central: volta ao login com aviso
+      if (!exibirFalha(falha)) return; // tratamento central: volta ao login com aviso
       if (montado.current) setErro(mensagemErroRegistro(falha));
     } finally {
       enviandoRef.current = false;
@@ -340,6 +383,14 @@ export default function RegistrarOcorrencia() {
   }
 
   function formulario() {
+    const anoAtual = anoLetivoAtual();
+    // A turma da ocorrência e a do filtro de estudantes, se já escolhidas,
+    // continuam nas listas mesmo que sejam de um ano anterior.
+    const turmasVisiveis = filtrarTurmasPorAnoLetivo(turmas, {
+      mostrarAnteriores: mostrarTurmasAnteriores,
+      idsMantidos: [dados.turmaId, filtroTurma],
+      anoAtual,
+    });
     return (
       <form
         className="formulario registro-ocorrencia"
@@ -350,6 +401,16 @@ export default function RegistrarOcorrencia() {
       >
         <section className="registro-ocorrencia__secao" aria-labelledby="titulo-turma-estudantes">
           <h2 id="titulo-turma-estudantes">Turma e estudantes</h2>
+          {/* Sem turma de ano anterior, a caixa não teria efeito: não aparece. */}
+          {temTurmasAnteriores(turmas, anoAtual) && (
+            <OpcaoTurmasAnteriores
+              id="ocorrencia-mostrarTurmasAnteriores"
+              marcado={mostrarTurmasAnteriores}
+              aoAlterar={alterarMostrarTurmasAnteriores}
+              anoAtual={anoAtual}
+              somenteLeitura={enviando}
+            />
+          )}
           <div className="campo">
             <label htmlFor="ocorrencia-turmaId">Turma da ocorrência</label>
             <select
@@ -359,7 +420,7 @@ export default function RegistrarOcorrencia() {
               {...propsAcessibilidade('turmaId')}
             >
               <option value="">Selecione a turma</option>
-              {turmas.map((turma) => (
+              {turmasVisiveis.map((turma) => (
                 <option key={turma.id} value={String(turma.id)}>
                   {rotuloTurma(turma)}
                 </option>
@@ -373,7 +434,7 @@ export default function RegistrarOcorrencia() {
           </div>
 
           <SelecaoEstudantes
-            turmas={turmas}
+            turmas={turmasVisiveis}
             filtroTurma={filtroTurma}
             aoAlterarFiltro={alterarFiltro}
             turmaOcorrenciaId={dados.turmaId}
@@ -500,18 +561,34 @@ export default function RegistrarOcorrencia() {
             Escolha ao menos um responsável interno para receber a ocorrência (tutor, equipe
             pedagógica ou gestão). O mesmo destinatário não pode ser repetido.
           </p>
+          {usuariosIndisponiveis && (
+            <div className="mensagem mensagem--aviso" role="status">
+              <p>{AVISO_USUARIOS_INDISPONIVEIS}</p>
+              <button
+                type="button"
+                className="botao botao--secundario"
+                onClick={recarregarUsuarios}
+                aria-disabled={usuariosCarregando || undefined}
+              >
+                {usuariosCarregando ? 'Carregando...' : 'Carregar a lista de usuários'}
+              </button>
+            </div>
+          )}
           <ListaDestinatarios
             destinatarios={destinatarios}
             aoAlterar={alterarDestinatario}
             aoAdicionar={adicionarDestinatario}
             aoRemover={removerDestinatario}
             usuariosPorDestinatario={usuariosPorDestinatario}
+            usuariosIndisponiveis={usuariosIndisponiveis}
             estudantesSelecionados={estudantes}
             erros={errosDestinatarios}
             erroGeral={erros.destinatarios}
             somenteLeitura={enviando}
           />
         </section>
+
+        {sessaoVencida && <AvisoSessaoExpirada />}
 
         {erro && (
           <p className="mensagem mensagem--erro" role="alert">

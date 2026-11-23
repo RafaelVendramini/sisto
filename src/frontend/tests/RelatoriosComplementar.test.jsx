@@ -6,7 +6,7 @@
 // DOM (menu dentro do cabeçalho, alerta de erro fora da impressão).
 // Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 
@@ -84,6 +84,8 @@ describe('Relatórios — complementar do QA (#89)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();

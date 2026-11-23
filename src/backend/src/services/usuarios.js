@@ -25,28 +25,28 @@
 //   não bloqueia, desativa nem altera o próprio perfil (409).
 // - RN13 (Issue #44): o perfil de um usuário TUTOR com estudantes vinculados
 //   não pode ser alterado (409) até que os estudantes sejam desvinculados.
+// - RN23 (SSD 1.13, Issue #134): o perfil do responsável pelo acompanhamento
+//   de ocorrências não encerradas não pode mudar para PROFESSOR nem
+//   TECNICO_ADMINISTRATIVO (409) até a Gestão ou a Equipe Pedagógica trocar o
+//   responsável dessas ocorrências. A RN13 é verificada antes.
 //
 // Auditoria (Issue #91 — RNF04, RNF06): o cadastro grava "usuário criado" e a
 // edição (inclusive bloqueio, desativação e reativação) grava "usuário
 // editado", com recurso "usuarios/<id>" e usuario_id da Gestão logada, na
 // mesma transação da alteração (se o log falhar, a alteração é desfeita).
 // Operações recusadas (400, 403, 404, 409) não chegam a gravar o log.
-import { Perfil, Prisma, StatusUsuario } from '@prisma/client';
+import { Perfil, StatusOcorrencia, StatusUsuario } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { converterIdTexto } from '../lib/ids.js';
+import { garantirSemCaractereNulo } from '../lib/texto.js';
+import { emTransacaoSerializavel } from '../lib/transacao.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { normalizarEmail } from './email.js';
 import { gerarHashSenha, mensagemPoliticaSenha } from './senha.js';
 
 /** Nome do recurso na API, usado no LogAuditoria ("usuarios/<id>"). */
 export const RECURSO_USUARIOS = 'usuarios';
-
-/**
- * Campos usados do corpo do POST /usuarios. Outros campos são IGNORADOS
- * (decisão do Rafael na #12): o status é sempre ATIVO, o id vem do banco e o
- * senha_hash é sempre gerado a partir da senha.
- */
-export const CAMPOS_CADASTRO = Object.freeze(['nome', 'email', 'perfil', 'senha']);
 
 /** Perfis aceitos: os valores do enum Perfil (ex.: GESTAO, TECNICO_ADMINISTRATIVO). */
 export const PERFIS_VALIDOS = Object.freeze(Object.values(Perfil));
@@ -86,8 +86,12 @@ function ehTextoPreenchido(valor) {
 // Recebem um valor já verificado como texto não vazio (o cadastro verifica
 // isso antes, para listar todos os campos ausentes de uma vez).
 
-/** Nome: trim e limite técnico de tamanho. @returns {string} nome sem espaços nas pontas */
+/**
+ * Nome: sem U+0000 (Issue #127), trim e limite técnico de tamanho.
+ * @returns {string} nome sem espaços nas pontas
+ */
 function validarNome(nome) {
+  garantirSemCaractereNulo(nome);
   const nomeLimpo = nome.trim();
   if (nomeLimpo.length > TAMANHO_MAXIMO_NOME) {
     throw new ErroHttp(400, `O nome deve ter no máximo ${TAMANHO_MAXIMO_NOME} caracteres.`);
@@ -95,8 +99,12 @@ function validarNome(nome) {
   return nomeLimpo;
 }
 
-/** E-mail: normaliza (trim + minúsculas) e valida formato e tamanho. @returns {string} */
+/**
+ * E-mail: sem U+0000 (Issue #127; a regex de formato o aceitaria), normaliza
+ * (trim + minúsculas) e valida formato e tamanho. @returns {string}
+ */
 function validarEmail(email) {
+  garantirSemCaractereNulo(email);
   const emailNormalizado = normalizarEmail(email);
   if (emailNormalizado.length > TAMANHO_MAXIMO_EMAIL || !REGEX_EMAIL.test(emailNormalizado)) {
     throw new ErroHttp(400, 'Informe um e-mail em formato válido.');
@@ -122,8 +130,10 @@ export function validarCadastroUsuario(corpo) {
     throw new ErroHttp(400, 'Envie um objeto JSON com nome, email, perfil e senha.');
   }
 
-  // Somente os campos de CAMPOS_CADASTRO são lidos; qualquer outro (status,
-  // id, senha_hash, confirmarSenha...) é ignorado e nunca chega ao banco.
+  // Somente nome, email, perfil e senha são lidos; qualquer outro campo
+  // (status, id, senha_hash, confirmarSenha...) é IGNORADO e nunca chega ao
+  // banco (decisão do Rafael na #12): o status é sempre ATIVO, o id vem do
+  // banco e o senha_hash é sempre gerado a partir da senha.
   const { nome, email, perfil, senha } = corpo;
 
   const faltando = [];
@@ -304,12 +314,6 @@ export const CAMPOS_EDICAO = Object.freeze(['nome', 'email', 'perfil', 'status']
 /** Status aceitos: os valores do enum StatusUsuario (ATIVO, BLOQUEADO, DESATIVADO). */
 export const STATUS_VALIDOS = Object.freeze(Object.values(StatusUsuario));
 
-/** Maior valor de uma coluna Int do PostgreSQL (tipo do id, Seção 11). */
-const MAIOR_ID = 2_147_483_647;
-
-/** Tentativas da transação serializável antes de desistir com 409. */
-const TENTATIVAS_TRANSACAO = 3;
-
 export const MENSAGEM_ID_INVALIDO = 'Identificador de usuário inválido.';
 export const MENSAGEM_USUARIO_NAO_ENCONTRADO = 'Usuário não encontrado.';
 export const MENSAGEM_ALTERAR_PROPRIO_ACESSO =
@@ -322,6 +326,17 @@ export const MENSAGEM_MINIMO_GESTOES_ATIVAS =
 /** RN13: troca de perfil de um Tutor com estudantes vinculados (409). */
 export const MENSAGEM_TUTOR_COM_TUTORADOS =
   'Este usuário Tutor tem estudantes vinculados. Desvincule os estudantes (ou troque o tutor deles) antes de alterar o perfil.';
+/**
+ * RN23: perfis que não podem ser responsáveis pelo acompanhamento de uma
+ * ocorrência (só Tutor, Pedagógico e Gestão podem — RN15, RN22).
+ */
+export const PERFIS_SEM_ACOMPANHAMENTO = Object.freeze([
+  Perfil.PROFESSOR,
+  Perfil.TECNICO_ADMINISTRATIVO,
+]);
+/** RN23: mudança de perfil do responsável por ocorrências não encerradas (409). Sem dados de estudantes (RNF06). */
+export const MENSAGEM_RESPONSAVEL_COM_OCORRENCIAS =
+  'Este usuário é o responsável pelo acompanhamento de ocorrências que ainda não foram encerradas. Troque o responsável dessas ocorrências (por um novo encaminhamento) antes de alterar o perfil para Professor ou Técnico-administrativo.';
 export const MENSAGEM_CONFLITO_CONCORRENTE =
   'O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.';
 
@@ -333,14 +348,7 @@ export const MENSAGEM_CONFLITO_CONCORRENTE =
  * @throws {ErroHttp} 400
  */
 export function validarIdUsuario(valor) {
-  if (typeof valor !== 'string' || !/^[1-9][0-9]{0,9}$/.test(valor)) {
-    throw new ErroHttp(400, MENSAGEM_ID_INVALIDO);
-  }
-  const id = Number(valor);
-  if (id > MAIOR_ID) {
-    throw new ErroHttp(400, MENSAGEM_ID_INVALIDO);
-  }
-  return id;
+  return converterIdTexto(valor, MENSAGEM_ID_INVALIDO);
 }
 
 /**
@@ -436,6 +444,29 @@ async function verificarEAtualizar(tx, id, dados, solicitante) {
     }
   }
 
+  // RN23 — o responsável pelo acompanhamento de ocorrências não encerradas
+  // não passa a Professor nem a Técnico-administrativo (409). A mudança entre
+  // TUTOR, PEDAGOGICO e GESTAO e a edição sem mudança de perfil não são
+  // recusadas; ocorrências ENCERRADO não impedem (o responsável gravado nelas
+  // é mantido). Verificada DEPOIS da RN13 (decisão do Rafael, 23/11/2026).
+  // A contagem roda na mesma transação SERIALIZABLE do update: um
+  // encaminhamento simultâneo que defina este usuário como responsável (também
+  // serializável) faz uma das duas transações abortar (P2034) e ser repetida.
+  if (
+    dados.perfil !== undefined &&
+    dados.perfil !== atual.perfil &&
+    PERFIS_SEM_ACOMPANHAMENTO.includes(dados.perfil)
+  ) {
+    const emAcompanhamento = await tx.ocorrencia.count({
+      where: { responsavel_acompanhamento_id: id, status: { not: StatusOcorrencia.ENCERRADO } },
+    });
+    if (emAcompanhamento > 0) {
+      throw new ErroHttp(409, MENSAGEM_RESPONSAVEL_COM_OCORRENCIAS, {
+        codigo: CODIGOS_ERRO.RESPONSAVEL_COM_OCORRENCIAS,
+      });
+    }
+  }
+
   // RN11 — ao menos dois GESTAO ATIVO: se este usuário é Gestão ativa e
   // deixaria de ser (rebaixado, bloqueado ou desativado), precisam restar ao
   // menos MINIMO_GESTOES_ATIVAS outras Gestões ativas depois da edição.
@@ -476,7 +507,8 @@ async function verificarEAtualizar(tx, id, dados, solicitante) {
  * Edita um usuário: nome, e-mail, perfil e/ou status (RF01, RF04, RN07).
  *
  * Concorrência: a leitura, as verificações (e-mail único, tutor com
- * estudantes vinculados — RN13, mínimo de duas Gestões ativas — RN11), o
+ * estudantes vinculados — RN13, responsável por ocorrências não encerradas —
+ * RN23, mínimo de duas Gestões ativas — RN11), o
  * update e o LogAuditoria "usuário editado" (#91) rodam numa transação SERIALIZABLE. Duas edições simultâneas que, juntas, deixariam o sistema com menos de duas
  * Gestões ativas (ex.: com três Gestões ativas, cada uma rebaixa uma
  * Gestão diferente — isoladas, ambas passariam) não passam ambas: o PostgreSQL
@@ -508,29 +540,19 @@ export async function atualizarUsuario(idUrl, corpo, solicitante, { db = prisma 
     }
   }
 
-  for (let tentativa = 1; ; tentativa += 1) {
-    try {
-      return await db.$transaction((tx) => verificarEAtualizar(tx, id, dados, solicitante), {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
-    } catch (erro) {
-      if (erro instanceof ErroHttp) throw erro;
+  // Conflito de serialização/escrita (P2034): o helper repete a transação.
+  return emTransacaoSerializavel(db, (tx) => verificarEAtualizar(tx, id, dados, solicitante), {
+    mensagemConflito: MENSAGEM_CONFLITO_CONCORRENTE,
+    traduzirErro: (erro) => {
       // Corrida com outro cadastro/edição usando o mesmo e-mail.
       if (ehViolacaoDeUnicidade(erro)) {
-        throw new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO, {
+        return new ErroHttp(409, MENSAGEM_EMAIL_DUPLICADO, {
           codigo: CODIGOS_ERRO.EMAIL_DUPLICADO,
         });
       }
       // Registro inexistente no update (ex.: removido direto no banco).
-      if (erro?.code === 'P2025') throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
-      // Conflito de serialização/escrita: repete a transação.
-      if (erro?.code === 'P2034') {
-        if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE, {
-          codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
-        });
-      }
-      throw erro;
-    }
-  }
+      if (erro?.code === 'P2025') return new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
+      return undefined;
+    },
+  });
 }

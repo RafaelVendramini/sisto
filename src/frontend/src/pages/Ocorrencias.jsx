@@ -4,6 +4,7 @@ import FiltrosOcorrencias from '../components/FiltrosOcorrencias.jsx';
 import ListaOcorrencias from '../components/ListaOcorrencias.jsx';
 import PaginacaoOcorrencias from '../components/PaginacaoOcorrencias.jsx';
 import { useSessao } from '../components/Sessao.jsx';
+import { exibirFalha, useCarregamento } from '../components/useCarregamento.js';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarCategorias } from '../services/categorias.js';
 import {
@@ -63,18 +64,10 @@ export default function Ocorrencias() {
     falhas: {},
   });
 
-  const montado = useRef(true);
   // Só a resposta da busca mais recente vale (troca rápida de página/filtro).
-  const ultimaRequisicao = useRef(0);
+  const { novaRequisicao } = useCarregamento();
   const focarResultado = useRef(false);
   const refResumo = useRef(null);
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
 
   useEffect(() => {
     let ativo = true;
@@ -102,9 +95,7 @@ export default function Ocorrencias() {
   }, [verProfissional]);
 
   const carregar = useCallback(async () => {
-    ultimaRequisicao.current += 1;
-    const requisicao = ultimaRequisicao.current;
-    const vigente = () => montado.current && requisicao === ultimaRequisicao.current;
+    const vigente = novaRequisicao();
     setCarregando(true);
     setErro('');
     try {
@@ -112,14 +103,14 @@ export default function Ocorrencias() {
       if (vigente()) setResultado(dados);
     } catch (falha) {
       // 401: o tratamento central já leva ao login com aviso.
-      if (vigente() && falha?.status !== 401) {
+      if (vigente() && exibirFalha(falha)) {
         setResultado(RESULTADO_VAZIO);
         setErro(mensagemErroListaOcorrencias(falha));
       }
     } finally {
       if (vigente()) setCarregando(false);
     }
-  }, [filtrosAplicados, pagina]);
+  }, [filtrosAplicados, pagina, novaRequisicao]);
 
   useEffect(() => {
     carregar();

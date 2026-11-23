@@ -30,8 +30,8 @@ Crie um **Web Service** ligado ao repositório `STATURETECH/LTD.2026.2.006`:
 | Branch | `developer` |
 | Root Directory | `src/backend` |
 | Runtime | Node |
-| Build Command (primeiro deploy) | `npm ci && npm run db:deploy && npm run db:seed` |
-| Build Command (depois do primeiro deploy) | `npm ci && npm run db:deploy` |
+| Build Command (primeiro deploy) | `npm ci && npm run db:deploy && npm run db:seed` (sem testes: só para criar um serviço do zero; o deploy da homologação já foi feito) |
+| Build Command (depois do primeiro deploy) | `npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy` (testes no build — #134) |
 | Start Command | `npm start` |
 | Auto-Deploy | ligado (cada merge na `developer` publica) |
 | Plano | Free |
@@ -39,6 +39,7 @@ Crie um **Web Service** ligado ao repositório `STATURETECH/LTD.2026.2.006`:
 - O build aplica as migrations (`prisma migrate deploy`). No **primeiro** deploy ele também roda o seed, que, com `NODE_ENV=production`, cria **só** o usuário Gestão inicial.
 - Depois do primeiro deploy bem-sucedido, **tire o `&& npm run db:seed` do Build Command e apague `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA` do painel** (seção 5, passo 6). O seed identifica a Gestão pelo e-mail: se ele continuasse no build e a Gestão inicial mudasse o próprio e-mail, o deploy seguinte recriaria uma Gestão ativa com a senha do painel. Sem as variáveis, um seed no build falharia o deploy.
 - No plano gratuito a API dorme depois de 15 minutos sem acesso; o primeiro acesso seguinte leva cerca de 1 minuto.
+- **Testes no build (SSD 1.13, #134):** o Build Command roda os testes automatizados antes de aplicar as migrations e publicar. Como a API usa `NODE_ENV=production`, o `npm ci` normal não instalaria o `vitest` e o `supertest` (dependências de desenvolvimento); por isso o build usa `--include=dev`, roda `npm test` e remove essas dependências com `npm prune --omit=dev` antes de publicar. Se algum teste falhar, o build falha, as migrations **não** são aplicadas e a versão anterior continua no ar (veja a seção 10). Os testes de ponta a ponta (`npm run test:e2e`) continuam locais, porque precisam de banco próprio.
 - Depois do primeiro deploy, anote o endereço da API (ex.: `https://sisto-api.onrender.com`).
 
 **Variáveis de ambiente da API** (Environment, no painel; nunca no repositório):
@@ -63,7 +64,7 @@ Crie um **Static Site** ligado ao mesmo repositório:
 | ----- | ----- |
 | Branch | `developer` |
 | Root Directory | `src/frontend` |
-| Build Command | `npm ci && npm run build` |
+| Build Command | `npm ci && npm test && npm run build` (testes no build — #134) |
 | Publish Directory | `dist` |
 | Auto-Deploy | ligado |
 
@@ -80,6 +81,20 @@ Crie um **Static Site** ligado ao mesmo repositório:
 
 **Regra de reescrita** (Redirects/Rewrites): Source `/*`, Destination `/index.html`, Action **Rewrite**. Ela faz endereços abertos diretamente (ex.: `/ocorrencias/12`) e a página 404 (#78) chegarem ao React. O Render serve primeiro os arquivos que existem (`robots.txt`, ícones, `manifest.webmanifest`), então eles não são afetados.
 
+**Cabeçalhos de segurança** (Headers, #127): em **Settings → Headers** do Static Site, adicione as regras abaixo, todas com Path `/*`. Elas impedem que o Sisto seja aberto dentro de outro site (clickjacking) e limitam de onde a página pode carregar scripts e para onde pode enviar dados. O front não carrega nada externo (fontes, scripts ou imagens), por isso a política pode ser restrita.
+
+| Name | Value |
+| ---- | ----- |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://sisto-api.onrender.com; manifest-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'` |
+| `X-Frame-Options` | `DENY` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `no-referrer` |
+
+- Se a API mudar de endereço, troque também o `connect-src`; caso contrário, o login para de funcionar (o navegador bloqueia a chamada e mostra o erro no console).
+- Se um dia o front passar a usar um recurso externo (ex.: fonte do Google), ele precisa entrar na política.
+- O `Strict-Transport-Security` (HSTS) não precisa ser configurado: o Render já o envia em todos os sites (conferido em 23/11/2026).
+- Conferência: `curl -sI https://sisto.onrender.com/ | grep -iE "content-security|x-frame|nosniff|referrer"` mostra os 4 cabeçalhos, e o login e as telas funcionam sem erro de "Content Security Policy" no console do navegador (F12).
+
 ## 5. Ordem do primeiro deploy
 
 1. Neon pronto (seção 2).
@@ -87,7 +102,7 @@ Crie um **Static Site** ligado ao mesmo repositório:
 3. Crie o front-end com `VITE_API_URL` = endereço da API. Anote o endereço do front-end.
 4. Na API, defina `CORS_ORIGIN` = endereço do front-end e faça um novo deploy (Manual Deploy).
 5. Entre com a Gestão inicial, troque a senha dela e cadastre a segunda Gestão (seção 3, limitação conhecida).
-6. Na API, troque o Build Command para `npm ci && npm run db:deploy` e apague `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA`.
+6. Na API, troque o Build Command para `npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy` e apague `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA`.
 7. Faça as conferências da seção 6.
 
 Sem `CORS_ORIGIN` em produção, a API não libera nenhuma origem (falha fechada) e registra um aviso no log.
@@ -114,14 +129,26 @@ Serviços criados em 15/11/2026: API `sisto-api` (<https://sisto-api.onrender.co
 - [x] `/robots.txt` abre como arquivo de texto (`curl -I <front>/robots.txt` mostra `content-type: text/plain`).
 - [x] Nenhum segredo no repositório nem no build do front-end (conferido em 15/11/2026: busca no repositório e nos arquivos `.js` publicados em https://sisto.onrender.com, que só contêm o endereço da API).
 - [ ] Script de recuperação (#80) testado contra o banco do Neon (seção 9), com uma Gestão fictícia. **Pendente:** não executado no primeiro deploy (15/11/2026); o script tem testes automatizados com banco simulado e deve ser testado no Neon antes da homologação com a escola (#95).
-- [ ] `trust proxy` conferido no Render (o limite de tentativas identifica o IP real do cliente, e não o IP do proxy). **Pendente:** não executado no primeiro deploy (15/11/2026); conferir antes da homologação com a escola (#95).
+- [x] `trust proxy` conferido no Render em 23/11/2026 (#127): o `X-Forwarded-For` chega com três endereços (cliente, borda Cloudflare, balanceador interno do Render), e o valor foi ajustado de `1` para `3`. Repetir a conferência abaixo se o Render mudar a infraestrutura ou se a API mudar de hospedagem.
+
+**Conferência do `trust proxy` (#127):** a API usa `trust proxy` = `3` (cliente → borda Cloudflare → balanceador interno do Render → API). Para confirmar no Render:
+
+1. No Web Service da API, em **Environment**, crie `DIAGNOSTICO_PROXY` com o valor `1` e salve (o serviço reinicia).
+2. Descubra o seu IP público (ex.: pesquisando "qual é o meu IP") e faça um login em https://sisto.onrender.com.
+3. Em **Logs**, procure a linha `[diagnostico-proxy]`. Ela traz `ip`, `quantidadeEnderecos` e `xForwardedFor`, sem e-mail nem senha.
+   - Se `ip` for o **seu IP público**, o valor atual está certo.
+   - Se `ip` for um endereço interno (ex.: `10.x.x.x`) e o seu IP aparecer antes em `xForwardedFor`, há mais de um proxy: ajuste `trust proxy` em `src/backend/src/app.js` para a posição do seu IP contada a partir do fim da lista (último = 1, penúltimo = 2) e registre a mudança no SSD.
+4. **Apague a variável** `DIAGNOSTICO_PROXY` e salve. O IP é dado pessoal (RNF06): o diagnóstico só pode ficar ligado durante a conferência.
+5. Marque este item e anote a data.
+6. Depois da conferência, o código do diagnóstico (`middlewares/diagnostico-proxy.js`) pode ser removido numa Issue futura; enquanto existir, fica desligado sem a variável.
+- [x] Cabeçalhos de segurança do front-end (seção 4) configurados e conferidos com `curl -I` em 23/11/2026 (#127): os 4 cabeçalhos chegam, e o login em produção funciona sem bloqueio da CSP.
 - [x] Endereços registrados no README (Links do Projeto, linha "Deploy").
 
 ## 7. Lista de variáveis (resumo, sem valores)
 
 | Serviço | Variáveis |
 | ------- | --------- |
-| API (Render) | `NODE_ENV`, `NODE_VERSION`, `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`; `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA` só no primeiro deploy |
+| API (Render) | `NODE_ENV`, `NODE_VERSION`, `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`; `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA` só no primeiro deploy; `DIAGNOSTICO_PROXY` só durante a conferência do `trust proxy` (seção 6) |
 | Front-end (Render) | `NODE_VERSION`, `VITE_API_URL` |
 | Terminal da equipe (só na hora do uso) | `DATABASE_URL`, `RECUPERACAO_SENHA_TEMPORARIA` (recuperação, seção 9); `DATABASE_URL` (backup, seção 8) |
 
@@ -222,3 +249,66 @@ Saída esperada em caso de sucesso: a confirmação com o número (id) do usuár
 
 1. A pessoa entra com a senha temporária e o sistema exige a troca (RN10).
 2. Se o problema foi falta de Gestão ativa, cadastre ou reative a segunda Gestão (RN11).
+
+## 10. Testes no build do Render (SSD 1.13, #134)
+
+Os Build Commands da API e do front-end rodam os testes automatizados antes de publicar. Não há CI no GitHub, porque a pasta `.github/` não pode ser alterada.
+
+| Serviço | Build Command |
+| ------- | ------------- |
+| API (`sisto-api`) | `npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy` |
+| Front-end (`sisto`) | `npm ci && npm test && npm run build` |
+
+**Como trocar no painel** (uma vez):
+
+1. Abra o serviço (`sisto-api` ou `sisto`) → **Settings** → **Build & Deploy** → **Build Command** → **Edit**.
+2. Cole o comando da tabela e clique em **Save Changes**.
+3. Dispare um deploy (**Manual Deploy → Deploy latest commit**) e acompanhe o log: devem aparecer o resumo do Vitest (`Test Files … passed`) e, na API, as migrations depois dos testes.
+
+**Se um teste falhar no build:** o log mostra o teste com falha, o deploy é cancelado e a versão anterior continua no ar. Corrija na máquina (rode `npm test` na pasta do serviço), faça o PR e o merge; o próximo deploy roda os testes de novo. Na API, as migrations só são aplicadas depois que todos os testes passam.
+
+**Com que variáveis os testes rodam:** no Render, o build herda as variáveis do serviço. Na API, o `npm test` roda com `NODE_ENV=production`, o `CORS_ORIGIN`, o `JWT_SECRET` e a `DATABASE_URL` do Neon do painel. Isso foi simulado localmente numa cópia limpa (sem `.env`), com valores fictícios para essas variáveis, e todos os testes passaram. Para nenhum teste alcançar o banco de produção, o `npm test` troca a `DATABASE_URL` por um endereço fictício e inacessível antes de rodar (`src/backend/tests/setup-unitarios.js`): os testes usam o Prisma simulado e não precisam de banco. Os testes de ponta a ponta não usam essa troca, porque rodam só na máquina, contra o `sisto_test`.
+
+**Tempo de build:** estimativa de cerca de 1 minuto a mais por build no plano Free (na simulação local de 23/11/2026, o `npm test` levou 11 segundos na API e 33 segundos no front-end; no Render, que tem menos CPU, deve demorar mais, e a instalação das dependências de teste acrescenta alguns segundos).
+
+## 11. Migrations que criam restrições (ex.: unicidade da RN18, #129)
+
+Uma migration que cria um índice único falha se o banco já tiver dados que o violam. Por isso, **antes do merge na `developer`** (que publica sozinho):
+
+1. **Conferir o banco de produção.** No Neon, abra o projeto `sisto` → **SQL Editor**, cole o conteúdo de `src/backend/prisma/conferencias/conferir-duplicatas-rn18.sql` e clique em **Run**. O script é só leitura (`BEGIN TRANSACTION READ ONLY` … `ROLLBACK`). As consultas 1 e 2 precisam voltar **vazias**; se tiverem linhas, renomeie as categorias ou turmas duplicadas pela tela da Gestão e confira de novo.
+2. Só então faça o merge.
+
+**Se a migration falhar no build mesmo assim:** o build falha e a versão anterior continua no ar, mas a migration fica marcada como falha na tabela `_prisma_migrations`, e todo deploy seguinte é recusado (erro P3009). Para destravar:
+
+1. Corrija as duplicatas pela tela da Gestão e rode a conferência de novo.
+2. Na sua máquina, em `src/backend`, com a `DATABASE_URL` do Neon definida **só no terminal** (como na seção 9), rode:
+   ```
+   npx prisma migrate resolve --rolled-back 20261123120000_unicidade_rn18_turma_categoria
+   ```
+   e apague a variável do terminal em seguida.
+3. No Render, **Manual Deploy → Deploy latest commit**: o build aplica a migration de novo.
+
+Nada é criado pela metade: o PostgreSQL executa a migration inteira numa transação.
+
+## 12. Manter a API acordada no plano gratuito (cron externo, #138)
+
+No plano gratuito do Render, a API dorme depois de **15 minutos sem uso**, e o primeiro acesso seguinte leva de 30 a 60 segundos. O front-end (site estático) não dorme, e o Neon volta em menos de 1 segundo. Para a homologação, um **cron externo gratuito** chama `GET /saude` a cada 10 minutos no horário de uso da escola. A rota não acessa o banco, então não gasta as horas do Neon. O plano pago (Render Starter, sempre ligado) fica para a implantação com a escola (#95).
+
+**Conta das horas:** o plano gratuito dá **750 horas por mês para o workspace inteiro**. A escola funciona em **período integral**, e o cron roda de segunda a sexta, das 7h às 19h50 (última chamada). Com os 15 minutos que a API ainda fica acordada depois, são cerca de 13 horas por dia útil, ou seja, cerca de **300 horas por mês**, com folga para acessos fora do horário (antes das 7h e depois das 20h, o primeiro acesso leva cerca de 1 minuto). **Não** deixe o cron 24 horas por dia, 7 dias por semana: seriam cerca de 744 horas, praticamente todo o limite, e se ele acabar o Render suspende os serviços gratuitos até o mês seguinte.
+
+**Configuração no cron-job.org** (uma vez):
+
+1. Crie uma conta gratuita em https://cron-job.org e entre.
+2. Clique em **Create cronjob**:
+   - **Title:** `Sisto — manter API acordada`
+   - **URL:** `https://sisto-api.onrender.com/saude`
+   - **Execution schedule:** escolha **Custom** e marque: minutos de 10 em 10 (`0, 10, 20, 30, 40, 50`); horas `7` a `19`; dias da semana **segunda a sexta**; todos os dias do mês e todos os meses. O campo **Crontab expression** deve mostrar `*/10 7-19 * * 1-5` (configurado assim em 23/11/2026).
+   - **Time zone** do cronjob: `America/Sao_Paulo`.
+3. Em **Notifications**, ative o aviso por e-mail quando o cronjob falhar várias vezes seguidas (serve de alerta de que a API caiu).
+4. Ative **Save responses in job history** (para ver cabeçalhos e corpo de cada execução), salve e use **Test run** (ou espere o próximo horário): o histórico do cronjob deve mostrar **200**.
+
+**429 isolado no histórico:** a borda do Render pode, de vez em quando, limitar os servidores do cron-job.org e responder **429 Too Many Requests** (aconteceu na primeira execução, em 23/11/2026, e o teste seguinte deu 200). A rota `/saude` em si não tem limite de tentativas. Um 429 isolado não faz a API dormir (ela só dorme depois de 15 minutos sem nenhum acesso, e o cron chama a cada 10). Se os 429 ficarem frequentes, troque o serviço por outro gratuito com IPs diferentes (ex.: UptimeRobot, monitor a cada 5 minutos).
+
+**Conferência:** num dia útil, abra `https://sisto.onrender.com` às 10h. A tela de login deve responder na hora, sem a espera de cerca de 1 minuto. No Render (`sisto-api` → **Logs**), não devem aparecer reinícios por inatividade durante o horário do cron.
+
+**Ao contratar o plano pago:** pause ou apague o cronjob no cron-job.org. Ele deixa de ser necessário, mas pode continuar como monitoramento: o aviso de falha avisa se a API cair.

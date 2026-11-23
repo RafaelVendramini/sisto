@@ -2,24 +2,29 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import FormularioEdicaoEstudante from '../components/FormularioEdicaoEstudante.jsx';
 import FormularioEstudante from '../components/FormularioEstudante.jsx';
+import OpcaoTurmasAnteriores from '../components/OpcaoTurmasAnteriores.jsx';
 import ListaEstudantes, { idBotaoEditarEstudante } from '../components/ListaEstudantes.jsx';
+import { exibirFalha, useCarregamento } from '../components/useCarregamento.js';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarEstudantes } from '../services/estudantes.js';
-import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
+import { mensagemErroCarga } from '../services/mensagens.js';
 import { rotuloTurma } from '../services/mensagensEstudantes.js';
 import { listarTurmas } from '../services/turmas.js';
+import {
+  anoLetivoAtual,
+  filtrarTurmasPorAnoLetivo,
+  temTurmasAnteriores,
+} from '../services/turmasAnoLetivo.js';
 import { listarUsuarios } from '../services/usuarios.js';
 
 const MENSAGEM_GENERICA_LISTA = 'Não foi possível carregar a lista de estudantes agora.';
 const MENSAGEM_GENERICA_OPCOES = 'Não foi possível carregar as turmas e os tutores agora.';
+// Só a lista de usuários falhou (#128): o cadastro continua, sem a lista de tutores.
+export const AVISO_TUTORES_INDISPONIVEIS =
+  'Não foi possível carregar a lista de tutores. Você pode cadastrar o estudante "Sem tutor" ' +
+  'e vincular o tutor depois, em "Editar".';
 const ID_FILTRO = 'filtro-turma';
 const ID_TITULO_LISTA = 'titulo-lista-estudantes';
-
-function mensagemErroCarga(falha, generica) {
-  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
-  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
-  return generica;
-}
 
 /** Mesma ordem do GET /estudantes: nome completo, depois id. */
 function ordenar(lista) {
@@ -59,69 +64,90 @@ export default function Estudantes() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [filtro, setFiltro] = useState('');
+  // Filtro da lista: por padrão, só as turmas do ano letivo atual em diante
+  // (SSD 1.13, Issue #134). A turma já escolhida no filtro continua na lista.
+  const [mostrarTurmasAnteriores, setMostrarTurmasAnteriores] = useState(false);
 
   const [turmas, setTurmas] = useState([]);
   const [tutores, setTutores] = useState([]);
   const [opcoesCarregando, setOpcoesCarregando] = useState(true);
   const [opcoesErro, setOpcoesErro] = useState('');
+  const [tutoresIndisponiveis, setTutoresIndisponiveis] = useState(false);
+  const [tutoresCarregando, setTutoresCarregando] = useState(false);
 
   const [emEdicao, setEmEdicao] = useState(null);
   const [confirmacao, setConfirmacao] = useState('');
 
-  const montado = useRef(true);
   // Só a resposta da consulta mais recente atualiza a lista (troca rápida de filtro).
-  const consultaAtual = useRef(0);
+  const { montado, novaRequisicao } = useCarregamento();
   const filtroRef = useRef('');
 
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
-
+  // As turmas são indispensáveis; a lista de tutores, não: com
+  // Promise.allSettled, a falha só do GET /usuarios não trava o cadastro (#128).
   const carregarOpcoes = useCallback(async () => {
     setOpcoesCarregando(true);
     setOpcoesErro('');
-    try {
-      const [listaTurmas, usuarios] = await Promise.all([listarTurmas(), listarUsuarios()]);
-      if (!montado.current) return;
-      setTurmas(listaTurmas);
-      setTutores(tutoresAtivos(usuarios));
-    } catch (falha) {
+    setTutoresIndisponiveis(false);
+    const [listaTurmas, usuarios] = await Promise.allSettled([listarTurmas(), listarUsuarios()]);
+    if (!montado.current) return;
+    if (listaTurmas.status === 'rejected') {
       // 401: o tratamento central já leva ao login com aviso.
-      if (montado.current && falha?.status !== 401) {
-        setOpcoesErro(mensagemErroCarga(falha, MENSAGEM_GENERICA_OPCOES));
+      if (exibirFalha(listaTurmas.reason)) {
+        setOpcoesErro(mensagemErroCarga(listaTurmas.reason, MENSAGEM_GENERICA_OPCOES));
       }
-    } finally {
-      if (montado.current) setOpcoesCarregando(false);
+    } else {
+      setTurmas(listaTurmas.value);
     }
-  }, []);
+    if (usuarios.status === 'fulfilled') {
+      setTutores(tutoresAtivos(usuarios.value));
+    } else {
+      setTutores([]);
+      if (exibirFalha(usuarios.reason)) setTutoresIndisponiveis(true);
+    }
+    setOpcoesCarregando(false);
+  }, [montado]);
+
+  // Nova tentativa só da lista de tutores, sem esconder o formulário de cadastro
+  // (o que já foi digitado continua na tela).
+  async function recarregarTutores() {
+    if (tutoresCarregando) return;
+    setTutoresCarregando(true);
+    try {
+      const usuarios = await listarUsuarios();
+      if (!montado.current) return;
+      setTutores(tutoresAtivos(usuarios));
+      setTutoresIndisponiveis(false);
+    } catch {
+      // Continua o aviso; 401 vai para o tratamento central.
+    } finally {
+      if (montado.current) setTutoresCarregando(false);
+    }
+  }
 
   const buscar = useCallback(async ({ emSegundoPlano = false } = {}) => {
-    const consulta = ++consultaAtual.current;
+    const vigente = novaRequisicao();
     if (!emSegundoPlano) {
       setCarregando(true);
       setErro('');
     }
     try {
       const lista = await listarEstudantes({ turmaId: filtroRef.current || undefined });
-      if (montado.current && consulta === consultaAtual.current) {
+      if (vigente()) {
         setEstudantes(ordenar(lista.map(camposExibidos)));
         if (emSegundoPlano) setErro('');
       }
     } catch (falha) {
       // Em segundo plano (404 ou 409 concorrente), a lista atual continua na tela.
       if (emSegundoPlano) return;
-      if (montado.current && consulta === consultaAtual.current && falha?.status !== 401) {
+      if (vigente() && exibirFalha(falha)) {
         setErro(mensagemErroCarga(falha, MENSAGEM_GENERICA_LISTA));
       }
     } finally {
-      if (!emSegundoPlano && montado.current && consulta === consultaAtual.current) {
+      if (!emSegundoPlano && vigente()) {
         setCarregando(false);
       }
     }
-  }, []);
+  }, [novaRequisicao]);
 
   const carregar = useCallback(() => buscar(), [buscar]);
   const recarregarEmSegundoPlano = useCallback(() => buscar({ emSegundoPlano: true }), [buscar]);
@@ -232,8 +258,32 @@ export default function Estudantes() {
         </p>
       );
     }
-    return <FormularioEstudante turmas={turmas} tutores={tutores} aoCadastrar={aoCadastrar} />;
+    return (
+      <>
+        {tutoresIndisponiveis && (
+          <div className="mensagem mensagem--aviso" role="status">
+            <p>{AVISO_TUTORES_INDISPONIVEIS}</p>
+            <button
+              type="button"
+              className="botao botao--secundario"
+              onClick={recarregarTutores}
+              aria-disabled={tutoresCarregando || undefined}
+            >
+              {tutoresCarregando ? 'Carregando...' : 'Carregar a lista de tutores'}
+            </button>
+          </div>
+        )}
+        <FormularioEstudante turmas={turmas} tutores={tutores} aoCadastrar={aoCadastrar} />
+      </>
+    );
   }
+
+  const anoAtual = anoLetivoAtual();
+  const turmasDoFiltro = filtrarTurmasPorAnoLetivo(turmas, {
+    mostrarAnteriores: mostrarTurmasAnteriores,
+    idsMantidos: [filtro],
+    anoAtual,
+  });
 
   return (
     <div className="pagina-usuarios pagina-estudantes">
@@ -263,12 +313,21 @@ export default function Estudantes() {
               <label htmlFor={ID_FILTRO}>Filtrar por turma</label>
               <select id={ID_FILTRO} name="filtroTurma" value={filtro} onChange={aoFiltrar}>
                 <option value="">Todas as turmas</option>
-                {turmas.map((turma) => (
+                {turmasDoFiltro.map((turma) => (
                   <option key={turma.id} value={String(turma.id)}>
                     {rotuloTurma(turma)}
                   </option>
                 ))}
               </select>
+              {/* Sem turma de ano anterior, a caixa não teria efeito: não aparece. */}
+              {temTurmasAnteriores(turmas, anoAtual) && (
+                <OpcaoTurmasAnteriores
+                  id="filtro-mostrarTurmasAnteriores"
+                  marcado={mostrarTurmasAnteriores}
+                  aoAlterar={setMostrarTurmasAnteriores}
+                  anoAtual={anoAtual}
+                />
+              )}
             </div>
           )}
 

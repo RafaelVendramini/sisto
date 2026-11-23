@@ -1,7 +1,7 @@
 // Fluxos da Issue #16 — edição, bloqueio, desativação e reativação de usuários
 // (API mockada, sem rede). Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   CHAVE_SESSAO,
@@ -103,6 +103,8 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -353,6 +355,33 @@ describe('Gestão de usuários — edição, bloqueio, desativação e reativaç
 
       expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MSG_DUAS_GESTOES);
       expect(within(dialogo).getByLabelText('E-mail')).toHaveAttribute('aria-invalid', 'false');
+    });
+
+    it('409 da RN23 (responsável por ocorrências em acompanhamento) mostra a mensagem do back-end (#134)', async () => {
+      // Texto fictício: a tela mostra o `erro` que o servidor mandar.
+      const msgResponsavel =
+        'Este usuário é o responsável pelo acompanhamento de ocorrências não encerradas. Troque o responsável dessas ocorrências antes de mudar o perfil.';
+      const lista = USUARIOS_FICTICIOS.map((u) => (u.id === 3 ? { ...u, status: 'ATIVO' } : u));
+      mockarApi({
+        lista,
+        aoAtualizar: () =>
+          respostaFalsa(409, { erro: msgResponsavel, codigo: 'RESPONSAVEL_COM_OCORRENCIAS' }),
+      });
+      await abrirPagina();
+      const getsAntes = chamadasGet().length;
+      await usuario.click(screen.getByRole('button', { name: 'Editar Paulo Exemplo' }));
+      const dialogo = screen.getByRole('dialog', { name: 'Editar usuário' });
+      await usuario.selectOptions(within(dialogo).getByLabelText('Perfil'), 'PROFESSOR');
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Salvar alterações' }));
+
+      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(msgResponsavel);
+      expect(JSON.parse(chamadasPut()[0][1].body)).toEqual({ perfil: 'PROFESSOR' });
+      // Regra de negócio: o diálogo continua aberto, o perfil na lista não muda,
+      // o erro não vai para o campo E-mail e a lista não é recarregada.
+      expect(screen.getByRole('dialog', { name: 'Editar usuário' })).toBeInTheDocument();
+      expect(within(dialogo).getByLabelText('E-mail')).toHaveAttribute('aria-invalid', 'false');
+      expect(celulas('Paulo Exemplo')[2]).toBe('Tutor');
+      expect(chamadasGet()).toHaveLength(getsAntes);
     });
 
     it('400 mostra a mensagem do back-end', async () => {

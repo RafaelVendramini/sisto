@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { atualizarTurma } from '../services/turmas.js';
 import {
   converterAnoLetivo,
@@ -12,6 +12,7 @@ import {
 } from '../services/mensagensTurmas.js';
 import CamposTurma, { CAMPOS_TURMA } from './CamposTurma.jsx';
 import Dialogo from './Dialogo.jsx';
+import { useCamposFormulario } from './useCamposFormulario.js';
 
 const ID_CONFLITO = 'edicao-turma-conflito';
 const MENSAGEM_SEM_ALTERACAO =
@@ -36,39 +37,32 @@ export default function FormularioEdicaoTurma({
   aoRestaurarFoco,
   aoListaDesatualizada,
 }) {
-  const [dados, setDados] = useState({
-    nome: turma.nome ?? '',
-    etapa: turma.etapa ?? '',
-    anoLetivo: turma.anoLetivo == null ? '' : String(turma.anoLetivo),
-  });
-  const [errosCampos, setErrosCampos] = useState({});
   const [erro, setErro] = useState('');
   const [conflito, setConflito] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const enviandoRef = useRef(false);
 
-  const refs = { nome: useRef(null), etapa: useRef(null), anoLetivo: useRef(null) };
-
-  function alterar(campo) {
-    return (evento) => {
-      if (enviandoRef.current) return; // campos travados durante o envio
-      const { value } = evento.target;
-      setDados((atual) => ({ ...atual, [campo]: value }));
-      // Ao corrigir o campo, a mensagem de erro dele (e o aria-invalid) some.
-      setErrosCampos((atual) => {
-        if (!atual[campo]) return atual;
-        const { [campo]: _removido, ...restantes } = atual;
-        return restantes;
-      });
-      // Turma repetida envolve os três campos: alterar qualquer um limpa o aviso.
-      setConflito('');
-    };
-  }
-
-  function focarPrimeiroInvalido(erros) {
-    const campo = CAMPOS_TURMA.find((nome) => erros[nome]);
-    if (campo) refs[campo].current?.focus();
-  }
+  const {
+    dados,
+    errosCampos,
+    setErrosCampos,
+    enviandoRef,
+    refs,
+    alterar,
+    focarPrimeiroInvalido,
+  } = useCamposFormulario(
+    {
+      nome: turma.nome ?? '',
+      etapa: turma.etapa ?? '',
+      anoLetivo: turma.anoLetivo == null ? '' : String(turma.anoLetivo),
+    },
+    CAMPOS_TURMA,
+    {
+      aoAlterarCampo: () => {
+        // Turma repetida envolve os três campos: alterar qualquer um limpa o aviso.
+        setConflito('');
+      },
+    },
+  );
 
   function cancelar() {
     if (enviandoRef.current) return;

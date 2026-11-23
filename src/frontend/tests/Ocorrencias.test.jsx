@@ -677,7 +677,7 @@ describe('Lista e detalhe de ocorrências (#48)', () => {
       renderizarComSondas([{ pathname: '/ocorrencias/12', state: { ocorrenciaRegistrada: 12 } }]);
 
       const faixa = await screen.findByText(FAIXA);
-      expect(faixa).toHaveFocus();
+      await waitFor(() => expect(faixa).toHaveFocus());
       expect(faixa.closest('[role="status"]')).toHaveAttribute('aria-live', 'polite');
       // Sem state, recarregar a página não traz a faixa de volta.
       await waitFor(() => expect(screen.getByTestId('estado-navegacao')).toHaveTextContent('null'));

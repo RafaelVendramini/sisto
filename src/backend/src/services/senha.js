@@ -27,7 +27,9 @@ export const CUSTO_BCRYPT = 12;
 
 /**
  * Retorna a mensagem do problema da senha, ou null se ela for aceita.
- * A mensagem nunca contém a senha.
+ * É a única verificação da política: cadastro, troca e redefinição de senha,
+ * seed e script de recuperação a usam, direto ou pelo gerarHashSenha. A
+ * mensagem nunca contém a senha.
  * @param {unknown} senha
  * @returns {string | null}
  */
@@ -39,15 +41,6 @@ export function mensagemPoliticaSenha(senha) {
     return `A senha deve ter no máximo ${TAMANHO_MAXIMO_BYTES_SENHA} bytes (letras acentuadas contam 2 bytes).`;
   }
   return null;
-}
-
-/**
- * Verifica se a senha atende à política (RN10) e ao limite técnico do bcrypt.
- * @param {unknown} senha
- * @returns {boolean}
- */
-export function validarPoliticaSenha(senha) {
-  return mensagemPoliticaSenha(senha) === null;
 }
 
 /**

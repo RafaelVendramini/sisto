@@ -664,10 +664,10 @@ describe('QA #45 — validações de borda e decisões do Rafael', () => {
     expect(res.body.descricao).toBe(texto);
   });
 
-  it('corpo acima do limite do express.json (100 kB) responde 413 em JSON, sem gravar', async () => {
-    const res = await post(corpoValido({ encaminhamentos: Array.from({ length: 30 }, () => ({ destinatarioPerfil: 'GESTAO', observacao: 'x'.repeat(5000) })) }));
+  it('corpo acima do limite do express.json (512 kB — Issue #128) responde 413 em JSON, sem gravar', async () => {
+    const res = await post(corpoValido({ encaminhamentos: Array.from({ length: 30 }, () => ({ destinatarioPerfil: 'GESTAO', observacao: 'x'.repeat(20000) })) }));
     expect(res.status).toBe(413);
-    expect(res.body).toHaveProperty('erro');
+    expect(res.body).toEqual({ erro: 'O corpo da requisição passa do tamanho máximo permitido.' });
     esperarNadaGravado();
   });
 });

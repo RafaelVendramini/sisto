@@ -2,7 +2,7 @@
 // edição e acesso por perfil (API mockada, sem rede).
 // Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   CHAVE_SESSAO,
@@ -22,7 +22,10 @@ const MSG_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
 const MSG_SEM_CONEXAO =
   'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 
-const ANO_ATUAL = new Date().getFullYear();
+// Relógio fixo (só o Date): nenhum teste depende da data real (#129).
+// 23/11/2026 10:00 em São Paulo.
+const AGORA = new Date('2026-11-23T13:00:00.000Z');
+const ANO_ATUAL = 2026;
 
 // Já na ordem do GET /turmas: ano desc, etapa, nome.
 const TURMAS_FICTICIAS = [
@@ -90,10 +93,15 @@ describe('Tela de turmas (#41)', () => {
     localStorage.clear();
     vi.stubEnv('VITE_API_URL', URL_API);
     vi.stubGlobal('fetch', vi.fn());
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(AGORA);
     usuario = userEvent.setup();
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -229,6 +237,24 @@ describe('Tela de turmas (#41)', () => {
       expect(c.ano).toHaveValue(ANO_ATUAL);
       expect(c.nome).toHaveValue('');
       expect(c.etapa).toHaveValue('');
+    });
+
+    it('em 31/12 às 22h em São Paulo (já 01/01 em UTC), ainda sugere o ano que termina', async () => {
+      vi.setSystemTime(new Date('2027-01-01T01:00:00.000Z'));
+      gravarSessaoFicticia(); // sessão válida no novo horário
+      mockarApi();
+      await abrirPagina();
+
+      expect(formularioCadastro().ano).toHaveValue(2026);
+    });
+
+    it('a partir de 01/01 à 0h em São Paulo, sugere o ano novo', async () => {
+      vi.setSystemTime(new Date('2027-01-01T03:00:00.000Z'));
+      gravarSessaoFicticia(); // sessão válida no novo horário
+      mockarApi();
+      await abrirPagina();
+
+      expect(formularioCadastro().ano).toHaveValue(2027);
     });
 
     it('cria a turma com ano letivo como número, atualiza a lista em ordem e confirma, sem novo GET', async () => {

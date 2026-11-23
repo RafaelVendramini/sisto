@@ -127,7 +127,17 @@ model Turma {
   etapa      String
   // Ano letivo com 4 dígitos (ex.: 2026). O trio (nome, etapa, ano_letivo) é
   // único sem diferenciar maiúsculas/minúsculas e ignorando espaços nas pontas
-  // (RN18); a checagem fica no service (services/turmas.js), sem índice no banco.
+  // (RN18). A checagem principal fica no service (services/turmas.js); o banco
+  // tem também o índice único POR EXPRESSÃO
+  // "turmas_nome_etapa_ano_letivo_normalizado_key"
+  // (lower(btrim(nome)), lower(btrim(etapa)), ano_letivo), criado com SQL
+  // manual na migration 20261123120000_unicidade_rn18_turma_categoria (Issue
+  // #129). O Prisma não representa índice por expressão no schema: por isso
+  // ele NÃO aparece aqui (um @@unique([nome, etapa, ano_letivo]) seria outro
+  // índice, que diferencia maiúsculas e espaços). Conferido no Prisma 7.10:
+  // o `prisma migrate dev` e o `prisma migrate diff` ignoram índices por
+  // expressão e NÃO geram "DROP INDEX" para ele. Se uma versão futura gerar,
+  // apague essa linha da migration antes de aplicá-la.
   ano_letivo Int
 
   estudantes  Estudante[]
@@ -163,6 +173,13 @@ model Estudante {
 }
 
 // Entidade: Categoria
+// RN18: nome único sem diferenciar maiúsculas/minúsculas e ignorando espaços
+// nas pontas. A checagem principal fica no service (services/categorias.js);
+// o banco tem também o índice único POR EXPRESSÃO
+// "categorias_nome_normalizado_key" (lower(btrim(nome))), criado com SQL
+// manual na migration 20261123120000_unicidade_rn18_turma_categoria (Issue
+// #129). O Prisma não representa índice por expressão no schema: por isso ele
+// NÃO aparece aqui (ver a nota no model Turma sobre o `prisma migrate dev`).
 model Categoria {
   id        Int     @id @default(autoincrement())
   nome      String

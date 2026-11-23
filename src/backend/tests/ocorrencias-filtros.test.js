@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { criarBancoEmMemoria } from './apoio/bancoEmMemoria.js';
 
 const mocks = vi.hoisted(() => ({ $transaction: vi.fn() }));
 
@@ -44,128 +45,19 @@ const RELACOES = {
   estudante: { turma: ['um', 'turma', 'turma_id'] },
 };
 
-const linhas = (modelo) => banco[TABELA[modelo]];
-const comoNumero = (v) => (v instanceof Date ? v.getTime() : v);
-
-function relacionado(modelo, registro, campo) {
-  const [tipo, alvo, fk] = RELACOES[modelo][campo];
-  if (tipo === 'um') {
-    return registro[fk] == null ? null : linhas(alvo).find((r) => r.id === registro[fk]) ?? null;
-  }
-  return linhas(alvo).filter((r) => r[fk] === registro.id);
-}
-
-function corresponde(modelo, registro, where = {}) {
-  return Object.entries(where).every(([chave, condicao]) => {
-    if (chave === 'AND') return condicao.every((w) => corresponde(modelo, registro, w));
-    if (chave === 'OR') return condicao.some((w) => corresponde(modelo, registro, w));
-    const relacao = RELACOES[modelo]?.[chave];
-    if (relacao) {
-      const [tipo, alvo] = relacao;
-      if (tipo === 'muitos') {
-        const operadores = Object.keys(condicao);
-        if (operadores.length !== 1 || operadores[0] !== 'some') {
-          throw new Error(`mock: operador de lista não suportado em ${modelo}.${chave}`);
-        }
-        return relacionado(modelo, registro, chave).some((f) => corresponde(alvo, f, condicao.some));
-      }
-      const pai = relacionado(modelo, registro, chave);
-      return pai !== null && corresponde(alvo, pai, condicao);
-    }
-    if (!(chave in registro)) throw new Error(`mock: campo inexistente ${modelo}.${chave}`);
-    const valor = registro[chave];
-    if (condicao !== null && typeof condicao === 'object' && !(condicao instanceof Date)) {
-      return Object.entries(condicao).every(([operador, alvo]) => {
-        if (operador === 'in') return alvo.includes(valor);
-        if (operador === 'gte') {
-          if (!(alvo instanceof Date)) throw new Error('mock: gte espera Date');
-          return comoNumero(valor) >= alvo.getTime();
-        }
-        if (operador === 'lte') {
-          if (!(alvo instanceof Date)) throw new Error('mock: lte espera Date');
-          return comoNumero(valor) <= alvo.getTime();
-        }
-        throw new Error(`mock: operador ${operador} não suportado em ${modelo}.${chave}`);
-      });
-    }
-    return comoNumero(valor) === comoNumero(condicao);
-  });
-}
-
-function selecionar(modelo, registro, select) {
-  if (!select) return { ...registro };
-  return Object.fromEntries(
-    Object.entries(select).map(([campo, valor]) => {
-      if (valor === true) {
-        if (!(campo in registro)) throw new Error(`mock: campo inexistente ${modelo}.${campo}`);
-        return [campo, registro[campo]];
-      }
-      const [tipo, alvo] = RELACOES[modelo][campo];
-      const rel = relacionado(modelo, registro, campo);
-      if (tipo === 'muitos') return [campo, rel.map((r) => selecionar(alvo, r, valor.select))];
-      return [campo, rel === null ? null : selecionar(alvo, rel, valor.select)];
-    }),
-  );
-}
-
-function valorOrdenacao(modelo, registro, especificacao) {
-  const [[campo, direcao]] = Object.entries(especificacao);
-  if (typeof direcao === 'object') {
-    const [, alvo] = RELACOES[modelo][campo];
-    return valorOrdenacao(alvo, relacionado(modelo, registro, campo), direcao);
-  }
-  return { valor: comoNumero(registro[campo]), direcao };
-}
-
-function ordenar(modelo, registros, orderBy) {
-  if (!orderBy) return registros;
-  const criterios = Array.isArray(orderBy) ? orderBy : [orderBy];
-  return [...registros].sort((a, b) => {
-    for (const criterio of criterios) {
-      const va = valorOrdenacao(modelo, a, criterio);
-      const vb = valorOrdenacao(modelo, b, criterio);
-      if (va.valor === vb.valor) continue;
-      const menor = va.valor < vb.valor ? -1 : 1;
-      return va.direcao === 'desc' ? -menor : menor;
-    }
-    return 0;
-  });
-}
-
-function delegado(modelo, emTransacao) {
-  const anotar = (operacao) => {
+// Motor do "banco" em memória: tests/apoio/bancoEmMemoria.js (Issue #129),
+// só com as tabelas e relações acima e sem o limite de relações por select.
+// Dentro da transação (clientMock(true)), cada operação é registrada em
+// consultasTx; o where do count de ocorrências fica em whereContagem.
+const { clientMock } = criarBancoEmMemoria({
+  obterBanco: () => banco,
+  tabelas: TABELA,
+  relacoes: RELACOES,
+  aoOperar: (modelo, operacao, args, emTransacao) => {
     if (emTransacao) consultasTx.push(`${modelo}.${operacao}`);
-  };
-  const buscar = (args = {}) =>
-    ordenar(modelo, linhas(modelo).filter((r) => corresponde(modelo, r, args.where)), args.orderBy);
-  return {
-    findMany: async (args = {}) => {
-      anotar('findMany');
-      const inicio = args.skip ?? 0;
-      const fim = args.take === undefined ? undefined : inicio + args.take;
-      return buscar(args).slice(inicio, fim).map((r) => selecionar(modelo, r, args.select));
-    },
-    count: async (args = {}) => {
-      anotar('count');
-      if (modelo === 'ocorrencia') whereContagem = args.where;
-      return buscar(args).length;
-    },
-    findFirst: async (args = {}) => {
-      anotar('findFirst');
-      const [r] = buscar(args);
-      return r ? selecionar(modelo, r, args.select) : null;
-    },
-    findUnique: async (args = {}) => {
-      anotar('findUnique');
-      const [r] = buscar(args);
-      return r ? selecionar(modelo, r, args.select) : null;
-    },
-  };
-}
-
-function clientMock(emTransacao) {
-  return Object.fromEntries(Object.keys(TABELA).map((m) => [m, delegado(m, emTransacao)]));
-}
+    if (operacao === 'count' && modelo === 'ocorrencia') whereContagem = args?.where;
+  },
+});
 
 vi.mock('../src/lib/prisma.js', () => ({
   default: new Proxy(

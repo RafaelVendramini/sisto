@@ -2,8 +2,10 @@
 //
 // - RF07: criação e edição de categorias (Seção 12: GET, POST e PUT /categorias).
 // - RN18: o nome é único, sem diferenciar maiúsculas/minúsculas e ignorando
-//   espaços nas pontas. A checagem fica aqui no service (sem extensão citext
-//   e sem índice no banco); duplicidade responde 409.
+//   espaços nas pontas. A checagem principal fica aqui no service (NFC + trim
+//   + minúsculas); o índice único por expressão do banco (Issue #129,
+//   lower(btrim(nome))) é a segunda barreira. Duplicidade responde 409 nos
+//   dois casos (a violação do índice, P2002, vira o mesmo 409).
 // - RN20: a listagem é a mesma para os 5 perfis (as restrições de perfil do
 //   POST/PUT ficam nas rotas, com permitirPerfis).
 // - RN21: categorias não são excluídas nem inativadas (não há DELETE).
@@ -16,10 +18,12 @@
 // com o mesmo nome passarem pela checagem ao mesmo tempo, o PostgreSQL aborta
 // um deles (SQLSTATE 40001, exposto pelo Prisma como P2034); ele é repetido,
 // passa a enxergar o nome já gravado e responde 409. Esgotadas as tentativas,
-// também 409, com mensagem para tentar de novo.
-import { Prisma } from '@prisma/client';
+// também 409, com mensagem para tentar de novo (helper lib/transacao.js).
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { converterIdTexto } from '../lib/ids.js';
+import { garantirSemCaractereNulo } from '../lib/texto.js';
+import { emTransacaoSerializavel } from '../lib/transacao.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 
 /** Nome do recurso na API, usado no LogAuditoria ("categorias/<id>"). */
@@ -31,12 +35,6 @@ export const RECURSO_CATEGORIAS = 'categorias';
  */
 export const TAMANHO_MAXIMO_NOME_CATEGORIA = 150;
 export const TAMANHO_MAXIMO_DESCRICAO_CATEGORIA = 1000;
-
-/** Maior valor de uma coluna Int do PostgreSQL (tipo do id, Seção 11). */
-const MAIOR_ID = 2_147_483_647;
-
-/** Tentativas da transação serializável antes de desistir com 409. */
-const TENTATIVAS_TRANSACAO = 3;
 
 export const MENSAGEM_CORPO_CATEGORIA_INVALIDO =
   'Envie um objeto JSON com nome e, opcionalmente, descricao.';
@@ -84,6 +82,8 @@ export function validarCategoria(corpo) {
   if (typeof nome !== 'string' || nome.trim() === '') {
     throw new ErroHttp(400, MENSAGEM_NOME_CATEGORIA_OBRIGATORIO);
   }
+  // U+0000: o PostgreSQL não grava (400, não 500 — Issue #127).
+  garantirSemCaractereNulo(nome);
   const nomeLimpo = nome.normalize('NFC').trim();
   if (nomeLimpo.length > TAMANHO_MAXIMO_NOME_CATEGORIA) {
     throw new ErroHttp(400, MENSAGEM_NOME_CATEGORIA_LONGO);
@@ -97,6 +97,7 @@ export function validarCategoria(corpo) {
     if (typeof descricao !== 'string') {
       throw new ErroHttp(400, MENSAGEM_DESCRICAO_CATEGORIA_INVALIDA);
     }
+    garantirSemCaractereNulo(descricao);
     const descricaoLimpa = descricao.trim();
     if (descricaoLimpa.length > TAMANHO_MAXIMO_DESCRICAO_CATEGORIA) {
       throw new ErroHttp(400, MENSAGEM_DESCRICAO_CATEGORIA_LONGA);
@@ -115,14 +116,7 @@ export function validarCategoria(corpo) {
  * @throws {ErroHttp} 400
  */
 export function validarIdCategoria(valor) {
-  if (typeof valor !== 'string' || !/^[1-9][0-9]{0,9}$/.test(valor)) {
-    throw new ErroHttp(400, MENSAGEM_ID_CATEGORIA_INVALIDO);
-  }
-  const id = Number(valor);
-  if (id > MAIOR_ID) {
-    throw new ErroHttp(400, MENSAGEM_ID_CATEGORIA_INVALIDO);
-  }
-  return id;
+  return converterIdTexto(valor, MENSAGEM_ID_CATEGORIA_INVALIDO);
 }
 
 /**
@@ -140,34 +134,27 @@ async function garantirNomeDisponivel(tx, nome, idIgnorado) {
   const duplicada = existentes.some(
     (categoria) => categoria.id !== idIgnorado && chaveNomeCategoria(categoria.nome) === chave,
   );
-  if (duplicada) {
-    throw new ErroHttp(409, MENSAGEM_CATEGORIA_DUPLICADA, {
-      codigo: CODIGOS_ERRO.CATEGORIA_DUPLICADA,
-    });
-  }
+  if (duplicada) throw erroCategoriaDuplicada();
+}
+
+function erroCategoriaDuplicada() {
+  return new ErroHttp(409, MENSAGEM_CATEGORIA_DUPLICADA, {
+    codigo: CODIGOS_ERRO.CATEGORIA_DUPLICADA,
+  });
 }
 
 /**
- * Executa a operação numa transação SERIALIZABLE, repetindo-a em conflito de
- * serialização (P2034). Esgotadas as tentativas, responde 409.
+ * Transação SERIALIZABLE das gravações de categoria (lib/transacao.js).
+ * P2002: violação do índice único categorias_nome_normalizado_key (Issue
+ * #129). Uma gravação que escapou da checagem do service (ex.: corrida com
+ * outra gravação feita fora da transação serializável, como um script)
+ * responde o mesmo 409 de duplicidade.
  */
-async function emTransacaoSerializavel(db, operacao) {
-  for (let tentativa = 1; ; tentativa += 1) {
-    try {
-      return await db.$transaction(operacao, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
-    } catch (erro) {
-      if (erro instanceof ErroHttp) throw erro;
-      if (erro?.code === 'P2034') {
-        if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_CONCORRENTE_CATEGORIA, {
-          codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
-        });
-      }
-      throw erro;
-    }
-  }
+function emTransacaoCategoria(db, operacao) {
+  return emTransacaoSerializavel(db, operacao, {
+    mensagemConflito: MENSAGEM_CONFLITO_CONCORRENTE_CATEGORIA,
+    traduzirErro: (erro) => (erro?.code === 'P2002' ? erroCategoriaDuplicada() : undefined),
+  });
 }
 
 /**
@@ -195,7 +182,7 @@ export async function listarCategorias({ db = prisma } = {}) {
 export async function criarCategoria(corpo, solicitante, { db = prisma } = {}) {
   const { nome, descricao = null } = validarCategoria(corpo);
 
-  return emTransacaoSerializavel(db, async (tx) => {
+  return emTransacaoCategoria(db, async (tx) => {
     await garantirNomeDisponivel(tx, nome);
     const categoria = await tx.categoria.create({
       data: { nome, descricao },
@@ -239,7 +226,7 @@ export async function atualizarCategoria(idUrl, corpo, solicitante, { db = prism
 }
 
 function editarEmTransacao(db, id, dados, solicitante) {
-  return emTransacaoSerializavel(db, async (tx) => {
+  return emTransacaoCategoria(db, async (tx) => {
     const atual = await tx.categoria.findUnique({ where: { id }, select: { id: true } });
     if (!atual) {
       throw new ErroHttp(404, MENSAGEM_CATEGORIA_NAO_ENCONTRADA);

@@ -7,7 +7,8 @@ info:
     (`docs/SSD.md`) e ao código em `src/backend/src`. Este arquivo é a única
     documentação da API: não há Swagger UI exposta (SSD 1.8, Seção 10).
 
-    **Autenticação.** Todas as rotas, exceto `/auth/*`, exigem o cabeçalho
+    **Autenticação.** Todas as rotas, exceto `/auth/*` e `GET /saude`
+    (verificação de saúde, Issue #138), exigem o cabeçalho
     `Authorization: Bearer <token>`, com o JWT (HS256, validade de 8 horas,
     sem refresh — RNF03) devolvido pelo `POST /auth/login`. A cada requisição
     a API confere no banco se o usuário está `ATIVO` (RN09) e se o token foi
@@ -38,8 +39,14 @@ info:
       tamanho é medido depois disso, em unidades UTF-16. Texto opcional vazio
       ou só com espaços é gravado como `null`. A senha não tem os espaços
       retirados.
-    * Nos textos de ocorrência, encaminhamento, comunicação e providência, o
-      caractere nulo (U+0000) é recusado com **400**.
+    * O caractere nulo (U+0000) é recusado com **400** nos textos de
+      ocorrência, encaminhamento, comunicação e providência e, desde o SSD 1.11
+      (Issue #127), também no nome e no e-mail de usuários, no nome e na etapa
+      de turmas, no nome e na descrição de categorias, no nome completo e no
+      código escolar de estudantes e no e-mail do login.
+    * Todas as respostas da API trazem `Cache-Control: no-store`, para que
+      dados pessoais não fiquem no cache do navegador (RNF06; SSD 1.11,
+      Issue #127).
     * `dataHora` informada (ocorrência e comunicação — RN17) segue ISO 8601
       com fuso obrigatório (`Z` ou `±hh:mm`, ex.: `2026-10-20T14:30:00-03:00`),
       anos 0001 a 9999 em UTC, e aceita no máximo 5 minutos à frente do
@@ -68,14 +75,31 @@ info:
     * **404** recurso da URL inexistente ou fora da visibilidade (RN19), e rota
       inexistente (`Rota não encontrada`);
     * **409** duplicidade (RN18), operação recusada pelo estado da ocorrência
-      ou pelas regras de usuários e tutoria (RN04, RN11, RN13, RN15, RN16) e
+      ou pelas regras de usuários, tutoria e acompanhamento (RN04, RN11,
+      RN13, RN15, RN16, RN23) e
       conflito concorrente (transação serializável repetida sem sucesso —
       mensagem para tentar de novo);
+    * **413** corpo acima do limite (512 kB; 10 kB no `POST /auth/login`) —
+      `O corpo da requisição passa do tamanho máximo permitido.` (resposta
+      `CorpoGrandeDemais`);
+    * **415** corpo em codificação de caracteres diferente de UTF-8
+      (`charset` do `Content-Type`) ou com `Content-Encoding` não suportado,
+      com mensagem em português (resposta `CodificacaoNaoSuportada`);
     * **429** limite de tentativas do login ou da troca de senha excedido;
     * **500** `{ "erro": "Erro interno do servidor" }`, sem detalhes.
 
-    Nota técnica: o corpo JSON é lido pelo `express.json()` com o limite
-    padrão de 100 kB; acima dele a resposta é 413, no mesmo formato `Erro`.
+    **Limite do corpo (Issue #128).** O corpo JSON é lido pelo
+    `express.json()` com limite de **512 kB** (524.288 bytes) em todas as
+    rotas, exceto o `POST /auth/login`, rota anônima, que aceita até
+    **10 kB** (um login legítimo fica em cerca de 1 kB). O maior corpo válido
+    pelos limites da Seção 11 do SSD, sem espaços nas pontas dos textos nem
+    campos extras (o que o front-end envia), é o do `POST /ocorrencias`: 15
+    textos de até 5000 caracteres (5 da ocorrência e 10 observações de
+    encaminhamento) e o local (150), ou seja, 75.150 unidades UTF-16; com até
+    6 bytes por unidade (caractere escapado como `\uXXXX`) e cerca de 2 kB do
+    restante do corpo, chega a ~453 kB. Acima do limite, a resposta é
+    **413**, no formato `Erro`. Outros erros de leitura do corpo também
+    respondem em português, no formato `Erro`.
 
     **Exemplos.** Todos os nomes, e-mails e códigos dos exemplos são
     fictícios (RN05 / LGPD).
@@ -93,6 +117,10 @@ tags:
   - name: Categorias
   - name: Ocorrências
   - name: Relatórios
+  - name: Saúde
+    description: >-
+      Verificação pública de que a API está no ar, sem acesso ao banco
+      (Issue #138).
 security:
   - bearerAuth: []
 
@@ -121,6 +149,13 @@ paths:
         status da conta (RN07). O contador fica em memória e zera quando a API
         reinicia.
 
+        **Limite por IP (SSD 1.13, Issue #134):** além do limite por IP +
+        e-mail, até 100 tentativas com falha (401) em 15 minutos por IP, com
+        qualquer e-mail — contra o teste de uma mesma senha em muitos e-mails.
+        Mesmo critério de falha, mesma mensagem do **429** e `Retry-After`;
+        contador também em memória, sem alterar o status da conta. O primeiro
+        dos dois limites atingido recusa a tentativa.
+
         Perfis: público.
       requestBody:
         required: true
@@ -146,7 +181,11 @@ paths:
                   perfil: GESTAO
                 trocaSenhaObrigatoria: false
         '400':
-          description: E-mail ou senha ausentes.
+          description: >-
+            E-mail ou senha ausentes, ou e-mail com o caractere nulo (U+0000).
+            Neste caso a mensagem é genérica, não revela se o e-mail existe e
+            a resposta não conta no limite de tentativas, que só conta o 401
+            (SSD 1.11, Issue #127).
           content:
             application/json:
               schema:
@@ -164,8 +203,12 @@ paths:
                 $ref: '#/components/schemas/Erro'
               example:
                 erro: E-mail ou senha inválidos.
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
         '429':
-          $ref: '#/components/responses/MuitasTentativas'
+          $ref: '#/components/responses/MuitasTentativasLogin'
 
   /auth/recuperar-senha:
     post:
@@ -189,6 +232,51 @@ paths:
                 $ref: '#/components/schemas/Erro'
               example:
                 erro: Rota não encontrada
+
+  /saude:
+    get:
+      tags: [Saúde]
+      summary: Verificar se a API está no ar
+      operationId: verificarSaude
+      security: []
+      description: |
+        Rota pública (sem JWT), chamada por um cron externo a cada 10 minutos
+        no horário de uso da escola para manter a API da homologação acordada
+        no Render (Issue #138). **Não acessa o banco** (não acorda o Neon nem
+        gasta as horas dele) e responde sempre o mesmo corpo mínimo, sem
+        versão, ambiente, uptime nem qualquer dado interno ou pessoal.
+
+        Fica fora do limite de tentativas (não conta nem recebe **429**) e,
+        como as demais respostas, traz `Cache-Control: no-store`. O CORS é o
+        mesmo das demais rotas: chamadas sem cabeçalho `Origin` (ex.: o cron)
+        recebem 200 normalmente.
+
+        Também aceita `HEAD /saude` (200, mesmos cabeçalhos, sem corpo), usado
+        por alguns serviços de monitoramento. Outros métodos seguem o
+        comportamento de rota inexistente (401 sem token, 404 com token).
+
+        Perfis: público.
+      responses:
+        '200':
+          description: API no ar.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaudeResposta'
+              example:
+                status: ok
+        '400':
+          description: >-
+            A rota não usa corpo, mas o leitor de JSON global roda antes de
+            todas as rotas: uma requisição com `Content-Type: application/json`
+            e corpo malformado é recusada antes de chegar à rota (o cron não
+            envia corpo).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Erro'
+              example:
+                erro: JSON inválido no corpo da requisição
 
   /conta/senha:
     put:
@@ -246,7 +334,12 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '409':
-          description: Conflito concorrente com outra troca de senha do mesmo usuário (`CONFLITO_CONCORRENTE`).
+          description: >-
+            Conflito concorrente (`CONFLITO_CONCORRENTE`): outra troca de senha
+            do mesmo usuário ao mesmo tempo, ou a senha mudou entre a conferência
+            da senha atual e a gravação (ex.: redefinição pela Gestão — RN10).
+            Neste caso nada é gravado, a redefinição da Gestão é preservada e o
+            usuário precisa entrar de novo (SSD 1.11, Issue #127).
           content:
             application/json:
               schema:
@@ -254,6 +347,10 @@ paths:
               example:
                 erro: A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.
                 codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
         '429':
           $ref: '#/components/responses/MuitasTentativas'
 
@@ -378,6 +475,10 @@ paths:
               example:
                 erro: Já existe um usuário cadastrado com este e-mail.
                 codigo: EMAIL_DUPLICADO
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /usuarios/{id}:
     put:
@@ -401,6 +502,14 @@ paths:
           `GESTAO_ATIVA_MINIMA`;
         * troca de perfil de um Tutor com estudantes vinculados (RN13) —
           `TUTOR_COM_TUTORADOS`;
+        * mudança para `PROFESSOR` ou `TECNICO_ADMINISTRATIVO` do perfil de
+          um usuário que é o responsável pelo acompanhamento
+          (`responsavel_acompanhamento_id`) de ao menos uma ocorrência não
+          encerrada (RN23, SSD 1.13) — `RESPONSAVEL_COM_OCORRENCIAS`. A
+          mudança entre `TUTOR`, `PEDAGOGICO` e `GESTAO`, a edição sem mudança
+          de perfil e o responsável só por ocorrências encerradas não são
+          recusados. Quando a RN13 e a RN23 se aplicam ao mesmo tempo, vale a
+          RN13 (`TUTOR_COM_TUTORADOS`), verificada primeiro;
         * e-mail já usado por outro usuário — `EMAIL_DUPLICADO`;
         * conflito concorrente — `CONFLITO_CONCORRENTE`.
 
@@ -444,8 +553,9 @@ paths:
                 erro: Usuário não encontrado.
         '409':
           description: |
-            Recusado pelas regras RN11/RN13 (`ALTERAR_PROPRIO_ACESSO`,
-            `GESTAO_ATIVA_MINIMA`, `TUTOR_COM_TUTORADOS`), e-mail duplicado
+            Recusado pelas regras RN11/RN13/RN23 (`ALTERAR_PROPRIO_ACESSO`,
+            `GESTAO_ATIVA_MINIMA`, `TUTOR_COM_TUTORADOS`,
+            `RESPONSAVEL_COM_OCORRENCIAS`), e-mail duplicado
             (`EMAIL_DUPLICADO`) ou conflito concorrente (`CONFLITO_CONCORRENTE`).
           content:
             application/json:
@@ -464,6 +574,10 @@ paths:
                   value:
                     erro: Este usuário Tutor tem estudantes vinculados. Desvincule os estudantes (ou troque o tutor deles) antes de alterar o perfil.
                     codigo: TUTOR_COM_TUTORADOS
+                responsavelComOcorrencias:
+                  value:
+                    erro: Este usuário é o responsável pelo acompanhamento de ocorrências que ainda não foram encerradas. Troque o responsável dessas ocorrências (por um novo encaminhamento) antes de alterar o perfil para Professor ou Técnico-administrativo.
+                    codigo: RESPONSAVEL_COM_OCORRENCIAS
                 emailDuplicado:
                   value:
                     erro: Já existe um usuário cadastrado com este e-mail.
@@ -472,6 +586,10 @@ paths:
                   value:
                     erro: O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /usuarios/{id}/senha:
     put:
@@ -533,6 +651,10 @@ paths:
                   value:
                     erro: A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /turmas:
     get:
@@ -606,6 +728,10 @@ paths:
           $ref: '#/components/responses/Proibido'
         '409':
           $ref: '#/components/responses/ConflitoTurma'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /turmas/{id}:
     put:
@@ -659,6 +785,10 @@ paths:
                 erro: Turma não encontrada.
         '409':
           $ref: '#/components/responses/ConflitoTurma'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /estudantes:
     get:
@@ -797,6 +927,10 @@ paths:
           $ref: '#/components/responses/Proibido'
         '409':
           $ref: '#/components/responses/ConflitoEstudante'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /estudantes/{id}:
     put:
@@ -858,6 +992,10 @@ paths:
                 erro: Estudante não encontrado.
         '409':
           $ref: '#/components/responses/ConflitoEstudante'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /categorias:
     get:
@@ -927,6 +1065,10 @@ paths:
           $ref: '#/components/responses/Proibido'
         '409':
           $ref: '#/components/responses/ConflitoCategoria'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /categorias/{id}:
     put:
@@ -978,6 +1120,10 @@ paths:
                 erro: Categoria não encontrada.
         '409':
           $ref: '#/components/responses/ConflitoCategoria'
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias:
     post:
@@ -1125,6 +1271,10 @@ paths:
               example:
                 erro: Não foi possível registrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.
                 codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
     get:
       tags: [Ocorrências]
       summary: Consultar ocorrências com filtros e paginação
@@ -1378,6 +1528,10 @@ paths:
                   value:
                     erro: Não foi possível registrar o encaminhamento por causa de outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias/{id}/comunicacoes:
     post:
@@ -1445,6 +1599,10 @@ paths:
                   value:
                     erro: Não foi possível registrar a comunicação por causa de outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias/{id}/providencias:
     post:
@@ -1510,6 +1668,10 @@ paths:
                   value:
                     erro: Não foi possível registrar a providência por causa de outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias/{id}/status:
     patch:
@@ -1593,6 +1755,10 @@ paths:
                   value:
                     erro: Não foi possível encerrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.
                     codigo: CONFLITO_CONCORRENTE
+        '413':
+          $ref: '#/components/responses/CorpoGrandeDemais'
+        '415':
+          $ref: '#/components/responses/CodificacaoNaoSuportada'
 
   /ocorrencias/{id}/historico:
     get:
@@ -1854,6 +2020,41 @@ components:
             $ref: '#/components/schemas/Erro'
           example:
             erro: Informe nome (texto não vazio).
+    CorpoGrandeDemais:
+      description: |
+        Corpo da requisição acima do limite do leitor de JSON (Issue #128):
+        512 kB (524.288 bytes) em todas as rotas, exceto o `POST /auth/login`,
+        que aceita até 10 kB (10.240 bytes) por ser anônimo — um login
+        legítimo fica em cerca de 1 kB. O limite de 512 kB cobre, com folga, o
+        maior corpo válido pelos limites da Seção 11 do SSD, sem espaços nas
+        pontas dos textos nem campos extras (o que o front-end envia): o do
+        `POST /ocorrencias`, cerca de 453 kB no pior caso. Como o corpo é
+        lido antes da autenticação, esta resposta pode vir antes do 401.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: O corpo da requisição passa do tamanho máximo permitido.
+    CodificacaoNaoSuportada:
+      description: |
+        Corpo em codificação de caracteres diferente de UTF-8 (`charset` do
+        `Content-Type`, ex.: `application/json; charset=latin1`) ou com
+        `Content-Encoding` não suportado (Issue #128). Como o corpo é lido
+        antes da autenticação, esta resposta pode vir antes do 401.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          examples:
+            charset:
+              summary: Charset diferente de UTF-8
+              value:
+                erro: Codificação de caracteres não suportada no corpo da requisição. Use UTF-8.
+            contentEncoding:
+              summary: Content-Encoding não suportado
+              value:
+                erro: Compressão (Content-Encoding) não suportada no corpo da requisição.
     NaoAutenticado:
       description: |
         Token ausente, malformado, inválido ou expirado; usuário inexistente,
@@ -1897,6 +2098,27 @@ components:
             $ref: '#/components/schemas/Erro'
           example:
             erro: Ocorrência não encontrada.
+    MuitasTentativasLogin:
+      description: |
+        Limite de tentativas com falha no login excedido: 5 em 15 minutos por
+        IP + e-mail (SSD 1.8, Seção 12; Issue #90) **ou** 100 em 15 minutos
+        só por IP, com qualquer e-mail (SSD 1.13; Issue #134) — o primeiro
+        atingido recusa. Mesmo corpo nos dois casos, igual para qualquer
+        e-mail; `Retry-After` e `RateLimit-Policy` são os do limite atingido.
+        O status da conta não muda (RN07).
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        RateLimit:
+          $ref: '#/components/headers/RateLimit'
+        RateLimit-Policy:
+          $ref: '#/components/headers/RateLimitPolicy'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Erro'
+          example:
+            erro: Muitas tentativas. Tente novamente em alguns minutos.
     MuitasTentativas:
       description: |
         Limite de tentativas com falha excedido (5 em 15 minutos — SSD 1.8,
@@ -2072,6 +2294,9 @@ components:
               própria conta (RF03); usar `PUT /conta/senha`.
             * `TUTOR_COM_TUTORADOS` (409): troca de perfil de um Tutor com
               estudantes vinculados (RN13).
+            * `RESPONSAVEL_COM_OCORRENCIAS` (409): mudança para Professor ou
+              Técnico-administrativo do perfil do responsável pelo
+              acompanhamento de ocorrências não encerradas (RN23, SSD 1.13).
             * `OCORRENCIA_ENCERRADA` (409): ocorrência encerrada não recebe
               encaminhamento, comunicação ou providência, nem é encerrada de
               novo (RN04, RN15, RN16).
@@ -2091,6 +2316,7 @@ components:
             - ALTERAR_PROPRIO_ACESSO
             - REDEFINIR_PROPRIA_SENHA
             - TUTOR_COM_TUTORADOS
+            - RESPONSAVEL_COM_OCORRENCIAS
             - OCORRENCIA_ENCERRADA
             - OCORRENCIA_ABERTA
             - ENCERRAMENTO_SEM_PROVIDENCIA
@@ -2164,6 +2390,16 @@ components:
         trocaSenhaObrigatoria:
           type: boolean
           description: Quando `true`, o usuário precisa trocar a senha temporária antes de usar as demais rotas (RN10).
+
+    SaudeResposta:
+      type: object
+      required: [status]
+      additionalProperties: false
+      description: Corpo fixo do `GET /saude` (Issue #138), sem dados internos.
+      properties:
+        status:
+          type: string
+          enum: [ok]
 
     TrocaSenhaEntrada:
       type: object

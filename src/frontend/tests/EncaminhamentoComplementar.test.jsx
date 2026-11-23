@@ -496,6 +496,8 @@ describe('Encaminhamento no detalhe — complementares do QA (#50)', () => {
       await usuario.click(c.enviar);
       expect(await within(dialogo).findByRole('alert')).toHaveTextContent('Mensagem fictícia da API.');
       await usuario.click(c.cancelar);
+      // Com texto digitado, Cancelar pede confirmação antes de descartar (#128).
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Descartar' }));
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
       const novo = await abrirNaPagina();

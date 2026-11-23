@@ -10,6 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { CODIGOS_ERRO } from '../src/lib/erros.js';
+import { criarBancoEmMemoria } from './apoio/bancoEmMemoria.js';
 
 let banco;
 /** Operações feitas no client ("modelo.operacao"), em ordem. */
@@ -45,61 +46,14 @@ const RELACOES = {
   },
 };
 
-const linhas = (modelo) => banco[TABELA[modelo]];
-
-function relacionado(modelo, registro, campo) {
-  const [tipo, alvo, fk] = RELACOES[modelo][campo];
-  if (tipo === 'um') {
-    return registro[fk] == null ? null : linhas(alvo).find((r) => r.id === registro[fk]) ?? null;
-  }
-  return linhas(alvo).filter((r) => r[fk] === registro.id);
-}
-
-const comparavel = (v) => (v instanceof Date ? v.getTime() : v);
-
-/** Avalia um `where` do Prisma sobre um registro. */
-function corresponde(modelo, registro, where = {}) {
-  return Object.entries(where).every(([chave, condicao]) => {
-    if (chave === 'AND') return condicao.every((w) => corresponde(modelo, registro, w));
-    if (chave === 'OR') return condicao.some((w) => corresponde(modelo, registro, w));
-    const relacao = RELACOES[modelo]?.[chave];
-    if (relacao) {
-      const [tipo, alvo] = relacao;
-      if (tipo === 'muitos') {
-        const operadores = Object.keys(condicao);
-        if (operadores.length !== 1 || operadores[0] !== 'some') {
-          throw new Error(`mock: operador de lista não suportado em ${modelo}.${chave}`);
-        }
-        return relacionado(modelo, registro, chave).some((f) => corresponde(alvo, f, condicao.some));
-      }
-      const pai = relacionado(modelo, registro, chave);
-      return pai !== null && corresponde(alvo, pai, condicao);
-    }
-    if (!(chave in registro)) throw new Error(`mock: campo inexistente ${modelo}.${chave}`);
-    const valor = comparavel(registro[chave]);
-    if (condicao !== null && typeof condicao === 'object' && !(condicao instanceof Date)) {
-      return Object.entries(condicao).every(([operador, alvo]) => {
-        if (operador === 'in') return alvo.includes(registro[chave]);
-        if (!(alvo instanceof Date)) throw new Error(`mock: ${operador} exige Date em ${modelo}.${chave}`);
-        if (operador === 'gte') return valor >= comparavel(alvo);
-        if (operador === 'lte') return valor <= comparavel(alvo);
-        throw new Error(`mock: operador não suportado em ${modelo}.${chave}: ${operador}`);
-      });
-    }
-    return valor === comparavel(condicao);
-  });
-}
-
-function selecionar(modelo, registro, select) {
-  if (!select) return { ...registro };
-  return Object.fromEntries(
-    Object.entries(select).map(([campo, valor]) => {
-      if (valor !== true) throw new Error(`mock: select aninhado não previsto em ${modelo}.${campo}`);
-      if (!(campo in registro)) throw new Error(`mock: campo inexistente ${modelo}.${campo}`);
-      return [campo, registro[campo]];
-    }),
-  );
-}
+// Avaliação do where e do select: tests/apoio/bancoEmMemoria.js (Issue #129),
+// sem select aninhado (as leituras do relatório não pedem relações no select).
+const { linhas, corresponde, selecionar } = criarBancoEmMemoria({
+  obterBanco: () => banco,
+  tabelas: TABELA,
+  relacoes: RELACOES,
+  selectAninhado: false,
+});
 
 function verificarArgs(modelo, operacao, args, permitidos) {
   const extras = Object.keys(args ?? {}).filter((k) => !permitidos.includes(k));

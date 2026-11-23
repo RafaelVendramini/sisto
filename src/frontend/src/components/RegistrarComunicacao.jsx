@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ORIENTACAO_COMUNICACAO,
   TAMANHO_MAXIMO_DESTINATARIO_MEIO,
@@ -10,7 +10,9 @@ import {
   validarComunicacao,
 } from '../services/mensagensOcorrencias.js';
 import { registrarComunicacao } from '../services/ocorrencias.js';
-import Dialogo from './Dialogo.jsx';
+import AvisoSessaoExpirada, { sessaoExpirou } from './AvisoSessaoExpirada.jsx';
+import Dialogo, { useConfirmacaoDescarte } from './Dialogo.jsx';
+import { exibirFalha, useCarregamento } from './useCarregamento.js';
 
 const PREFIXO = 'comunicacao';
 const ID_DIALOGO = 'dialogo-comunicacao';
@@ -60,24 +62,19 @@ export default function RegistrarComunicacao({
   const [erros, setErros] = useState({});
   const [erro, setErro] = useState('');
   const [pedeAtualizacao, setPedeAtualizacao] = useState(false);
+  // Token vencido antes do envio (#128): nada é enviado nem apagado.
+  const [sessaoVencida, setSessaoVencida] = useState(false);
   const [enviando, setEnviando] = useState(false);
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
 
-  const montado = useRef(true);
+  const { montado } = useCarregamento();
   const refs = {
     destinatario: useRef(null),
     meio: useRef(null),
     descricao: useRef(null),
     dataHora: useRef(null),
   };
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
 
   function alterar(campo) {
     return (evento) => {
@@ -100,9 +97,15 @@ export default function RegistrarComunicacao({
     if (campo) refs[campo].current?.focus();
   }
 
+  // Esc e "Cancelar" com texto digitado pedem confirmação antes de fechar (#128).
+  const { pedirFechamento, confirmacaoDescarte } = useConfirmacaoDescarte({
+    temTextoDigitado: ['destinatario', 'meio', 'descricao'].some((campo) => dados[campo].trim() !== ''),
+    aoFechar: aoCancelar,
+  });
+
   function cancelar() {
     if (enviandoRef.current) return;
-    aoCancelar();
+    pedirFechamento();
   }
 
   function atualizarOcorrencia() {
@@ -123,6 +126,13 @@ export default function RegistrarComunicacao({
       return;
     }
 
+    // Sessão vencida antes do envio: não envia nem limpa o formulário (#128).
+    if (sessaoExpirou()) {
+      setSessaoVencida(true);
+      return;
+    }
+    setSessaoVencida(false);
+
     enviandoRef.current = true;
     setEnviando(true);
     try {
@@ -132,7 +142,7 @@ export default function RegistrarComunicacao({
       enviandoRef.current = false;
       if (!montado.current) return;
       setEnviando(false);
-      if (falha?.status === 401) return; // tratamento central: volta ao login com aviso
+      if (!exibirFalha(falha)) return; // tratamento central: volta ao login com aviso
       setErro(mensagemErroComunicacao(falha));
       setPedeAtualizacao(comunicacaoPedeAtualizacao(falha));
     }
@@ -172,6 +182,7 @@ export default function RegistrarComunicacao({
       titulo="Registrar comunicação"
       descricaoId={`${ID_DIALOGO}-descricao`}
       aoFechar={cancelar}
+      confirmacaoDescarte={confirmacaoDescarte}
       focoInicialRef={refs.destinatario}
       aoRestaurarFoco={aoRestaurarFoco}
     >
@@ -242,6 +253,8 @@ export default function RegistrarComunicacao({
           </span>
           {mensagemCampo('dataHora')}
         </div>
+
+        {sessaoVencida && <AvisoSessaoExpirada />}
 
         {erro && (
           <div className="mensagem mensagem--erro" role="alert">

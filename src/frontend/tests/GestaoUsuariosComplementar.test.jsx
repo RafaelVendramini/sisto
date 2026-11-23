@@ -2,7 +2,7 @@
 // erros 400/404/409/500 sem mensagem do back-end (RNF02) e 404 na edição.
 // API mockada, sem rede. Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 import { mensagemErroAlteracaoUsuario } from '../src/services/mensagensUsuarios.js';
@@ -42,6 +42,8 @@ describe('Gestão de usuários #16 — testes complementares do QA', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });

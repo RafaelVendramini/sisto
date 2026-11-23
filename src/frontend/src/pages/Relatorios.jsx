@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { exibirFalha, useCarregamento } from '../components/useCarregamento.js';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import {
   formatarDataRelatorio,
@@ -30,17 +31,9 @@ export default function Relatorios() {
   const [gerando, setGerando] = useState(false);
   const [relatorio, setRelatorio] = useState(null);
 
-  const montado = useRef(true);
   // Só a resposta da geração mais recente é mostrada.
-  const ultimaGeracao = useRef(0);
+  const { novaRequisicao } = useCarregamento();
   const refs = { dataInicio: useRef(null), dataFim: useRef(null) };
-
-  useEffect(() => {
-    montado.current = true;
-    return () => {
-      montado.current = false;
-    };
-  }, []);
 
   function alterar(campo) {
     return (evento) => {
@@ -67,18 +60,18 @@ export default function Relatorios() {
       return;
     }
 
-    const geracao = ++ultimaGeracao.current;
+    const vigente = novaRequisicao();
     setGerando(true);
     try {
       const resultado = await gerarRelatorio(filtro);
-      if (montado.current && geracao === ultimaGeracao.current) setRelatorio(resultado);
+      if (vigente()) setRelatorio(resultado);
     } catch (falha) {
-      if (!montado.current || geracao !== ultimaGeracao.current) return;
+      if (!vigente()) return;
       setRelatorio(null);
       // 401: o tratamento central já leva ao login com aviso.
-      if (falha?.status !== 401) setErro(mensagemErroRelatorio(falha));
+      if (exibirFalha(falha)) setErro(mensagemErroRelatorio(falha));
     } finally {
-      if (montado.current && geracao === ultimaGeracao.current) setGerando(false);
+      if (vigente()) setGerando(false);
     }
   }
 

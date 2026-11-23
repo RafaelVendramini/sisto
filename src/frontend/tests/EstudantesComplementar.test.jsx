@@ -6,7 +6,7 @@
 // marcação responsiva e funções puras de mensagensEstudantes/estudantes.
 // Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 import {
@@ -26,6 +26,11 @@ const URL_API = 'http://api.exemplo.test';
 const MSG_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
 const MSG_SEM_CONEXAO =
   'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
+
+// Relógio fixo em 2026 (Issue #134): as turmas fictícias são de 2026 e, com o
+// filtro padrão por ano letivo, sumiriam das listas a partir de 2027. Só o
+// Date é simulado; os temporizadores continuam reais.
+const AGORA = new Date('2026-11-23T13:00:00.000Z');
 
 const ETAPA = 'Ensino Fundamental - Anos Finais';
 const TURMA_6A = { id: 1, nome: '6º A', etapa: ETAPA, anoLetivo: 2026 };
@@ -147,6 +152,8 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
   let usuario;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(AGORA);
     sessionStorage.clear();
     localStorage.clear();
     vi.stubEnv('VITE_API_URL', URL_API);
@@ -156,6 +163,9 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -259,29 +269,36 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
     });
   });
 
-  describe('falha de GET /usuarios (d)', () => {
-    it('403 em /usuarios: lista carrega, cadastro mostra aviso e "Tentar novamente"', async () => {
+  // #128: com Promise.allSettled, a falha só do GET /usuarios não trava o
+  // cadastro: as turmas carregam, o formulário aparece "Sem tutor" e um aviso
+  // explica o que não carregou.
+  describe('falha de GET /usuarios (d, #128)', () => {
+    const AVISO_TUTORES =
+      'Não foi possível carregar a lista de tutores. Você pode cadastrar o estudante "Sem tutor" ' +
+      'e vincular o tutor depois, em "Editar".';
+
+    it('403 em /usuarios: lista e formulário carregam, com aviso sobre os tutores', async () => {
       mockarApi({ usuarios: () => respostaFalsa(403, { erro: MSG_SEM_PERMISSAO }) });
       renderizarApp('/estudantes');
 
       await screen.findByRole('table');
       const cadastro = screen.getByRole('region', { name: 'Cadastrar estudante' });
-      const alerta = await within(cadastro).findByRole('alert');
-      expect(alerta).toHaveTextContent(MSG_SEM_PERMISSAO);
-      expect(within(alerta).getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument();
-      expect(within(cadastro).queryByLabelText('Nome completo')).not.toBeInTheDocument();
+      expect(await within(cadastro).findByText(AVISO_TUTORES)).toBeInTheDocument();
+      expect(within(cadastro).queryByRole('alert')).not.toBeInTheDocument();
+      expect(within(cadastro).getByLabelText('Nome completo')).toBeInTheDocument();
+      expect(textosDasOpcoes(formularioCadastro().tutor)).toEqual(['Sem tutor']);
       expect(nomesNaTabela()).toHaveLength(3);
     });
 
-    it('comportamento atual: com /usuarios falhando, o filtro por turma também some (turmas descartadas)', async () => {
+    it('com /usuarios falhando, as turmas continuam no filtro e no cadastro', async () => {
       mockarApi({ usuarios: () => respostaFalsa(500, { erro: 'Erro interno do servidor.' }) });
       renderizarApp('/estudantes');
       await screen.findByRole('table');
-      await within(screen.getByRole('region', { name: 'Cadastrar estudante' })).findByRole('alert');
+      const cadastro = screen.getByRole('region', { name: 'Cadastrar estudante' });
+      await within(cadastro).findByText(AVISO_TUTORES);
 
-      // Achado não bloqueante: GET /turmas respondeu 200, mas o Promise.all
-      // descarta as turmas e o filtro não aparece.
-      expect(screen.queryByLabelText('Filtrar por turma')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Filtrar por turma')).toBeInTheDocument();
+      expect(textosDasOpcoes(formularioCadastro().turma).length).toBeGreaterThan(1);
     });
 
     it('com /usuarios falhando, a edição mantém turma e tutor atuais (bloqueado) e envia os 4 campos', async () => {
@@ -291,7 +308,9 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
       });
       renderizarApp('/estudantes');
       await screen.findByRole('table');
-      await within(screen.getByRole('region', { name: 'Cadastrar estudante' })).findByRole('alert');
+      await within(screen.getByRole('region', { name: 'Cadastrar estudante' })).findByText(
+        AVISO_TUTORES,
+      );
 
       await usuario.click(screen.getByRole('button', { name: 'Editar Estudante Fictício 02' }));
       const d = dialogoEdicao();
@@ -310,7 +329,7 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
       });
     });
 
-    it('após falha, "Tentar novamente" recarrega turmas e tutores e mostra o filtro', async () => {
+    it('"Carregar a lista de tutores" busca só os usuários e preserva o que foi digitado', async () => {
       let tentativa = 0;
       mockarApi({
         usuarios: () => {
@@ -320,15 +339,22 @@ describe('Tela de estudantes — complementares do QA (#43)', () => {
       });
       renderizarApp('/estudantes');
       const cadastro = screen.getByRole('region', { name: 'Cadastrar estudante' });
-      const alerta = await within(cadastro).findByRole('alert');
-      await usuario.click(within(alerta).getByRole('button', { name: 'Tentar novamente' }));
+      await within(cadastro).findByText(AVISO_TUTORES);
+      await usuario.type(formularioCadastro().nome, 'Estudante Fictício 00');
+      const turmasAntes = chamadas('GET').filter(([url]) => url.endsWith('/turmas')).length;
 
-      expect(await screen.findByLabelText('Filtrar por turma')).toBeInTheDocument();
-      expect(textosDasOpcoes(formularioCadastro().tutor)).toEqual([
-        'Sem tutor',
-        'Tutor Fictício Ativo',
-        'Tutora Fictícia Dois',
-      ]);
+      await usuario.click(within(cadastro).getByRole('button', { name: 'Carregar a lista de tutores' }));
+
+      await waitFor(() =>
+        expect(textosDasOpcoes(formularioCadastro().tutor)).toEqual([
+          'Sem tutor',
+          'Tutor Fictício Ativo',
+          'Tutora Fictícia Dois',
+        ]),
+      );
+      expect(within(cadastro).queryByText(AVISO_TUTORES)).not.toBeInTheDocument();
+      expect(formularioCadastro().nome).toHaveValue('Estudante Fictício 00');
+      expect(chamadas('GET').filter(([url]) => url.endsWith('/turmas'))).toHaveLength(turmasAntes);
     });
   });
 
@@ -636,6 +662,8 @@ describe('services/mensagensEstudantes e services/estudantes — funções puras
       gravarSessaoFicticia();
     });
     afterEach(() => {
+      // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+      cleanup();
       vi.unstubAllEnvs();
       vi.unstubAllGlobals();
     });

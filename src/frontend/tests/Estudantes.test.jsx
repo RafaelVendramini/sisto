@@ -4,7 +4,7 @@
 // desvínculo do tutor e mensagens de erro (API mockada, sem rede).
 // Somente dados fictícios (RN05 / LGPD).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 
@@ -19,6 +19,11 @@ const MSG_TURMA_INEXISTENTE = 'A turma informada não existe.';
 const MSG_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
 const MSG_SEM_CONEXAO =
   'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
+
+// Relógio fixo em 2026 (Issue #134): as turmas fictícias são de 2026 e, com o
+// filtro padrão por ano letivo, sumiriam das listas a partir de 2027. Só o
+// Date é simulado; os temporizadores continuam reais.
+const AGORA = new Date('2026-11-23T13:00:00.000Z');
 
 const ETAPA = 'Ensino Fundamental - Anos Finais';
 const TURMA_6A = { id: 1, nome: '6º A', etapa: ETAPA, anoLetivo: 2026 };
@@ -149,6 +154,8 @@ describe('Tela de estudantes (#43)', () => {
   let usuario;
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(AGORA);
     sessionStorage.clear();
     localStorage.clear();
     vi.stubEnv('VITE_API_URL', URL_API);
@@ -157,6 +164,9 @@ describe('Tela de estudantes (#43)', () => {
   });
 
   afterEach(() => {
+    // Desmonta antes de restaurar fetch/env: nenhuma chamada pendente vaza.
+    cleanup();
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });

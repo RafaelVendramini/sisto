@@ -1,9 +1,16 @@
+import { useState } from 'react';
 import {
   TAMANHO_MAXIMO_CODIGO_ESCOLAR,
   TAMANHO_MAXIMO_NOME_ESTUDANTE,
   rotuloOpcaoTutor,
   rotuloTurma,
 } from '../services/mensagensEstudantes.js';
+import {
+  anoLetivoAtual,
+  filtrarTurmasPorAnoLetivo,
+  temTurmasAnteriores,
+} from '../services/turmasAnoLetivo.js';
+import OpcaoTurmasAnteriores from './OpcaoTurmasAnteriores.jsx';
 
 /** Ordem dos campos na tela (usada para focar o primeiro campo com erro). */
 export const CAMPOS_ESTUDANTE = Object.freeze(['nomeCompleto', 'codigoEscolar', 'turmaId', 'tutorId']);
@@ -19,7 +26,11 @@ export const CAMPOS_ESTUDANTE = Object.freeze(['nomeCompleto', 'codigoEscolar', 
  * @param {Record<string, string>} props.erros
  * @param {(campo: string) => (evento: Event) => void} props.aoAlterar
  * @param {Record<string, import('react').RefObject>} props.refs
- * @param {Array<{ id: number, nome: string, etapa: string, anoLetivo: number }>} props.turmas
+ * @param {Array<{ id: number, nome: string, etapa: string, anoLetivo: number }>} props.turmas -
+ *   todas as turmas; por padrão, só aparecem as do ano letivo atual em diante, além
+ *   da turma selecionada e das de `idsTurmasMantidas` (SSD 1.13, Issue #134)
+ * @param {Array<string | number>} [props.idsTurmasMantidas] - turmas que continuam
+ *   na lista mesmo sendo de ano anterior (ex.: a turma atual do estudante em edição)
  * @param {Array<{ id: number, nome: string, status?: string }>} props.tutores - opções de
  *   tutor já prontas (tutores ativos e, na edição, o tutor atual mesmo que não esteja ativo)
  * @param {string} [props.idConflito] - id da mensagem de código repetido (409),
@@ -36,7 +47,16 @@ export default function CamposEstudante({
   tutores,
   idConflito,
   somenteLeitura,
+  idsTurmasMantidas = [],
 }) {
+  const [mostrarTurmasAnteriores, setMostrarTurmasAnteriores] = useState(false);
+  const anoAtual = anoLetivoAtual();
+  const turmasVisiveis = filtrarTurmasPorAnoLetivo(turmas, {
+    mostrarAnteriores: mostrarTurmasAnteriores,
+    idsMantidos: [dados.turmaId, ...idsTurmasMantidas],
+    anoAtual,
+  });
+
   function propsAcessibilidade(campo, { comAjuda = true, conflito = false } = {}) {
     const descricoes = [
       comAjuda ? `${prefixo}-${campo}-ajuda` : null,
@@ -114,7 +134,7 @@ export default function CamposEstudante({
           {...propsAcessibilidade('turmaId')}
         >
           <option value="">Selecione a turma</option>
-          {turmas.map((turma) => (
+          {turmasVisiveis.map((turma) => (
             <option key={turma.id} value={String(turma.id)}>
               {rotuloTurma(turma)}
             </option>
@@ -124,6 +144,16 @@ export default function CamposEstudante({
           Obrigatório.
         </span>
         {mensagemCampo('turmaId')}
+        {/* Sem turma de ano anterior, a caixa não teria efeito: não aparece. */}
+        {temTurmasAnteriores(turmas, anoAtual) && (
+          <OpcaoTurmasAnteriores
+            id={`${prefixo}-mostrarTurmasAnteriores`}
+            marcado={mostrarTurmasAnteriores}
+            aoAlterar={setMostrarTurmasAnteriores}
+            anoAtual={anoAtual}
+            somenteLeitura={somenteLeitura}
+          />
+        )}
       </div>
 
       <div className="campo">

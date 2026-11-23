@@ -13,16 +13,18 @@
 // - RN12: toda troca grava senha_alterada_em = max(agora, anterior + 1s) (ver
 //   proximaSenhaAlteradaEm); o middleware de sessão passa a rejeitar os
 //   tokens anteriores, inclusive o usado na troca.
-// - Conflito concorrente entre duas trocas do mesmo usuário: 409.
+// - Conflito concorrente entre duas trocas do mesmo usuário: 409. Na troca da
+//   própria senha, também 409 se a senha mudou entre a conferência da senha
+//   atual e a gravação (Issue #127; ver gravarNovaSenha).
 // - RNF03 / RNF06: só o hash bcrypt é gravado; senha nunca aparece em
 //   resposta, mensagem de erro ou log.
 // - RNF04: cada troca grava um LogAuditoria na MESMA transação do update.
 // - RN01: a restrição de PUT /usuarios/{id}/senha à Gestão fica na rota
 //   (permitirPerfis).
 import bcrypt from 'bcrypt';
-import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { emTransacaoSerializavel } from '../lib/transacao.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { TAMANHO_MAXIMO_BYTES_SENHA, gerarHashSenha, mensagemPoliticaSenha } from './senha.js';
 import { MENSAGEM_USUARIO_NAO_ENCONTRADO, validarIdUsuario } from './usuarios.js';
@@ -34,9 +36,13 @@ export const MENSAGEM_SENHA_ATUAL_INCORRETA = 'A senha atual está incorreta.';
 export const MENSAGEM_NOVA_SENHA_IGUAL_ATUAL = 'A nova senha deve ser diferente da senha atual.';
 export const MENSAGEM_CONFLITO_TROCA_SENHA =
   'A senha deste usuário foi alterada por outra operação ao mesmo tempo. Tente novamente.';
-
-/** Tentativas da transação serializável antes de desistir com 409. */
-const TENTATIVAS_TRANSACAO = 3;
+/**
+ * Troca da própria senha recusada porque a senha mudou depois da conferência
+ * da senha atual (ex.: redefinição pela Gestão — Issue #127). "Tente novamente"
+ * não serve aqui: a senha atual informada e a sessão já não valem (RN12).
+ */
+export const MENSAGEM_SENHA_ALTERADA_DURANTE_TROCA =
+  'A sua senha foi alterada por outra operação enquanto a troca era feita. Entre novamente no sistema.';
 
 /** Intervalo mínimo entre duas trocas registradas (desempate por segundo do RN12). */
 const UM_SEGUNDO_MS = 1000;
@@ -60,53 +66,83 @@ export function proximaSenhaAlteradaEm(agora, anterior) {
   return new Date(Math.max(agora.getTime(), anterior.getTime() + UM_SEGUNDO_MS));
 }
 
+/** Data (ou null) em milissegundos, para comparar senha_alterada_em. */
+function emMilissegundos(data) {
+  return data instanceof Date ? data.getTime() : null;
+}
+
+/**
+ * Indica se a senha do usuário mudou entre a leitura `antes` e a releitura
+ * `depois` (senha_hash ou senha_alterada_em diferentes).
+ * @param {{ senha_hash: string, senha_alterada_em: Date | null }} antes
+ * @param {{ senha_hash: string, senha_alterada_em: Date | null }} depois
+ * @returns {boolean}
+ */
+export function senhaMudouDesde(antes, depois) {
+  return (
+    antes.senha_hash !== depois.senha_hash ||
+    emMilissegundos(antes.senha_alterada_em) !== emMilissegundos(depois.senha_alterada_em)
+  );
+}
+
 /**
  * Grava o novo hash, a flag de troca obrigatória, senha_alterada_em e o
  * LogAuditoria numa única transação SERIALIZABLE: a leitura do
  * senha_alterada_em anterior e o update são atômicos. Se duas trocas
  * simultâneas partirem da mesma leitura, o PostgreSQL aborta uma delas
- * (P2034) e ela é repetida; esgotadas as tentativas, responde 409.
+ * (P2034) e ela é repetida; esgotadas as tentativas, responde 409 (helper
+ * lib/transacao.js, que também responde 409 no P2028).
+ *
+ * Troca pelo próprio usuário (Issue #127): `esperado` traz o senha_hash e o
+ * senha_alterada_em lidos ANTES da conferência da senha atual (que roda fora
+ * da transação, por causa do custo do bcrypt). A transação relê os dois; se
+ * algum mudou (ex.: a Gestão redefiniu a senha nesse intervalo — RN10), a
+ * troca é recusada com 409, SEM nova tentativa: a senha atual conferida já
+ * não é a vigente, e gravar desfaria a redefinição em silêncio. Sem
+ * `esperado` (redefinição pela Gestão), o comportamento não muda.
+ * @param {object} db client Prisma
+ * @param {object} dados
+ * @param {{ senha_hash: string, senha_alterada_em: Date | null }} [dados.esperado]
  * @returns {Promise<void>}
  * @throws {ErroHttp} 404 (usuário inexistente) ou 409 (conflito concorrente)
  */
-async function gravarNovaSenha(db, { id, senha_hash, trocaSenhaObrigatoria, auditoria, agora }) {
-  for (let tentativa = 1; ; tentativa += 1) {
-    try {
-      await db.$transaction(
-        async (tx) => {
-          const atual = await tx.usuario.findUnique({
-            where: { id },
-            select: { id: true, senha_alterada_em: true },
-          });
-          if (!atual) throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
-
-          await tx.usuario.update({
-            where: { id },
-            data: {
-              senha_hash,
-              troca_senha_obrigatoria: trocaSenhaObrigatoria,
-              senha_alterada_em: proximaSenhaAlteradaEm(agora(), atual.senha_alterada_em),
-            },
-            select: { id: true },
-          });
-          await registrarAuditoria(auditoria, tx);
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
-      return;
-    } catch (erro) {
-      if (erro instanceof ErroHttp) throw erro;
-      // Registro removido entre a leitura e o update.
-      if (erro?.code === 'P2025') throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
-      if (erro?.code === 'P2034') {
-        if (tentativa < TENTATIVAS_TRANSACAO) continue;
-        throw new ErroHttp(409, MENSAGEM_CONFLITO_TROCA_SENHA, {
+async function gravarNovaSenha(
+  db,
+  { id, senha_hash, trocaSenhaObrigatoria, auditoria, agora, esperado },
+) {
+  await emTransacaoSerializavel(
+    db,
+    async (tx) => {
+      const atual = await tx.usuario.findUnique({
+        where: { id },
+        select: { id: true, senha_hash: true, senha_alterada_em: true },
+      });
+      if (!atual) throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
+      // ErroHttp sobe sem nova tentativa (ver o comentário acima).
+      if (esperado && senhaMudouDesde(esperado, atual)) {
+        throw new ErroHttp(409, MENSAGEM_SENHA_ALTERADA_DURANTE_TROCA, {
           codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
         });
       }
-      throw erro;
-    }
-  }
+
+      await tx.usuario.update({
+        where: { id },
+        data: {
+          senha_hash,
+          troca_senha_obrigatoria: trocaSenhaObrigatoria,
+          senha_alterada_em: proximaSenhaAlteradaEm(agora(), atual.senha_alterada_em),
+        },
+        select: { id: true },
+      });
+      await registrarAuditoria(auditoria, tx);
+    },
+    {
+      mensagemConflito: MENSAGEM_CONFLITO_TROCA_SENHA,
+      // Registro removido entre a leitura e o update.
+      traduzirErro: (erro) =>
+        erro?.code === 'P2025' ? new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO) : undefined,
+    },
+  );
 }
 
 function ehObjeto(corpo) {
@@ -234,7 +270,9 @@ export async function trocarPropriaSenha(
 
   const usuario = await db.usuario.findUnique({
     where: { id: solicitante?.id },
-    select: { id: true, senha_hash: true },
+    // senha_alterada_em também é lido: com o senha_hash, é o que a transação
+    // confere para recusar uma troca concorrente (Issue #127).
+    select: { id: true, senha_hash: true, senha_alterada_em: true },
   });
   if (!usuario) {
     // O middleware acabou de validar a sessão; só ocorre se o usuário sumir no meio.
@@ -264,5 +302,9 @@ export async function trocarPropriaSenha(
       recurso: recursoAuditoria('usuarios', usuario.id),
     },
     agora,
+    esperado: {
+      senha_hash: usuario.senha_hash,
+      senha_alterada_em: usuario.senha_alterada_em ?? null,
+    },
   });
 }

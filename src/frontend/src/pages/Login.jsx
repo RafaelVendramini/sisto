@@ -5,6 +5,7 @@ import { useSessao } from '../components/Sessao.jsx';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { estaAutenticado } from '../services/auth.js';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
+import { destinoInterno } from '../services/destinoLogin.js';
 import { MENSAGEM_MUITAS_TENTATIVAS } from '../services/mensagens.js';
 import { ROTA_PRIVACIDADE, ROTA_TERMOS } from '../services/rotasPublicas.js';
 
@@ -61,8 +62,13 @@ export default function Login() {
     setSucessoExibido(sucesso);
   }, [sucesso]);
 
+  // Volta à tela de origem (ex.: sessão vencida — #128), só se for um destino interno.
+  const destino = destinoInterno(location.state?.de) ?? '/';
+
+  // Já autenticado (inclusive logo depois de entrar, quando a sessão é gravada
+  // antes da navegação abaixo): vai para o destino.
   if (estaAutenticado()) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={destino} replace />;
   }
 
   async function aoEnviar(evento) {
@@ -93,7 +99,6 @@ export default function Login() {
         navigate(ROTA_ALTERAR_SENHA, { replace: true });
         return;
       }
-      const destino = location.state?.de && location.state.de !== '/login' ? location.state.de : '/';
       navigate(destino, { replace: true });
     } catch (falha) {
       setErro(mensagemDeErro(falha));

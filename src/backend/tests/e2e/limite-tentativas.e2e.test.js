@@ -1,5 +1,7 @@
 // Limite de tentativas com falha, de ponta a ponta pela API (Issue #93,
-// item 4; Issue #90; SSD 1.8, Seção 12): 5 falhas seguidas de 429.
+// item 4; Issue #90; SSD 1.8, Seção 12): 5 falhas seguidas de 429. E o
+// limite só por IP no login (Issue #134; SSD 1.13): 100 falhas com e-mails
+// diferentes seguidas de 429.
 // App real com os valores de PRODUÇÃO (criarApp() sem opções: 5 falhas em
 // 15 minutos) + banco de testes real, somente dados fictícios (RN05).
 //
@@ -8,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { criarApp } from '../../src/app.js';
 import {
+  LIMITE_FALHAS_LOGIN_POR_IP,
   LIMITE_TENTATIVAS_COM_FALHA,
   MENSAGEM_MUITAS_TENTATIVAS,
 } from '../../src/middlewares/limite-tentativas.js';
@@ -101,5 +104,62 @@ describe('PUT /conta/senha: 5 senhas atuais erradas seguidas de 429', () => {
     // Nada mudou: a senha antiga ainda entra e a sessão continua válida.
     exigirStatus(await enviar(app, 'GET', '/turmas', { token }), 200, 'sessão');
     await entrar(app, usuario.email, usuario.senha);
+  });
+});
+
+describe('POST /auth/login: limite só por IP — 100 falhas com e-mails diferentes, a 101ª → 429 (Issue #134)', () => {
+  // IPs de documentação (RFC 5737) e saltos fictícios da cadeia do Render
+  // ('trust proxy' = 3): o X-Forwarded-For chega como "cliente, borda, balanceador".
+  const cadeia = (cliente) => `${cliente}, 198.51.100.35, 10.0.0.91`;
+  const IP_ATACANTE = '203.0.113.60';
+  const IP_ESCOLA = '203.0.113.70';
+
+  it('usa o limite de produção (100 por IP)', () => {
+    expect(LIMITE_FALHAS_LOGIN_POR_IP).toBe(100);
+  });
+
+  it('a mesma senha em 100 e-mails diferentes → 401; o 101º e-mail → 429; outro IP segue entrando', async () => {
+    const app = criarApp();
+    // E-mails de usuários existentes no banco de teste (hash de custo baixo): as
+    // falhas são rápidas. Com e-mails inexistentes, o login compara com o hash
+    // fictício de custo 12 (contra a medição de tempo — RNF06), o que deixaria
+    // as 100 tentativas lentas; o comportamento do limite é o mesmo.
+    const usuarios = [];
+    for (let i = 0; i < 101; i += 1) usuarios.push(await criarUsuario({ perfil: 'PROFESSOR' }));
+    // Alguns e-mails inexistentes no meio, para mostrar que também contam.
+    const emails = [
+      ...usuarios.slice(0, 97).map((u) => u.email),
+      'inexistente1.limiteip@escola-ficticia.test',
+      'inexistente2.limiteip@escola-ficticia.test',
+      'inexistente3.limiteip@escola-ficticia.test',
+    ];
+    expect(new Set(emails).size).toBe(100);
+
+    const tentar = (email, senha, ip = IP_ATACANTE) =>
+      request(app).post('/auth/login').set('X-Forwarded-For', cadeia(ip)).send({ email, senha });
+
+    for (const [i, email] of emails.entries()) {
+      const res = await tentar(email, SENHA_ERRADA);
+      expect(res.status, `falha ${i + 1}`).toBe(401);
+      expect(res.body).toEqual({ erro: MENSAGEM_CREDENCIAIS_INVALIDAS });
+    }
+
+    // 101º e-mail, que nunca falhou: só o limite por IP o barra — mesmo com a senha certa.
+    const ultimo = usuarios[100];
+    const bloqueada = await tentar(ultimo.email, ultimo.senha);
+    expect(bloqueada.status).toBe(429);
+    expect(bloqueada.body).toEqual({ erro: MENSAGEM_MUITAS_TENTATIVAS });
+    expect(Number(bloqueada.headers['retry-after'])).toBeGreaterThan(0);
+
+    // Outro IP (ex.: a escola) não é afetado.
+    const daEscola = await tentar(ultimo.email, ultimo.senha, IP_ESCOLA);
+    expect(daEscola.status).toBe(200);
+    expect(daEscola.body.token).toEqual(expect.any(String));
+
+    // Não bloqueia nenhuma conta (RN07): todos continuam ATIVO.
+    const inativos = await prisma.usuario.count({
+      where: { id: { in: usuarios.map((u) => u.id) }, status: { not: 'ATIVO' } },
+    });
+    expect(inativos).toBe(0);
   });
 });

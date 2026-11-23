@@ -1,0 +1,476 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Guia do Sisto — Professor e Técnico-administrativo</title><style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #1b2433; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.pagina { width: 210mm; height: 297mm; padding: 14mm 14mm 12mm; position: relative; overflow: hidden; page-break-after: always; break-after: page; }
+.pagina:last-child { page-break-after: auto; break-after: auto; }
+.topo { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #88185d; padding-bottom: 3mm; margin-bottom: 6mm; font-size: 11pt; color: #88185d; font-weight: 600; }
+.topo .marca { display: flex; align-items: center; gap: 2mm; }
+.topo .marca svg { width: 7mm; height: 7mm; }
+.rodape { position: absolute; left: 14mm; right: 14mm; bottom: 7mm; display: flex; justify-content: space-between; font-size: 9.5pt; color: #5b6575; }
+h1 { font-size: 26pt; color: #88185d; margin: 0 0 3mm; line-height: 1.1; }
+.secao { display: inline-block; background: #f8e6ef; color: #88185d; font-weight: 700; font-size: 10.5pt; border-radius: 20px; padding: 1mm 4mm; margin-bottom: 3mm; }
+.passo { display: grid; grid-template-columns: 92mm 1fr; gap: 9mm; align-items: start; }
+.passo img { width: 92mm; border: 1.5px solid #d9dee8; border-radius: 6mm; box-shadow: 0 2mm 5mm rgba(0,0,0,.12); }
+.texto { font-size: 15pt; line-height: 1.4; }
+.texto .intro { margin: 0 0 5mm; }
+.itens { list-style: none; padding: 0; margin: 0 0 5mm; }
+.itens li { display: grid; grid-template-columns: 10mm 1fr; gap: 3mm; margin-bottom: 4.5mm; align-items: start; }
+.num { width: 9mm; height: 9mm; border-radius: 50%; background: #e6371e; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13pt; margin-top: 0.5mm; }
+.lista { margin: 0 0 5mm; padding-left: 6mm; }
+.lista li { margin-bottom: 2.5mm; }
+.dica { background: #fff6e5; border-left: 5px solid #f0a500; border-radius: 3mm; padding: 3.5mm 4.5mm; font-size: 13pt; line-height: 1.4; }
+.dica b:first-child { color: #8a5a00; }
+.numero-passo { font-size: 11pt; font-weight: 700; color: #e6371e; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 1mm; }
+/* capa */
+.capa { background: #88185d; color: #fff; padding: 0; }
+.capa .faixa { background: #fff; height: 52mm; display: flex; align-items: center; padding: 0 16mm; gap: 6mm; }
+.capa .faixa svg { width: 30mm; height: 30mm; }
+.capa .faixa .nome { font-size: 38pt; font-weight: 800; color: #88185d; }
+.capa .faixa .nome span { color: #e6371e; }
+.capa .faixa .sub { font-size: 12pt; color: #5b6575; letter-spacing: .1em; text-transform: uppercase; }
+.capa .meio { padding: 22mm 16mm 0; }
+.capa .rot { font-size: 14pt; letter-spacing: .15em; text-transform: uppercase; color: #f3c4dc; }
+.capa h1 { color: #fff; font-size: 40pt; margin: 3mm 0 10mm; }
+.capa .aprender { font-size: 17pt; line-height: 1.6; margin: 0; padding-left: 8mm; }
+.capa .base { position: absolute; left: 16mm; right: 16mm; bottom: 16mm; font-size: 12pt; color: #f3c4dc; line-height: 1.6; border-top: 1px solid rgba(255,255,255,.3); padding-top: 5mm; }
+/* antes de começar e problemas */
+.cartao { border: 1.5px solid #d9dee8; border-radius: 4mm; padding: 5mm 6mm; margin-bottom: 5mm; font-size: 14pt; line-height: 1.45; }
+.cartao h2 { font-size: 16pt; color: #88185d; margin: 0 0 2mm; }
+.endereco { font-size: 22pt; font-weight: 800; color: #e6371e; background: #fdf1ee; border-radius: 3mm; padding: 3mm 5mm; display: inline-block; margin: 2mm 0; }
+.problema { display: grid; grid-template-columns: 1fr; gap: 1mm; border-left: 5px solid #88185d; padding: 2.5mm 5mm; margin-bottom: 4mm; background: #faf5f8; border-radius: 0 3mm 3mm 0; }
+.problema .p { font-weight: 700; font-size: 13.5pt; color: #88185d; }
+.problema .r { font-size: 12.5pt; line-height: 1.4; }
+.comp img { width: 100%; height: 100mm; object-fit: cover; object-position: top; border: 1.5px solid #d9dee8; border-radius: 3mm; margin-bottom: 5mm; }
+.duas-img { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; align-items: start; }
+.duas-img img { width: 100%; border: 1.5px solid #d9dee8; border-radius: 5mm; }
+</style></head><body><section class="pagina capa">
+    <div class="faixa"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<div><div class="nome">Sisto<span>.</span></div><div class="sub">Gestão de ocorrências escolares</div></div></div>
+    <div class="meio">
+      <div class="rot">Guia de uso</div>
+      <h1>Professor e Técnico-administrativo</h1>
+      <p style="font-size:16pt;margin:0 0 4mm;color:#f3dce9">Neste guia você vai aprender a:</p>
+      <ul class="aprender"><li>Entrar e criar a sua senha</li><li>Registrar uma ocorrência, passo a passo</li><li>Ver as ocorrências que você registrou</li><li>Trocar a sua senha e sair</li></ul>
+    </div>
+    <div class="base">EE José Carlos Nogueira Reverendo – Professor<br>As imagens deste guia usam somente dados de exemplo (nomes fictícios).</div>
+  </section>
+<section class="pagina"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <h1>Antes de começar</h1>
+    <div class="cartao"><h2>Onde abrir o Sisto</h2>
+      No celular ou no computador, abra o navegador (Chrome, por exemplo) e digite:<br>
+      <span class="endereco">sisto.onrender.com</span><br>
+      Não precisa instalar nenhum aplicativo.</div>
+    <div class="cartao"><h2>Do que você precisa</h2>
+      O seu <b>e-mail</b> e uma <b>senha</b>. Quem cadastra e entrega a primeira senha é a <b>Gestão</b> da escola.</div>
+    <div class="cartao"><h2>Como ler este guia</h2>
+      Cada página mostra <b>um passo</b>. Os <span class="num" style="display:inline-flex;vertical-align:middle">1</span> números vermelhos na imagem mostram <b>onde tocar</b>, na mesma ordem do texto ao lado.</div>
+    <div class="cartao"><h2>Sobre as imagens</h2>
+      Algumas imagens mostram outro perfil no alto da tela (por exemplo, "Professor Exemplo"). Os botões e os campos são os mesmos para você.</div>
+    <div class="cartao"><h2>Cuidado com os dados</h2>
+      As ocorrências têm informações de estudantes menores de idade. Não mostre a tela a outras pessoas, não compartilhe a sua senha e <b>saia do Sisto</b> quando terminar.</div>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 2 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    
+    <div class="numero-passo">Passo 1 de 15</div>
+    <h1>Entrar no Sisto</h1>
+    <div class="passo">
+      <img src="../img/prof-01-entrar.png" alt="">
+      <div class="texto">
+        <p class="intro">Abra o navegador do celular (Chrome, por exemplo) e digite o endereço <b>sisto.onrender.com</b>.</p>
+        <ul class="itens"><li><span class="num">1</span><span>Digite o seu <b>e-mail</b>.</span></li><li><span class="num">2</span><span>Digite a sua <b>senha</b>. Ela aparece como bolinhas, por segurança.</span></li><li><span class="num">3</span><span>Toque em <b>Entrar</b>.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> O e-mail e a primeira senha são entregues pela Gestão da escola.</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 3 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    
+    <div class="numero-passo">Passo 2 de 15</div>
+    <h1>Primeiro acesso: crie a sua senha</h1>
+    <div class="passo">
+      <img src="../img/prof-02-primeiro-acesso.png" alt="">
+      <div class="texto">
+        <p class="intro">Na primeira vez, o Sisto pede para você trocar a senha que recebeu da Gestão.</p>
+        <ul class="itens"><li><span class="num">1</span><span>Em <b>Senha atual</b>, digite a senha que você recebeu da Gestão.</span></li><li><span class="num">2</span><span>Em <b>Nova senha</b>, crie uma senha com pelo menos 8 caracteres, diferente da que recebeu.</span></li><li><span class="num">3</span><span>Em <b>Confirme a nova senha</b>, digite a senha nova de novo e toque em <b>Alterar senha</b>.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> Depois disso, o Sisto volta para a tela de entrada. Entre com a senha nova.</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 4 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    
+    <div class="numero-passo">Passo 3 de 15</div>
+    <h1>A tela inicial</h1>
+    <div class="passo">
+      <img src="../img/prof-03-inicio.png" alt="">
+      <div class="texto">
+        <p class="intro">Depois de entrar, use o menu no alto da tela.</p>
+        <ul class="itens"><li><span class="num">1</span><span><b>Ocorrências</b>: as ocorrências que você registrou.</span></li><li><span class="num">2</span><span><b>Registrar ocorrência</b>: abre o formulário para registrar um fato novo.</span></li></ul>
+        
+        
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 5 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <div class="secao">Registrar uma ocorrência (1 de 6)</div>
+    <div class="numero-passo">Passo 4 de 15</div>
+    <h1>Registrar: turma e estudantes</h1>
+    <div class="passo">
+      <img src="../img/prof-04-turma-estudantes.png" alt="">
+      <div class="texto">
+        
+        <ul class="itens"><li><span class="num">1</span><span>Toque em <b>Turma da ocorrência</b> e escolha a turma.</span></li><li><span class="num">2</span><span><b>Marque</b> o quadradinho de cada estudante envolvido. Pode marcar mais de um.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> Os estudantes marcados aparecem logo abaixo, em "Estudantes envolvidos".</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 6 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <div class="secao">Registrar uma ocorrência (2 de 6)</div>
+    <div class="numero-passo">Passo 5 de 15</div>
+    <h1>Registrar: o que aconteceu</h1>
+    <div class="passo">
+      <img src="../img/prof-05-categoria-descricao.png" alt="">
+      <div class="texto">
+        
+        <ul class="itens"><li><span class="num">1</span><span>Escolha a <b>Categoria</b> (por exemplo: Conflitos, Indisciplina, Bullying).</span></li><li><span class="num">2</span><span>Em <b>Descrição do fato</b>, conte o que aconteceu.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> Escreva só os fatos, sem opiniões, apelidos ou palavras ofensivas.</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 7 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <div class="secao">Registrar uma ocorrência (3 de 6)</div>
+    <div class="numero-passo">Passo 6 de 15</div>
+    <h1>Registrar: quando e onde</h1>
+    <div class="passo">
+      <img src="../img/prof-06-data-local.png" alt="">
+      <div class="texto">
+        
+        <ul class="itens"><li><span class="num">1</span><span>A <b>Data e hora do fato</b> já vem preenchida com o momento atual. Se o fato aconteceu antes, ajuste.</span></li><li><span class="num">2</span><span>Em <b>Local</b>, escreva onde aconteceu (sala de aula, pátio, quadra...).</span></li></ul>
+        
+        
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 8 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <div class="secao">Registrar uma ocorrência (4 de 6)</div>
+    <div class="numero-passo">Passo 7 de 15</div>
+    <h1>Registrar: outras informações</h1>
+    <div class="passo">
+      <img src="../img/prof-07-opcionais.png" alt="">
+      <div class="texto">
+        <p class="intro">Estes campos são <b>opcionais</b>. Preencha só se tiver a informação.</p>
+        
+        <ul class="lista"><li><b>Demais envolvidos</b>: outras pessoas que participaram.</li><li><b>Testemunhas</b>: quem viu o fato.</li><li><b>Providências imediatas</b>: o que você já fez na hora.</li><li><b>Observações</b>: algo mais que seja importante.</li></ul>
+        
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 9 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <div class="secao">Registrar uma ocorrência (5 de 6)</div>
+    <div class="numero-passo">Passo 8 de 15</div>
+    <h1>Registrar: para quem encaminhar</h1>
+    <div class="passo">
+      <img src="../img/prof-08-destinatario.png" alt="">
+      <div class="texto">
+        <p class="intro">Escolha quem vai receber a ocorrência.</p>
+        <ul class="itens"><li><span class="num">1</span><span>Em <b>Encaminhar para</b>, escolha <b>Tutor</b>, <b>Equipe pedagógica</b> ou <b>Gestão</b>.</span></li><li><span class="num">2</span><span>Se escolheu <b>Tutor</b>, escolha qual tutor vai receber.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> Para encaminhar a mais de uma pessoa, toque em "Adicionar destinatário".</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 10 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <div class="secao">Registrar uma ocorrência (6 de 6)</div>
+    <div class="numero-passo">Passo 9 de 15</div>
+    <h1>Registrar: enviar</h1>
+    <div class="passo">
+      <img src="../img/prof-09-botao-registrar.png" alt="">
+      <div class="texto">
+        
+        <ul class="itens"><li><span class="num">1</span><span>Confira tudo e toque em <b>Registrar ocorrência</b>.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> Se faltar alguma informação obrigatória, o Sisto mostra uma mensagem em vermelho no campo que falta.</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 11 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    
+    <div class="numero-passo">Passo 10 de 15</div>
+    <h1>Pronto! Ocorrência registrada</h1>
+    <div class="passo">
+      <img src="../img/prof-10-registrada.png" alt="">
+      <div class="texto">
+        
+        <ul class="itens"><li><span class="num">1</span><span>O Sisto mostra o <b>número da ocorrência</b>. Anote, se quiser acompanhar depois.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> Uma ocorrência registrada não pode ser editada. Confira tudo antes de tocar em "Registrar ocorrência".</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 12 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    
+    <div class="numero-passo">Passo 11 de 15</div>
+    <h1>Ver as ocorrências</h1>
+    <div class="passo">
+      <img src="../img/prof-11-lista.png" alt="">
+      <div class="texto">
+        <p class="intro">Toque em <b>Ocorrências</b> no menu. Elas aparecem pela data do fato, da mais recente para a mais antiga.</p>
+        <ul class="itens"><li><span class="num">1</span><span>Toque no <b>número da ocorrência</b> para ver todos os detalhes.</span></li></ul>
+        <ul class="lista"><li><b>Aberto</b>: registrada, aguardando atendimento.</li><li><b>Em acompanhamento</b>: alguém já está cuidando do caso.</li><li><b>Encerrado</b>: o caso foi finalizado.</li></ul>
+        
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 13 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    
+    <div class="numero-passo">Passo 12 de 15</div>
+    <h1>Os detalhes da ocorrência</h1>
+    <div class="passo">
+      <img src="../img/prof-12-detalhe.png" alt="">
+      <div class="texto">
+        
+        <ul class="itens"><li><span class="num">1</span><span>O <b>Status</b> mostra em que situação a ocorrência está.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> Role a tela para baixo para ver estudantes, encaminhamentos, comunicações e providências.</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 14 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    
+    <div class="numero-passo">Passo 13 de 15</div>
+    <h1>O histórico</h1>
+    <div class="passo">
+      <img src="../img/prof-13-historico.png" alt="">
+      <div class="texto">
+        
+        <ul class="itens"><li><span class="num">1</span><span>No fim da página fica o <b>Histórico</b>: tudo o que aconteceu com a ocorrência, com data, hora e quem fez.</span></li></ul>
+        
+        
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 15 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    
+    <div class="numero-passo">Passo 14 de 15</div>
+    <h1>Trocar a sua senha</h1>
+    <div class="passo">
+      <img src="../img/prof-14-alterar-senha.png" alt="">
+      <div class="texto">
+        <p class="intro">No alto da tela, toque em <b>Alterar minha senha</b>.</p>
+        <ul class="itens"><li><span class="num">1</span><span>Digite a <b>senha atual</b>.</span></li><li><span class="num">2</span><span>Digite a <b>senha nova</b> (pelo menos 8 caracteres, diferente da atual).</span></li><li><span class="num">3</span><span>Repita a <b>senha nova</b> e toque em <b>Alterar senha</b>.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> Depois de trocar, o Sisto pede para você entrar de novo, com a senha nova.</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 16 de 20</span></div></section>
+<section class="pagina">
+    <div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    
+    <div class="numero-passo">Passo 15 de 15</div>
+    <h1>Sair do Sisto</h1>
+    <div class="passo">
+      <img src="../img/prof-15-sair.png" alt="">
+      <div class="texto">
+        
+        <ul class="itens"><li><span class="num">1</span><span>Toque em <b>Sair</b>, no alto da tela.</span></li></ul>
+        
+        <div class="dica"><b>Dica:</b> Sempre saia quando usar um computador ou celular de outra pessoa.</div>
+      </div>
+    </div><div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 17 de 20</span></div></section>
+<section class="pagina comp"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <h1>No computador</h1>
+    <p class="texto" style="margin:0 0 5mm">No computador, o Sisto é o <b>mesmo</b>: os botões e os campos têm os mesmos nomes. Só a tela é mais larga, e o menu fica todo em uma linha.</p>
+    <img src="../img/prof-16-computador-lista.png" alt=""><img src="../img/prof-17-computador-registrar.png" alt="">
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 18 de 20</span></div></section>
+<section class="pagina"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <h1>Deu algum problema?</h1>
+    <div class="problema"><div class="p">Esqueci a minha senha.</div><div class="r">Procure a <b>Gestão</b> da escola. Ela cria uma senha temporária para você, e no próximo acesso você escolhe uma senha nova.</div></div><div class="problema"><div class="p">Apareceu "E-mail ou senha inválidos".</div><div class="r">Confira o e-mail e digite a senha de novo, com atenção às letras maiúsculas e minúsculas.</div></div><div class="problema"><div class="p">Errei a senha várias vezes e apareceu "Muitas tentativas".</div><div class="r">Depois de 5 senhas erradas, o Sisto pede para esperar. Aguarde até <b>15 minutos</b> e tente de novo. A sua conta não fica bloqueada.</div></div><div class="problema"><div class="p">O Sisto demorou para abrir.</div><div class="r">Fora do horário da escola (antes das 7h, depois das 20h e nos fins de semana), a primeira abertura pode levar <b>até 1 minuto</b>. Aguarde, sem fechar a página.</div></div><div class="problema"><div class="p">Apareceu "Não foi possível conectar ao servidor".</div><div class="r">Confira a internet do celular (Wi-Fi ou dados móveis) e tente de novo.</div></div><div class="problema"><div class="p">Apareceu "Sua sessão expirou".</div><div class="r">Por segurança, a entrada vale por até <b>8 horas</b>. O que você escreveu continua na tela (1): copie o texto, se precisar. Toque em <b>Entrar novamente</b> (2). O Sisto volta para a mesma tela: cole o texto e envie de novo.</div></div><div class="problema"><div class="p">Registrei uma ocorrência com um erro.</div><div class="r">Ninguém pode editar uma ocorrência depois de registrada. Avise a <b>Equipe Pedagógica</b> ou a <b>Gestão</b>, que vão orientar o que fazer.</div></div>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 19 de 20</span></div></section>
+<section class="pagina"><div class="topo"><div class="marca"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Sisto</title>
+  <path d="M60 6 L104 21 V57 C104 87 85 105 60 115 C35 105 16 87 16 57 V21 Z" fill="#88185d"/>
+  <rect x="38" y="30" width="44" height="58" rx="6" fill="#ffffff"/>
+  <rect x="49" y="24" width="22" height="11" rx="4" fill="#e6371e"/>
+  <line x1="46" y1="45" x2="74" y2="45" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <line x1="46" y1="54" x2="66" y2="54" stroke="#dcbfd0" stroke-width="4" stroke-linecap="round"/>
+  <path d="M47 69 L56 78 L74 60" fill="none" stroke="#e6371e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<span>Guia do Sisto · Professor e Técnico-administrativo</span></div><span>sisto.onrender.com</span></div>
+    <h1>Deu algum problema? (imagens)</h1>
+    <div class="duas-img"><div><p class="texto" style="font-size:13pt;margin:0 0 3mm"><b>Apareceu "Sua sessão expirou".</b></p><img src="../img/comum-sessao-expirada.png" alt=""></div></div>
+    <div class="cartao" style="margin-top:6mm"><h2>Ainda com dúvida?</h2>Procure a <b>Gestão</b> ou a <b>Equipe Pedagógica</b> da escola.</div>
+  <div class="rodape"><span>EE José Carlos Nogueira Reverendo – Professor</span><span>Página 20 de 20</span></div></section></body></html>

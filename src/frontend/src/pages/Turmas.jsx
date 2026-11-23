@@ -1,19 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import FormularioEdicaoTurma from '../components/FormularioEdicaoTurma.jsx';
 import FormularioTurma from '../components/FormularioTurma.jsx';
 import ListaTurmas, { idBotaoEditarTurma } from '../components/ListaTurmas.jsx';
+import { exibirFalha, useCarregamento } from '../components/useCarregamento.js';
 import { useTituloPagina } from '../components/useTituloPagina.js';
-import { MENSAGEM_SEM_CONEXAO, MENSAGEM_SEM_PERMISSAO } from '../services/mensagens.js';
+import { mensagemErroCarga } from '../services/mensagens.js';
 import { descreverTurma } from '../services/mensagensTurmas.js';
 import { listarTurmas } from '../services/turmas.js';
 
 const MENSAGEM_GENERICA = 'Não foi possível carregar a lista de turmas agora.';
-
-function mensagemErroLista(falha) {
-  if (falha?.status === 403) return MENSAGEM_SEM_PERMISSAO;
-  if (falha?.status === 0) return MENSAGEM_SEM_CONEXAO;
-  return MENSAGEM_GENERICA;
-}
 
 function compararTexto(a, b) {
   return String(a ?? '').localeCompare(String(b ?? ''), 'pt-BR');
@@ -45,7 +40,7 @@ export default function Turmas() {
   const [confirmacao, setConfirmacao] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
-  const montado = useRef(true);
+  const { montado } = useCarregamento();
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -55,18 +50,14 @@ export default function Turmas() {
       if (montado.current) setTurmas(lista.map(camposExibidos));
     } catch (falha) {
       // 401: o tratamento central já leva ao login com aviso.
-      if (montado.current && falha?.status !== 401) setErro(mensagemErroLista(falha));
+      if (montado.current && exibirFalha(falha)) setErro(mensagemErroCarga(falha, MENSAGEM_GENERICA));
     } finally {
       if (montado.current) setCarregando(false);
     }
-  }, []);
+  }, [montado]);
 
   useEffect(() => {
-    montado.current = true;
     carregar();
-    return () => {
-      montado.current = false;
-    };
   }, [carregar]);
 
   // Recarrega sem trocar a tabela por "Carregando..." (404 ou alteração
@@ -78,7 +69,7 @@ export default function Turmas() {
     } catch {
       // mantém a lista atual
     }
-  }, []);
+  }, [montado]);
 
   // Insere a turma devolvida pelo POST sem nova chamada à API.
   const aoCadastrar = useCallback(

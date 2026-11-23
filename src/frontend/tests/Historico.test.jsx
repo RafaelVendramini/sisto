@@ -243,13 +243,19 @@ describe('Histórico no detalhe da ocorrência (#85)', () => {
 
     it('mostra "Carregando o histórico..." enquanto a lista não chega, com o detalhe já visível', async () => {
       sessao();
-      let liberar;
-      mockarApi({ historico: () => new Promise((r) => { liberar = r; }) });
+      // A promessa nasce antes de renderizar: o `resolver` já existe mesmo que o
+      // efeito do histórico rode depois do texto do detalhe aparecer.
+      let resolver;
+      const lenta = new Promise((r) => {
+        resolver = r;
+      });
+      mockarApi({ historico: () => lenta });
       renderizarApp('/ocorrencias/12');
 
       expect(await screen.findByText('Pátio fictício')).toBeInTheDocument();
-      expect(within(secaoHistorico()).getByText('Carregando o histórico...')).toBeInTheDocument();
-      liberar(respostaFalsa(200, HISTORICO_INICIAL));
+      expect(await within(secaoHistorico()).findByText('Carregando o histórico...')).toBeInTheDocument();
+      await waitFor(() => expect(getsHistorico()).toHaveLength(1));
+      resolver(respostaFalsa(200, HISTORICO_INICIAL));
       await itensHistorico(3);
       expect(screen.queryByText('Carregando o histórico...')).not.toBeInTheDocument();
     });

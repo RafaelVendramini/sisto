@@ -452,6 +452,38 @@ describe('recuperarGestao — recusas (nada é gravado)', () => {
     esperarNadaAlterado();
   });
 
+  it('conflito detectado no COMMIT (DriverAdapterError "TransactionWriteConflict") também é repetido (Issue #129)', async () => {
+    // Formato medido no PostgreSQL real (Prisma 7.10 + adapter-pg): sem `code`.
+    const conflitoNoCommit = () =>
+      Object.assign(new Error('TransactionWriteConflict'), {
+        name: 'DriverAdapterError',
+        cause: { originalCode: '40001', kind: 'TransactionWriteConflict' },
+      });
+    const original = $transaction.getMockImplementation();
+    $transaction
+      .mockImplementationOnce(async () => {
+        throw conflitoNoCommit();
+      })
+      .mockImplementation(original);
+
+    await expect(recuperar(EMAIL_GESTAO)).resolves.toEqual({ usuarioId: ID_GESTAO, reativado: false });
+    expect($transaction).toHaveBeenCalledTimes(2);
+    expect(logs).toHaveLength(1);
+  });
+
+  it('conflito no COMMIT 3 vezes seguidas: mesma recusa clara do P2034', async () => {
+    $transaction.mockImplementation(async () => {
+      throw Object.assign(new Error('TransactionWriteConflict'), {
+        name: 'DriverAdapterError',
+        cause: { originalCode: '40P01', kind: 'TransactionWriteConflict' },
+      });
+    });
+
+    await esperarRecusa(recuperar(EMAIL_GESTAO), MENSAGEM_CONFLITO);
+    expect($transaction).toHaveBeenCalledTimes(3);
+    esperarNadaAlterado();
+  });
+
   it('se a gravação da auditoria falhar, nada é gravado (mesma transação)', async () => {
     criarLog.mockImplementationOnce(async () => {
       throw new Error('falha fictícia ao gravar o log');

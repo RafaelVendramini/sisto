@@ -1,4 +1,5 @@
-import { Link, NavLink, useMatch } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { Link, NavLink, useLocation, useMatch } from 'react-router-dom';
 import { ROTA_ALTERAR_SENHA } from '../services/conta.js';
 import { linkTelefone, NOME_ESCOLA, TELEFONE_ESCOLA } from '../services/escola.js';
 import {
@@ -21,6 +22,24 @@ import { useSessao } from './Sessao.jsx';
 // ficam ocultos: só é possível trocar a senha ou sair.
 // O rodapé mostra o nome e o telefone da escola (sem endereço nem e-mail) e os
 // links para a Política de privacidade e os Termos de uso (#92).
+// Acessibilidade (#128): o link "Pular para o conteúdo" é o primeiro item da
+// página (visível ao receber o foco) e, ao trocar de página, o foco vai para o
+// título (h1) do conteúdo, ou para o <main>, se a tela ainda não tiver levado o
+// foco para dentro dele (ex.: o campo de e-mail do login).
+
+export const ID_CONTEUDO = 'conteudo';
+
+/** Leva o foco ao h1 do conteúdo (ou ao próprio <main>, se a tela não tiver h1). */
+function focarConteudo(principal) {
+  const titulo = principal.querySelector('h1');
+  if (titulo) {
+    if (!titulo.hasAttribute('tabindex')) titulo.setAttribute('tabindex', '-1');
+    titulo.focus();
+    return;
+  }
+  principal.focus();
+}
+
 export default function Layout({ children }) {
   const { usuario, trocaSenhaPendente, sair } = useSessao();
   const veUsuarios = podeGerenciarUsuarios(usuario?.perfil);
@@ -33,9 +52,34 @@ export default function Layout({ children }) {
   // "Ocorrências" fica marcado na lista e no detalhe, mas não no registro,
   // que tem item próprio no menu.
   const noRegistro = Boolean(useMatch('/ocorrencias/nova'));
+  const { pathname } = useLocation();
+  const principalRef = useRef(null);
+  const caminhoAnterior = useRef(pathname);
+
+  // Troca de página (só o caminho; mudar filtros na busca não conta). Os
+  // efeitos das telas rodam antes deste: se uma tela já levou o foco para
+  // dentro do conteúdo, ele fica onde ela pôs. Focos posteriores (ex.: a faixa
+  // de sucesso do detalhe, depois de carregar) continuam valendo.
+  useEffect(() => {
+    if (caminhoAnterior.current === pathname) return;
+    caminhoAnterior.current = pathname;
+    const principal = principalRef.current;
+    if (!principal) return;
+    const ativo = document.activeElement;
+    if (ativo && ativo !== principal && principal.contains(ativo)) return;
+    focarConteudo(principal);
+  }, [pathname]);
+
+  function pularParaConteudo(evento) {
+    evento.preventDefault();
+    principalRef.current?.focus();
+  }
 
   return (
     <div className="layout">
+      <a href={`#${ID_CONTEUDO}`} className="pular-conteudo" onClick={pularParaConteudo}>
+        Pular para o conteúdo
+      </a>
       <header className="layout__cabecalho">
         <div className="layout__container layout__cabecalho-conteudo">
           <img
@@ -104,7 +148,7 @@ export default function Layout({ children }) {
         </div>
       </header>
 
-      <main className="layout__principal">
+      <main id={ID_CONTEUDO} ref={principalRef} tabIndex={-1} className="layout__principal">
         <div className="layout__container">{children}</div>
       </main>
 
