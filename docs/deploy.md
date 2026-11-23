@@ -294,7 +294,7 @@ Nada é criado pela metade: o PostgreSQL executa a migration inteira numa transa
 
 No plano gratuito do Render, a API dorme depois de **15 minutos sem uso**, e o primeiro acesso seguinte leva de 30 a 60 segundos. O front-end (site estático) não dorme, e o Neon volta em menos de 1 segundo. Para a homologação, um **cron externo gratuito** chama `GET /saude` a cada 10 minutos no horário de uso da escola. A rota não acessa o banco, então não gasta as horas do Neon. O plano pago (Render Starter, sempre ligado) fica para a implantação com a escola (#95).
 
-**Conta das horas:** o plano gratuito dá **750 horas por mês para o workspace inteiro**. Com o cron de segunda a sexta, das 6h às 23h, a API fica acordada cerca de 17 horas por dia útil, ou seja, cerca de **400 horas por mês**, com folga para acessos fora do horário. **Não** deixe o cron 24 horas por dia, 7 dias por semana: seriam cerca de 744 horas, praticamente todo o limite, e se ele acabar o Render suspende os serviços gratuitos até o mês seguinte.
+**Conta das horas:** o plano gratuito dá **750 horas por mês para o workspace inteiro**. A escola funciona em **período integral**, e o cron roda de segunda a sexta, das 7h às 19h50 (última chamada). Com os 15 minutos que a API ainda fica acordada depois, são cerca de 13 horas por dia útil, ou seja, cerca de **300 horas por mês**, com folga para acessos fora do horário (antes das 7h e depois das 20h, o primeiro acesso leva cerca de 1 minuto). **Não** deixe o cron 24 horas por dia, 7 dias por semana: seriam cerca de 744 horas, praticamente todo o limite, e se ele acabar o Render suspende os serviços gratuitos até o mês seguinte.
 
 **Configuração no cron-job.org** (uma vez):
 
@@ -302,10 +302,12 @@ No plano gratuito do Render, a API dorme depois de **15 minutos sem uso**, e o p
 2. Clique em **Create cronjob**:
    - **Title:** `Sisto — manter API acordada`
    - **URL:** `https://sisto-api.onrender.com/saude`
-   - **Execution schedule:** escolha **Custom** e marque: minutos `0, 10, 20, 30, 40, 50`; horas `6` a `22`; dias da semana **segunda a sexta**; todos os dias do mês e todos os meses.
+   - **Execution schedule:** escolha **Custom** e marque: minutos de 10 em 10 (`0, 10, 20, 30, 40, 50`); horas `7` a `19`; dias da semana **segunda a sexta**; todos os dias do mês e todos os meses. O campo **Crontab expression** deve mostrar `*/10 7-19 * * 1-5` (configurado assim em 23/11/2026).
    - **Time zone** do cronjob: `America/Sao_Paulo`.
 3. Em **Notifications**, ative o aviso por e-mail quando o cronjob falhar várias vezes seguidas (serve de alerta de que a API caiu).
-4. Salve e clique em **Run now** (ou espere o próximo horário): o histórico do cronjob deve mostrar **200**.
+4. Ative **Save responses in job history** (para ver cabeçalhos e corpo de cada execução), salve e use **Test run** (ou espere o próximo horário): o histórico do cronjob deve mostrar **200**.
+
+**429 isolado no histórico:** a borda do Render pode, de vez em quando, limitar os servidores do cron-job.org e responder **429 Too Many Requests** (aconteceu na primeira execução, em 23/11/2026, e o teste seguinte deu 200). A rota `/saude` em si não tem limite de tentativas. Um 429 isolado não faz a API dormir (ela só dorme depois de 15 minutos sem nenhum acesso, e o cron chama a cada 10). Se os 429 ficarem frequentes, troque o serviço por outro gratuito com IPs diferentes (ex.: UptimeRobot, monitor a cada 5 minutos).
 
 **Conferência:** num dia útil, abra `https://sisto.onrender.com` às 10h. A tela de login deve responder na hora, sem a espera de cerca de 1 minuto. No Render (`sisto-api` → **Logs**), não devem aparecer reinícios por inatividade durante o horário do cron.
 
