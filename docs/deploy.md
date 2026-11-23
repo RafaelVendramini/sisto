@@ -80,6 +80,20 @@ Crie um **Static Site** ligado ao mesmo repositório:
 
 **Regra de reescrita** (Redirects/Rewrites): Source `/*`, Destination `/index.html`, Action **Rewrite**. Ela faz endereços abertos diretamente (ex.: `/ocorrencias/12`) e a página 404 (#78) chegarem ao React. O Render serve primeiro os arquivos que existem (`robots.txt`, ícones, `manifest.webmanifest`), então eles não são afetados.
 
+**Cabeçalhos de segurança** (Headers, #127): em **Settings → Headers** do Static Site, adicione as regras abaixo, todas com Path `/*`. Elas impedem que o Sisto seja aberto dentro de outro site (clickjacking) e limitam de onde a página pode carregar scripts e para onde pode enviar dados. O front não carrega nada externo (fontes, scripts ou imagens), por isso a política pode ser restrita.
+
+| Name | Value |
+| ---- | ----- |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://sisto-api.onrender.com; manifest-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'` |
+| `X-Frame-Options` | `DENY` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `no-referrer` |
+
+- Se a API mudar de endereço, troque também o `connect-src`; caso contrário, o login para de funcionar (o navegador bloqueia a chamada e mostra o erro no console).
+- Se um dia o front passar a usar um recurso externo (ex.: fonte do Google), ele precisa entrar na política.
+- O `Strict-Transport-Security` (HSTS) não precisa ser configurado: o Render já o envia em todos os sites (conferido em 23/11/2026).
+- Conferência: `curl -sI https://sisto.onrender.com/ | grep -iE "content-security|x-frame|nosniff|referrer"` mostra os 4 cabeçalhos, e o login e as telas funcionam sem erro de "Content Security Policy" no console do navegador (F12).
+
 ## 5. Ordem do primeiro deploy
 
 1. Neon pronto (seção 2).
@@ -114,14 +128,26 @@ Serviços criados em 15/11/2026: API `sisto-api` (<https://sisto-api.onrender.co
 - [x] `/robots.txt` abre como arquivo de texto (`curl -I <front>/robots.txt` mostra `content-type: text/plain`).
 - [x] Nenhum segredo no repositório nem no build do front-end (conferido em 15/11/2026: busca no repositório e nos arquivos `.js` publicados em https://sisto.onrender.com, que só contêm o endereço da API).
 - [ ] Script de recuperação (#80) testado contra o banco do Neon (seção 9), com uma Gestão fictícia. **Pendente:** não executado no primeiro deploy (15/11/2026); o script tem testes automatizados com banco simulado e deve ser testado no Neon antes da homologação com a escola (#95).
-- [ ] `trust proxy` conferido no Render (o limite de tentativas identifica o IP real do cliente, e não o IP do proxy). **Pendente:** não executado no primeiro deploy (15/11/2026); conferir antes da homologação com a escola (#95).
+- [ ] `trust proxy` conferido no Render (o limite de tentativas identifica o IP real do cliente, e não o IP do proxy). **Pendente:** não executado no primeiro deploy (15/11/2026); conferir antes da homologação com a escola (#95), com o procedimento abaixo (#127).
+
+**Conferência do `trust proxy` (#127):** a API usa `trust proxy` = `1` (um proxy à frente dela). Para confirmar no Render:
+
+1. No Web Service da API, em **Environment**, crie `DIAGNOSTICO_PROXY` com o valor `1` e salve (o serviço reinicia).
+2. Descubra o seu IP público (ex.: pesquisando "qual é o meu IP") e faça um login em https://sisto.onrender.com.
+3. Em **Logs**, procure a linha `[diagnostico-proxy]`. Ela traz `ip`, `quantidadeEnderecos` e `xForwardedFor`, sem e-mail nem senha.
+   - Se `ip` for o **seu IP público**, o valor `1` está certo.
+   - Se `ip` for um endereço interno (ex.: `10.x.x.x`) e o seu IP aparecer antes em `xForwardedFor`, há mais de um proxy: ajuste `trust proxy` em `src/backend/src/app.js` para a posição do seu IP contada a partir do fim da lista (último = 1, penúltimo = 2) e registre a mudança no SSD.
+4. **Apague a variável** `DIAGNOSTICO_PROXY` e salve. O IP é dado pessoal (RNF06): o diagnóstico só pode ficar ligado durante a conferência.
+5. Marque este item e anote a data.
+6. Depois da conferência, o código do diagnóstico (`middlewares/diagnostico-proxy.js`) pode ser removido numa Issue futura; enquanto existir, fica desligado sem a variável.
+- [ ] Cabeçalhos de segurança do front-end (seção 4) configurados e conferidos com `curl -I` (#127).
 - [x] Endereços registrados no README (Links do Projeto, linha "Deploy").
 
 ## 7. Lista de variáveis (resumo, sem valores)
 
 | Serviço | Variáveis |
 | ------- | --------- |
-| API (Render) | `NODE_ENV`, `NODE_VERSION`, `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`; `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA` só no primeiro deploy |
+| API (Render) | `NODE_ENV`, `NODE_VERSION`, `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`; `SEED_GESTAO_EMAIL` e `SEED_GESTAO_SENHA` só no primeiro deploy; `DIAGNOSTICO_PROXY` só durante a conferência do `trust proxy` (seção 6) |
 | Front-end (Render) | `NODE_VERSION`, `VITE_API_URL` |
 | Terminal da equipe (só na hora do uso) | `DATABASE_URL`, `RECUPERACAO_SENHA_TEMPORARIA` (recuperação, seção 9); `DATABASE_URL` (backup, seção 8) |
 

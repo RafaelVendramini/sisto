@@ -15,6 +15,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
 import { ErroHttp } from '../lib/erros.js';
+import { garantirSemCaractereNulo } from '../lib/texto.js';
 import { normalizarEmail } from './email.js';
 import { TAMANHO_MAXIMO_BYTES_SENHA } from './senha.js';
 
@@ -130,6 +131,13 @@ export function validarEntradaLogin(corpo) {
   if (faltando.length > 0) {
     throw new ErroHttp(400, `Informe ${faltando.join(' e ')} (texto não vazio).`);
   }
+  // U+0000 no e-mail: a consulta ao banco falharia (500). Recusado com a
+  // mensagem genérica de lib/texto.js ANTES de consultar o banco, então a
+  // resposta não depende de o e-mail existir (nenhum e-mail gravado contém o
+  // caractere). É 400, e não 401: não soma no limite de tentativas, como os
+  // demais 400 do login (Seção 12). A senha não é checada: não vai ao banco e
+  // o bcrypt a compara inteira, inclusive com U+0000 (Issue #127).
+  garantirSemCaractereNulo(email);
   return { email: normalizarEmail(email), senha };
 }
 

@@ -66,6 +66,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { MENSAGEM_TEXTO_CARACTERE_INVALIDO, garantirSemCaractereNulo } from '../lib/texto.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { interpretarPeriodo } from './periodo.js';
 import { paraRespostaTurma } from './turmas.js';
@@ -166,9 +167,12 @@ export const MENSAGEM_ESTUDANTE_INEXISTENTE = 'Um ou mais estudantes informados 
 export const MENSAGEM_CONFLITO_CONCORRENTE_OCORRENCIA =
   'Não foi possível registrar a ocorrência por causa de outra operação ao mesmo tempo. Tente novamente.';
 
-/** O PostgreSQL não grava U+0000 em colunas de texto (erro 22021 → 500). */
-export const MENSAGEM_TEXTO_CARACTERE_INVALIDO =
-  'O texto contém um caractere inválido. Remova-o e tente novamente.';
+/**
+ * O PostgreSQL não grava U+0000 em colunas de texto (erro 22021 → 500). A
+ * mensagem e a checagem ficam em lib/texto.js (Issue #127); a reexportação
+ * mantém o import de quem já a usava daqui.
+ */
+export { MENSAGEM_TEXTO_CARACTERE_INVALIDO };
 
 /** Mensagem de texto longo opcional/obrigatório acima do limite. */
 export function mensagemTextoLongo(campo) {
@@ -370,11 +374,6 @@ async function executarSerializavel(db, operacao, mensagemConflito) {
       throw erro;
     }
   }
-}
-
-/** Recusa o caractere nulo, que o PostgreSQL não aceita em texto (400, não 500). */
-function garantirSemCaractereNulo(texto) {
-  if (texto.includes('\u0000')) throw new ErroHttp(400, MENSAGEM_TEXTO_CARACTERE_INVALIDO);
 }
 
 /** Texto obrigatório: NFC, sem espaços nas pontas, não vazio, até `maximo`. */

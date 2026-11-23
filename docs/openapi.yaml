@@ -38,8 +38,14 @@ info:
       tamanho é medido depois disso, em unidades UTF-16. Texto opcional vazio
       ou só com espaços é gravado como `null`. A senha não tem os espaços
       retirados.
-    * Nos textos de ocorrência, encaminhamento, comunicação e providência, o
-      caractere nulo (U+0000) é recusado com **400**.
+    * O caractere nulo (U+0000) é recusado com **400** nos textos de
+      ocorrência, encaminhamento, comunicação e providência e, desde o SSD 1.11
+      (Issue #127), também no nome e no e-mail de usuários, no nome e na etapa
+      de turmas, no nome e na descrição de categorias, no nome completo e no
+      código escolar de estudantes e no e-mail do login.
+    * Todas as respostas da API trazem `Cache-Control: no-store`, para que
+      dados pessoais não fiquem no cache do navegador (RNF06; SSD 1.11,
+      Issue #127).
     * `dataHora` informada (ocorrência e comunicação — RN17) segue ISO 8601
       com fuso obrigatório (`Z` ou `±hh:mm`, ex.: `2026-10-20T14:30:00-03:00`),
       anos 0001 a 9999 em UTC, e aceita no máximo 5 minutos à frente do
@@ -146,7 +152,11 @@ paths:
                   perfil: GESTAO
                 trocaSenhaObrigatoria: false
         '400':
-          description: E-mail ou senha ausentes.
+          description: >-
+            E-mail ou senha ausentes, ou e-mail com o caractere nulo (U+0000).
+            Neste caso a mensagem é genérica, não revela se o e-mail existe e
+            a resposta não conta no limite de tentativas, que só conta o 401
+            (SSD 1.11, Issue #127).
           content:
             application/json:
               schema:
@@ -246,7 +256,12 @@ paths:
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '409':
-          description: Conflito concorrente com outra troca de senha do mesmo usuário (`CONFLITO_CONCORRENTE`).
+          description: >-
+            Conflito concorrente (`CONFLITO_CONCORRENTE`): outra troca de senha
+            do mesmo usuário ao mesmo tempo, ou a senha mudou entre a conferência
+            da senha atual e a gravação (ex.: redefinição pela Gestão — RN10).
+            Neste caso nada é gravado, a redefinição da Gestão é preservada e o
+            usuário precisa entrar de novo (SSD 1.11, Issue #127).
           content:
             application/json:
               schema:

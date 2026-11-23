@@ -20,6 +20,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { garantirSemCaractereNulo } from '../lib/texto.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 
 /** Nome do recurso na API, usado no LogAuditoria ("turmas/<id>"). */
@@ -90,6 +91,8 @@ function validarTexto(valor, maximo, mensagemObrigatorio, mensagemLongo) {
   if (typeof valor !== 'string' || valor.trim() === '') {
     throw new ErroHttp(400, mensagemObrigatorio);
   }
+  // U+0000: o PostgreSQL não grava (400, não 500 — Issue #127).
+  garantirSemCaractereNulo(valor);
   const limpo = valor.normalize('NFC').trim();
   if (limpo.length > maximo) {
     throw new ErroHttp(400, mensagemLongo);

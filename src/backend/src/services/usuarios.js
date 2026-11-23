@@ -34,6 +34,7 @@
 import { Perfil, Prisma, StatusUsuario } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { garantirSemCaractereNulo } from '../lib/texto.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { normalizarEmail } from './email.js';
 import { gerarHashSenha, mensagemPoliticaSenha } from './senha.js';
@@ -86,8 +87,12 @@ function ehTextoPreenchido(valor) {
 // Recebem um valor já verificado como texto não vazio (o cadastro verifica
 // isso antes, para listar todos os campos ausentes de uma vez).
 
-/** Nome: trim e limite técnico de tamanho. @returns {string} nome sem espaços nas pontas */
+/**
+ * Nome: sem U+0000 (Issue #127), trim e limite técnico de tamanho.
+ * @returns {string} nome sem espaços nas pontas
+ */
 function validarNome(nome) {
+  garantirSemCaractereNulo(nome);
   const nomeLimpo = nome.trim();
   if (nomeLimpo.length > TAMANHO_MAXIMO_NOME) {
     throw new ErroHttp(400, `O nome deve ter no máximo ${TAMANHO_MAXIMO_NOME} caracteres.`);
@@ -95,8 +100,12 @@ function validarNome(nome) {
   return nomeLimpo;
 }
 
-/** E-mail: normaliza (trim + minúsculas) e valida formato e tamanho. @returns {string} */
+/**
+ * E-mail: sem U+0000 (Issue #127; a regex de formato o aceitaria), normaliza
+ * (trim + minúsculas) e valida formato e tamanho. @returns {string}
+ */
 function validarEmail(email) {
+  garantirSemCaractereNulo(email);
   const emailNormalizado = normalizarEmail(email);
   if (emailNormalizado.length > TAMANHO_MAXIMO_EMAIL || !REGEX_EMAIL.test(emailNormalizado)) {
     throw new ErroHttp(400, 'Informe um e-mail em formato válido.');
