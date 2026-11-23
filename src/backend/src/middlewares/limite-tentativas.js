@@ -14,6 +14,13 @@
 //   compartilhado da escola.
 // - Contador EM MEMÓRIA (MemoryStore do express-rate-limit): zera quando a
 //   API reinicia ou é suspensa no Render (aceito na Seção 10).
+// - Limite por IP no login (Issue #134; SSD 1.13, Seção 12): além do limite
+//   por IP + e-mail, o POST /auth/login tem um segundo limitador, contado SÓ
+//   pelo IP: 100 falhas (401) em 15 minutos. Fecha a brecha de testar uma
+//   mesma senha em muitos e-mails diferentes. Valor alto porque a escola sai
+//   para a internet por um único IP público. Mesmo critério de falha, mesma
+//   mensagem do 429, Retry-After e contador em memória. O primeiro dos dois
+//   limites que for atingido recusa. O PUT /conta/senha não tem esse limite.
 // - Não bloqueia a conta: o status do usuário não muda (RN07/RN09).
 // - A mensagem do 429 é a mesma para qualquer e-mail (não revela se existe).
 //
@@ -27,6 +34,9 @@ import { normalizarEmail } from '../services/email.js';
 
 /** Tentativas com falha permitidas por janela (SSD 1.8, Seção 12). */
 export const LIMITE_TENTATIVAS_COM_FALHA = 5;
+
+/** Falhas no login permitidas por janela só por IP, com qualquer e-mail (SSD 1.13, Seção 12). */
+export const LIMITE_FALHAS_LOGIN_POR_IP = 100;
 
 /** Janela de contagem das falhas: 15 minutos (SSD 1.8, Seção 12). */
 export const JANELA_TENTATIVAS_MS = 15 * 60 * 1000;
@@ -50,6 +60,15 @@ export function chaveTentativasLogin(req) {
   const emailNormalizado = typeof email === 'string' ? normalizarEmail(email) : '';
   const resumoEmail = createHash('sha256').update(emailNormalizado).digest('hex');
   return `${ipKeyGenerator(req.ip)}:${resumoEmail}`;
+}
+
+/**
+ * Chave do limite só por IP no login (SSD 1.13): o IP do cliente identificado
+ * pelo 'trust proxy' (app.js), sem o e-mail. O prefixo separa a chave da do
+ * limite por IP + e-mail (cada limitador tem o seu contador).
+ */
+export function chaveTentativasLoginPorIp(req) {
+  return `ip:${ipKeyGenerator(req.ip)}`;
 }
 
 /** Chave da troca da própria senha: IP + id do usuário logado (req.usuario). */
@@ -82,14 +101,22 @@ function criarLimitador({ maximo, janelaMs, chave, statusFalha }) {
  * @param {object} [opcoes] só os testes alteram (produção usa o padrão do SSD)
  * @param {number} [opcoes.maximo] tentativas com falha permitidas na janela
  * @param {number} [opcoes.janelaMs] duração da janela, em milissegundos
- * @returns {{ login: Function, trocaSenha: Function }}
+ * @param {number} [opcoes.maximoPorIp] falhas no login permitidas só por IP
+ * @returns {{ login: Function, loginPorIp: Function, trocaSenha: Function }}
  */
 export function criarLimitadoresTentativas({
   maximo = LIMITE_TENTATIVAS_COM_FALHA,
   janelaMs = JANELA_TENTATIVAS_MS,
+  maximoPorIp = LIMITE_FALHAS_LOGIN_POR_IP,
 } = {}) {
   return {
     login: criarLimitador({ maximo, janelaMs, chave: chaveTentativasLogin, statusFalha: 401 }),
+    loginPorIp: criarLimitador({
+      maximo: maximoPorIp,
+      janelaMs,
+      chave: chaveTentativasLoginPorIp,
+      statusFalha: 401,
+    }),
     trocaSenha: criarLimitador({
       maximo,
       janelaMs,
@@ -108,9 +135,19 @@ function obterLimitadores(req) {
   return limitadores;
 }
 
-/** POST /auth/login — limite por IP + e-mail. */
+/**
+ * POST /auth/login — limite só por IP (100 falhas) e, em seguida, por IP +
+ * e-mail (5 falhas). O primeiro atingido recusa com 429. O limite por IP vem
+ * antes para que os cabeçalhos RateLimit de uma tentativa aceita continuem
+ * sendo os do limite por IP + e-mail (o segundo limitador os sobrescreve).
+ * Um 429 de um limitador não conta no outro: só o 401 é falha.
+ */
 export function limitarTentativasLogin(req, res, next) {
-  return obterLimitadores(req).login(req, res, next);
+  const limitadores = obterLimitadores(req);
+  return limitadores.loginPorIp(req, res, (erro) => {
+    if (erro) return next(erro);
+    return limitadores.login(req, res, next);
+  });
 }
 
 /** PUT /conta/senha — limite por IP + usuário (depois de exigirAutenticacao). */

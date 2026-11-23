@@ -620,6 +620,12 @@ describe('Registro -> detalhe -> lista, ponta a ponta (#46 + #48)', () => {
   let usuario;
 
   beforeEach(() => {
+    // Relógio fixo em 2026 (Issue #134): a turma fictícia é de 2026 e, com o
+    // filtro padrão por ano letivo, sumiria da lista a partir de 2027; a data
+    // do fato (20/10/2026) também precisa continuar no passado. Só o Date é
+    // simulado; os temporizadores continuam reais.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-23T13:00:00.000Z'));
     sessionStorage.clear();
     localStorage.clear();
     vi.stubEnv('VITE_API_URL', URL_API);
@@ -629,6 +635,7 @@ describe('Registro -> detalhe -> lista, ponta a ponta (#46 + #48)', () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });

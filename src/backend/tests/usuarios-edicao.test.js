@@ -137,8 +137,14 @@ beforeEach(() => {
   criarLog.mockResolvedValue({ id: 1 });
 
   // A edição grava o LogAuditoria na mesma transação (Issue #91).
+  // Sem ocorrências em acompanhamento neste arquivo: a RN23 (Issue #134) não
+  // recusa nada aqui (coberta em usuarios-rn23.test.js).
   $transaction.mockImplementation(async (fn) =>
-    fn({ usuario: { findUnique, findMany, create, update, count }, logAuditoria: { create: criarLog } }),
+    fn({
+      usuario: { findUnique, findMany, create, update, count },
+      ocorrencia: { count: async () => 0 },
+      logAuditoria: { create: criarLog },
+    }),
   );
 
   findMany.mockReset();

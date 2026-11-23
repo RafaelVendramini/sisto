@@ -19,9 +19,10 @@ import {
  * @param {object} [opcoes.cors]
  *   Opções do CORS ({ corsOrigin, ambiente, avisar }); por padrão lê
  *   CORS_ORIGIN e NODE_ENV de process.env (ver middlewares/cors.js).
- * @param {{ maximo?: number, janelaMs?: number }} [opcoes.limiteTentativas]
+ * @param {{ maximo?: number, janelaMs?: number, maximoPorIp?: number }} [opcoes.limiteTentativas]
  *   Só para testes: limite e janela das tentativas com falha no login e na
- *   troca de senha. Por padrão, 5 falhas em 15 minutos (SSD 1.8, Seção 12).
+ *   troca de senha. Por padrão, 5 falhas em 15 minutos (SSD 1.8, Seção 12) e,
+ *   no login, também 100 falhas por IP na mesma janela (SSD 1.13).
  */
 export function criarApp({
   registrarRotasExtras,

@@ -171,6 +171,8 @@ beforeEach(() => {
       logAuditoria: { create: mocks.criarLog },
       usuario: { findUnique, findMany, update, count },
       estudante: { count: estudanteCount },
+      // Sem ocorrências em acompanhamento: a RN23 (Issue #134) não recusa aqui.
+      ocorrencia: { count: async () => 0 },
     }),
   );
 });
