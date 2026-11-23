@@ -56,7 +56,9 @@ const {
   MENSAGEM_SENHA_ATUAL_INCORRETA,
   MENSAGEM_NOVA_SENHA_IGUAL_ATUAL,
   MENSAGEM_CONFLITO_TROCA_SENHA,
+  MENSAGEM_SENHA_ALTERADA_DURANTE_TROCA,
   proximaSenhaAlteradaEm,
+  senhaMudouDesde,
 } = await import('../src/services/troca-senha.js');
 const { ACOES_AUDITORIA } = await import('../src/services/auditoria.js');
 const { gerarHashSenha } = await import('../src/services/senha.js');
@@ -848,6 +850,131 @@ describe('Transação da troca de senha (atomicidade e concorrência)', () => {
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ erro: MENSAGEM_USUARIO_NAO_ENCONTRADO });
     expect(criarLog).not.toHaveBeenCalled();
+  });
+});
+
+describe('Troca da própria senha concorrente com a redefinição pela Gestão (Issue #127)', () => {
+  /**
+   * Simula a Gestão redefinindo a senha do usuário no intervalo entre a
+   * conferência da senha atual (fora da transação) e a transação da troca.
+   */
+  function simularRedefinicaoAntesDaTransacao(id, alteracao) {
+    const implementacao = $transaction.getMockImplementation();
+    $transaction.mockImplementation(async (fn, opcoes) => {
+      Object.assign(buscar(id), alteracao);
+      return implementacao(fn, opcoes);
+    });
+  }
+
+  it('hash alterado entre a leitura e a transação: 409 CONFLITO_CONCORRENTE, sem gravar senha nem auditoria e sem repetir', async () => {
+    const token = await tokenPorLogin(ID_ALVO);
+    const hashDaGestao = await gerarHashSenha(SENHA_TEMPORARIA);
+    const redefinidaEm = new Date(Date.now() - 500);
+    simularRedefinicaoAntesDaTransacao(ID_ALVO, {
+      senha_hash: hashDaGestao,
+      senha_alterada_em: redefinidaEm,
+      troca_senha_obrigatoria: true,
+    });
+
+    const res = await trocar({ senhaAtual: SENHA_INICIAL, novaSenha: SENHA_NOVA }, token);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({
+      erro: MENSAGEM_SENHA_ALTERADA_DURANTE_TROCA,
+      codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE,
+    });
+    // Sem nova tentativa: a senha atual conferida já não é a vigente.
+    expect($transaction).toHaveBeenCalledTimes(1);
+    expect(update).not.toHaveBeenCalled();
+    expect(criarLog).not.toHaveBeenCalled();
+    // A redefinição da Gestão continua valendo (não foi desfeita em silêncio).
+    const alvo = buscar(ID_ALVO);
+    expect(alvo.senha_hash).toBe(hashDaGestao);
+    expect(alvo.senha_alterada_em).toBe(redefinidaEm);
+    expect(alvo.troca_senha_obrigatoria).toBe(true);
+    expect(await bcrypt.compare(SENHA_NOVA, alvo.senha_hash)).toBe(false);
+    esperarSemSenha(res, SENHA_INICIAL, SENHA_NOVA);
+  });
+
+  it('só senha_alterada_em alterado (mesmo hash): também 409, sem gravar', async () => {
+    const token = await tokenPorLogin(ID_ALVO);
+    simularRedefinicaoAntesDaTransacao(ID_ALVO, { senha_alterada_em: new Date(Date.now() - 500) });
+
+    const res = await trocar({ senhaAtual: SENHA_INICIAL, novaSenha: SENHA_NOVA }, token);
+
+    expect(res.status).toBe(409);
+    expect(res.body.codigo).toBe(CODIGOS_ERRO.CONFLITO_CONCORRENTE);
+    expect(update).not.toHaveBeenCalled();
+    expect(criarLog).not.toHaveBeenCalled();
+    expect(buscar(ID_ALVO).senha_hash).toBe(hashInicial);
+  });
+
+  it('P2034 e, na nova tentativa, a senha já mudou: 409, sem gravar', async () => {
+    const token = await tokenPorLogin(ID_ALVO);
+    const hashDaGestao = await gerarHashSenha(SENHA_TEMPORARIA);
+    const implementacao = $transaction.getMockImplementation();
+    $transaction.mockImplementationOnce(async () => {
+      // A transação da Gestão venceu: o PostgreSQL abortou a da troca.
+      Object.assign(buscar(ID_ALVO), { senha_hash: hashDaGestao, senha_alterada_em: new Date() });
+      throw erroPrisma('P2034', 'Transaction failed due to a write conflict');
+    });
+    $transaction.mockImplementation(implementacao);
+
+    const res = await trocar({ senhaAtual: SENHA_INICIAL, novaSenha: SENHA_NOVA }, token);
+
+    expect(res.status).toBe(409);
+    expect(res.body.codigo).toBe(CODIGOS_ERRO.CONFLITO_CONCORRENTE);
+    expect($transaction).toHaveBeenCalledTimes(2);
+    expect(update).not.toHaveBeenCalled();
+    expect(criarLog).not.toHaveBeenCalled();
+    expect(buscar(ID_ALVO).senha_hash).toBe(hashDaGestao);
+  });
+
+  it('caminho normal (nada mudou): 204, grava a nova senha e uma auditoria', async () => {
+    // Troca anterior registrada: o valor relido na transação é uma data, não null.
+    const senhaAlteradaAntes = new Date(Date.now() - 60_000);
+    buscar(ID_ALVO).senha_alterada_em = senhaAlteradaAntes;
+    const token = await tokenPorLogin(ID_ALVO);
+
+    const res = await trocar({ senhaAtual: SENHA_INICIAL, novaSenha: SENHA_NOVA }, token);
+
+    expect(res.status).toBe(204);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(criarLog).toHaveBeenCalledTimes(1);
+    const alvo = buscar(ID_ALVO);
+    expect(await bcrypt.compare(SENHA_NOVA, alvo.senha_hash)).toBe(true);
+    expect(alvo.senha_alterada_em.getTime()).toBeGreaterThan(senhaAlteradaAntes.getTime());
+  });
+
+  it('a redefinição pela Gestão não confere o hash anterior: conclui mesmo se a senha mudou no intervalo', async () => {
+    const tokenGestao = await tokenPorLogin(ID_GESTAO);
+    const hashTrocadoPeloUsuario = await gerarHashSenha(SENHA_NOVA);
+    simularRedefinicaoAntesDaTransacao(ID_ALVO, {
+      senha_hash: hashTrocadoPeloUsuario,
+      senha_alterada_em: new Date(Date.now() - 500),
+    });
+
+    const res = await redefinir(ID_ALVO, { novaSenha: SENHA_TEMPORARIA }, tokenGestao);
+
+    expect(res.status).toBe(204);
+    expect(criarLog).toHaveBeenCalledTimes(1);
+    const alvo = buscar(ID_ALVO);
+    expect(await bcrypt.compare(SENHA_TEMPORARIA, alvo.senha_hash)).toBe(true);
+    expect(alvo.troca_senha_obrigatoria).toBe(true);
+  });
+});
+
+describe('senhaMudouDesde (Issue #127)', () => {
+  it('compara senha_hash e senha_alterada_em (por valor, inclusive null)', () => {
+    const data = new Date('2026-11-20T12:00:00.000Z');
+    const base = { senha_hash: 'h1', senha_alterada_em: data };
+    expect(senhaMudouDesde(base, { senha_hash: 'h1', senha_alterada_em: new Date(data.getTime()) })).toBe(false);
+    expect(senhaMudouDesde(base, { senha_hash: 'h2', senha_alterada_em: data })).toBe(true);
+    expect(senhaMudouDesde(base, { senha_hash: 'h1', senha_alterada_em: new Date(data.getTime() + 1) })).toBe(true);
+    expect(senhaMudouDesde(base, { senha_hash: 'h1', senha_alterada_em: null })).toBe(true);
+    expect(
+      senhaMudouDesde({ senha_hash: 'h1', senha_alterada_em: null }, { senha_hash: 'h1', senha_alterada_em: null }),
+    ).toBe(false);
   });
 });
 

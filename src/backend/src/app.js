@@ -2,6 +2,7 @@ import express from 'express';
 import rotas from './routes/index.js';
 import { rotaNaoEncontrada, tratarErros } from './middlewares/erros.js';
 import { criarMiddlewareCors } from './middlewares/cors.js';
+import { impedirCache } from './middlewares/cache.js';
 import {
   CHAVE_LIMITADORES,
   criarLimitadoresTentativas,
@@ -41,6 +42,10 @@ export function criarApp({
   // Limitadores de tentativas com falha (login e troca de senha), um conjunto
   // por app: o contador fica em memória (Seção 10).
   app.locals[CHAVE_LIMITADORES] = criarLimitadoresTentativas(limiteTentativas);
+  // Cache-Control: no-store em TODAS as respostas (Issue #127, RNF06): o
+  // navegador não guarda o JSON com dados de estudantes. Primeiro middleware,
+  // para valer também no preflight, nos erros e nas rotas públicas.
+  app.use(impedirCache);
   // CORS antes de tudo (inclusive da autenticação global de routes/index.js):
   // o preflight OPTIONS responde 204 sem exigir token, e as respostas de erro
   // (400/401/404) também levam Access-Control-Allow-Origin para origens permitidas.

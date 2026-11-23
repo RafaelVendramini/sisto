@@ -20,6 +20,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { garantirSemCaractereNulo } from '../lib/texto.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 
 /** Nome do recurso na API, usado no LogAuditoria ("categorias/<id>"). */
@@ -84,6 +85,8 @@ export function validarCategoria(corpo) {
   if (typeof nome !== 'string' || nome.trim() === '') {
     throw new ErroHttp(400, MENSAGEM_NOME_CATEGORIA_OBRIGATORIO);
   }
+  // U+0000: o PostgreSQL não grava (400, não 500 — Issue #127).
+  garantirSemCaractereNulo(nome);
   const nomeLimpo = nome.normalize('NFC').trim();
   if (nomeLimpo.length > TAMANHO_MAXIMO_NOME_CATEGORIA) {
     throw new ErroHttp(400, MENSAGEM_NOME_CATEGORIA_LONGO);
@@ -97,6 +100,7 @@ export function validarCategoria(corpo) {
     if (typeof descricao !== 'string') {
       throw new ErroHttp(400, MENSAGEM_DESCRICAO_CATEGORIA_INVALIDA);
     }
+    garantirSemCaractereNulo(descricao);
     const descricaoLimpa = descricao.trim();
     if (descricaoLimpa.length > TAMANHO_MAXIMO_DESCRICAO_CATEGORIA) {
       throw new ErroHttp(400, MENSAGEM_DESCRICAO_CATEGORIA_LONGA);

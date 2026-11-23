@@ -27,6 +27,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { CODIGOS_ERRO, ErroHttp } from '../lib/erros.js';
+import { garantirSemCaractereNulo } from '../lib/texto.js';
 import { ACOES_AUDITORIA, recursoAuditoria, registrarAuditoria } from './auditoria.js';
 import { paraRespostaTurma } from './turmas.js';
 
@@ -146,6 +147,8 @@ export function validarEstudante(corpo) {
   if (typeof nomeCompleto !== 'string' || nomeCompleto.trim() === '') {
     throw new ErroHttp(400, MENSAGEM_NOME_ESTUDANTE_OBRIGATORIO);
   }
+  // U+0000: o PostgreSQL não grava (400, não 500 — Issue #127).
+  garantirSemCaractereNulo(nomeCompleto);
   const nomeLimpo = nomeCompleto.normalize('NFC').trim();
   if (nomeLimpo.length > TAMANHO_MAXIMO_NOME_ESTUDANTE) {
     throw new ErroHttp(400, MENSAGEM_NOME_ESTUDANTE_LONGO);
@@ -163,6 +166,7 @@ export function validarEstudante(corpo) {
     if (typeof codigoEscolar !== 'string') {
       throw new ErroHttp(400, MENSAGEM_CODIGO_ESCOLAR_INVALIDO);
     }
+    garantirSemCaractereNulo(codigoEscolar);
     const codigoLimpo = normalizarCodigoEscolar(codigoEscolar);
     if (codigoLimpo.length > TAMANHO_MAXIMO_CODIGO_ESCOLAR) {
       throw new ErroHttp(400, MENSAGEM_CODIGO_ESCOLAR_LONGO);
