@@ -88,8 +88,13 @@ function buscar(id) {
   return banco.find((u) => u.id === id);
 }
 
-function adicionarGestao(id, status = 'ATIVO') {
-  banco.push({ ...usuarioBase(id, 'GESTAO'), email: `gestao.${id}@sisto.exemplo`, status });
+function adicionarGestao(id, status = 'ATIVO', trocaSenhaObrigatoria = false) {
+  banco.push({
+    ...usuarioBase(id, 'GESTAO'),
+    email: `gestao.${id}@sisto.exemplo`,
+    status,
+    troca_senha_obrigatoria: trocaSenhaObrigatoria,
+  });
 }
 
 beforeEach(() => {
@@ -128,7 +133,11 @@ beforeEach(() => {
     async ({ where }) =>
       banco.filter(
         (u) =>
-          u.perfil === where.perfil && u.status === where.status && u.id !== where.id?.not,
+          u.perfil === where.perfil &&
+          u.status === where.status &&
+          (where.troca_senha_obrigatoria === undefined ||
+            (u.troca_senha_obrigatoria ?? false) === where.troca_senha_obrigatoria) &&
+          u.id !== where.id?.not,
       ).length,
   );
 
@@ -601,7 +610,7 @@ describe('PUT /usuarios/{id} — ao menos duas Gestões ativas (RN11, 409)', () 
       expect(update).not.toHaveBeenCalled();
       expect(buscar(7)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
       expect(count).toHaveBeenCalledWith({
-        where: { perfil: 'GESTAO', status: 'ATIVO', id: { not: 7 } },
+        where: { perfil: 'GESTAO', status: 'ATIVO', troca_senha_obrigatoria: false, id: { not: 7 } },
       });
     },
   );
@@ -653,8 +662,61 @@ describe('PUT /usuarios/{id} — ao menos duas Gestões ativas (RN11, 409)', () 
 
   it('a mensagem do 409 explica a regra dos dois usuários Gestão e pede o cadastro de outro', () => {
     expect(MENSAGEM_MINIMO_GESTOES_ATIVAS).toMatch(/ao menos dois usuários Gestão ativos/);
+    expect(MENSAGEM_MINIMO_GESTOES_ATIVAS).toMatch(/já tenham trocado a senha temporária/);
     expect(MENSAGEM_MINIMO_GESTOES_ATIVAS).toMatch(/Cadastre ou reative outro usuário Gestão/);
   });
+
+  // Issue #149: Gestão com troca de senha pendente não conta como Gestão ativa.
+  it.each(ACOES_QUE_TIRAM_GESTAO_ATIVA)(
+    'duas Gestões confirmadas + uma com troca de senha pendente, %s uma confirmada: 409 (#149)',
+    async (_caso, corpo) => {
+      adicionarGestao(7);
+      adicionarGestao(8, 'ATIVO', true); // ainda não trocou a senha temporária
+      const res = await put(7, corpo);
+
+      esperarErro(res, 409, MENSAGEM_MINIMO_GESTOES_ATIVAS, CODIGOS_ERRO.GESTAO_ATIVA_MINIMA);
+      expect(update).not.toHaveBeenCalled();
+      expect(buscar(7)).toMatchObject({ perfil: 'GESTAO', status: 'ATIVO' });
+    },
+  );
+
+  it('depois que a Gestão pendente troca a senha, ela passa a contar e a retirada é aceita (#149)', async () => {
+    adicionarGestao(7);
+    adicionarGestao(8, 'ATIVO', true);
+    expect((await put(7, { status: 'BLOQUEADO' })).status).toBe(409);
+
+    buscar(8).troca_senha_obrigatoria = false; // primeiro acesso concluído
+    expect((await put(7, { status: 'BLOQUEADO' })).status).toBe(200);
+  });
+
+  it('reativar uma Gestão bloqueada com troca pendente: 200, sem consultar a RN11 (#149)', async () => {
+    adicionarGestao(7, 'BLOQUEADO', true);
+    const res = await put(7, { status: 'ATIVO' });
+
+    expect(res.status).toBe(200);
+    expect(count).not.toHaveBeenCalled();
+  });
+
+  it('promover a Gestão um usuário com troca pendente: 200, sem consultar a RN11 (#149)', async () => {
+    buscar(ID_ALVO).troca_senha_obrigatoria = true;
+    const res = await put(ID_ALVO, { perfil: 'GESTAO' });
+
+    expect(res.status).toBe(200);
+    expect(count).not.toHaveBeenCalled();
+  });
+
+  it.each(ACOES_QUE_TIRAM_GESTAO_ATIVA)(
+    'a própria Gestão com troca pendente não conta: %s ela, com só duas confirmadas, é aceito (#149)',
+    async (_caso, corpo) => {
+      adicionarGestao(7);
+      adicionarGestao(8, 'ATIVO', true);
+      const res = await put(8, corpo);
+
+      expect(res.status).toBe(200);
+      expect(count).not.toHaveBeenCalled();
+      expect(buscar(8)).toMatchObject(corpo);
+    },
+  );
 
   it('editar só o nome de uma Gestão, com duas Gestões ativas: 200 (não reduz Gestões ativas)', async () => {
     adicionarGestao(7);

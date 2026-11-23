@@ -8,9 +8,12 @@
 //   produção): e-mail e senha vêm do .env (SEED_GESTAO_EMAIL / SEED_GESTAO_SENHA).
 // - Ambiente (decisão do Rafael):
 //   - NODE_ENV === 'production': cria SOMENTE o usuário de Gestão;
-//     SEED_SENHA_USUARIOS não é exigida (e é ignorada).
+//     SEED_SENHA_USUARIOS não é exigida (e é ignorada). A Gestão é criada com
+//     troca obrigatória de senha (RN10, Issue #149): SEED_GESTAO_SENHA é
+//     temporária, e a Gestão define a própria senha no primeiro acesso.
 //   - Qualquer outro ambiente: cria 1 usuário por perfil (5 no total); os 4
-//     fictícios não-Gestão usam a senha SEED_SENHA_USUARIOS.
+//     fictícios não-Gestão usam a senha SEED_SENHA_USUARIOS. Sem troca
+//     obrigatória de senha, para o desenvolvimento e os testes (dados fictícios).
 // - Nenhuma senha no código. Senhas com no mínimo 8 caracteres (RN10), no
 //   máximo 72 bytes (limite técnico do bcrypt), sem o prefixo de exemplo
 //   "TROQUE_" do .env.example; gravadas só como hash bcrypt (RNF03).
@@ -131,7 +134,7 @@ export function validarVariaveisSeed(env) {
  * @param {ReturnType<typeof validarVariaveisSeed>} config
  * @param {{ custoBcrypt?: number }} [opcoes] custoBcrypt: padrão CUSTO_BCRYPT (12);
  *   valores menores só em testes, para acelerar.
- * @returns {Promise<Array<{nome: string, email: string, senha_hash: string, perfil: string, status: 'ATIVO'}>>}
+ * @returns {Promise<Array<{nome: string, email: string, senha_hash: string, perfil: string, status: 'ATIVO', troca_senha_obrigatoria: boolean}>>}
  */
 export async function montarUsuariosSeed(config, { custoBcrypt = CUSTO_BCRYPT } = {}) {
   const definicoes = [
@@ -150,6 +153,8 @@ export async function montarUsuariosSeed(config, { custoBcrypt = CUSTO_BCRYPT } 
       senha_hash: await gerarHashSenha(senha, custoBcrypt),
       perfil,
       status: 'ATIVO',
+      // Só em produção (só a Gestão é criada): troca obrigatória (RN10, #149).
+      troca_senha_obrigatoria: config.somenteGestao,
     })),
   );
 }

@@ -22,7 +22,10 @@
 // - RN11 (SSD v1.6, Issue #37): o sistema mantém sempre ao menos DOIS
 //   usuários GESTAO com status ATIVO (um pode redefinir a senha do outro).
 //   Nenhuma edição pode reduzir esse número a menos de dois; a Gestão também
-//   não bloqueia, desativa nem altera o próprio perfil (409).
+//   não bloqueia, desativa nem altera o próprio perfil (409). Desde a Issue
+//   #149, só conta como Gestão ativa quem já trocou a senha temporária
+//   (troca_senha_obrigatoria = false). A redefinição de senha entre Gestões
+//   (troca-senha.js) continua permitida (decisão do Rafael, 23/11/2026).
 // - RN13 (Issue #44): o perfil de um usuário TUTOR com estudantes vinculados
 //   não pode ser alterado (409) até que os estudantes sejam desvinculados.
 // - RN23 (SSD 1.13, Issue #134): o perfil do responsável pelo acompanhamento
@@ -318,11 +321,11 @@ export const MENSAGEM_ID_INVALIDO = 'Identificador de usuário inválido.';
 export const MENSAGEM_USUARIO_NAO_ENCONTRADO = 'Usuário não encontrado.';
 export const MENSAGEM_ALTERAR_PROPRIO_ACESSO =
   'Você não pode bloquear, desativar ou alterar o perfil do seu próprio usuário.';
-/** RN11: mínimo de usuários GESTAO com status ATIVO. */
+/** RN11: mínimo de usuários GESTAO com status ATIVO e sem troca de senha pendente (#149). */
 export const MINIMO_GESTOES_ATIVAS = 2;
 
 export const MENSAGEM_MINIMO_GESTOES_ATIVAS =
-  'O sistema precisa de ao menos dois usuários Gestão ativos. Cadastre ou reative outro usuário Gestão antes de bloquear, desativar ou alterar o perfil deste.';
+  'O sistema precisa de ao menos dois usuários Gestão ativos que já tenham trocado a senha temporária. Cadastre ou reative outro usuário Gestão (e aguarde o primeiro acesso dele) antes de bloquear, desativar ou alterar o perfil deste.';
 /** RN13: troca de perfil de um Tutor com estudantes vinculados (409). */
 export const MENSAGEM_TUTOR_COM_TUTORADOS =
   'Este usuário Tutor tem estudantes vinculados. Desvincule os estudantes (ou troque o tutor deles) antes de alterar o perfil.';
@@ -398,8 +401,13 @@ export function validarEdicaoUsuario(corpo) {
   return dados;
 }
 
-function ehGestaoAtiva({ perfil, status }) {
-  return perfil === Perfil.GESTAO && status === StatusUsuario.ATIVO;
+// RN11 (#149): Gestão com troca de senha pendente ainda não definiu a própria
+// senha e não conta como Gestão ativa. `!== true` aqui e `false` na contagem
+// abaixo são equivalentes: a coluna é Boolean @default(false), sem nulo.
+function ehGestaoAtiva({ perfil, status, troca_senha_obrigatoria }) {
+  return (
+    perfil === Perfil.GESTAO && status === StatusUsuario.ATIVO && troca_senha_obrigatoria !== true
+  );
 }
 
 /**
@@ -412,7 +420,7 @@ function ehGestaoAtiva({ perfil, status }) {
 async function verificarEAtualizar(tx, id, dados, solicitante) {
   const atual = await tx.usuario.findUnique({
     where: { id },
-    select: { id: true, email: true, perfil: true, status: true },
+    select: { id: true, email: true, perfil: true, status: true, troca_senha_obrigatoria: true },
   });
   if (!atual) {
     throw new ErroHttp(404, MENSAGEM_USUARIO_NAO_ENCONTRADO);
@@ -467,16 +475,23 @@ async function verificarEAtualizar(tx, id, dados, solicitante) {
     }
   }
 
-  // RN11 — ao menos dois GESTAO ATIVO: se este usuário é Gestão ativa e
-  // deixaria de ser (rebaixado, bloqueado ou desativado), precisam restar ao
-  // menos MINIMO_GESTOES_ATIVAS outras Gestões ativas depois da edição.
+  // RN11 — ao menos dois GESTAO ATIVO sem troca de senha pendente (#149): se
+  // este usuário é Gestão ativa e deixaria de ser (rebaixado, bloqueado ou
+  // desativado), precisam restar ao menos MINIMO_GESTOES_ATIVAS outras
+  // Gestões ativas depois da edição.
   const depois = {
     perfil: dados.perfil ?? atual.perfil,
     status: dados.status ?? atual.status,
+    troca_senha_obrigatoria: atual.troca_senha_obrigatoria,
   };
   if (ehGestaoAtiva(atual) && !ehGestaoAtiva(depois)) {
     const outrasGestoesAtivas = await tx.usuario.count({
-      where: { perfil: Perfil.GESTAO, status: StatusUsuario.ATIVO, id: { not: id } },
+      where: {
+        perfil: Perfil.GESTAO,
+        status: StatusUsuario.ATIVO,
+        troca_senha_obrigatoria: false,
+        id: { not: id },
+      },
     });
     if (outrasGestoesAtivas < MINIMO_GESTOES_ATIVAS) {
       throw new ErroHttp(409, MENSAGEM_MINIMO_GESTOES_ATIVAS, {

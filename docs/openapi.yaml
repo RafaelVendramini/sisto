@@ -499,7 +499,9 @@ paths:
           (RN11) — `ALTERAR_PROPRIO_ACESSO`; editar o próprio nome/e-mail é
           permitido;
         * a edição deixaria menos de dois usuários Gestão ativos (RN11) —
-          `GESTAO_ATIVA_MINIMA`;
+          `GESTAO_ATIVA_MINIMA`; só conta como Gestão ativa quem tem status
+          `ATIVO` e já trocou a senha temporária (sem troca de senha
+          pendente — Issue #149);
         * troca de perfil de um Tutor com estudantes vinculados (RN13) —
           `TUTOR_COM_TUTORADOS`;
         * mudança para `PROFESSOR` ou `TECNICO_ADMINISTRATIVO` do perfil de
@@ -568,7 +570,7 @@ paths:
                     codigo: ALTERAR_PROPRIO_ACESSO
                 minimoGestoes:
                   value:
-                    erro: O sistema precisa de ao menos dois usuários Gestão ativos. Cadastre ou reative outro usuário Gestão antes de bloquear, desativar ou alterar o perfil deste.
+                    erro: O sistema precisa de ao menos dois usuários Gestão ativos que já tenham trocado a senha temporária. Cadastre ou reative outro usuário Gestão (e aguarde o primeiro acesso dele) antes de bloquear, desativar ou alterar o perfil deste.
                     codigo: GESTAO_ATIVA_MINIMA
                 tutorComTutorados:
                   value:
@@ -2287,7 +2289,7 @@ components:
             * `CODIGO_ESCOLAR_DUPLICADO` (409): código escolar já usado por
               outro estudante (RN18).
             * `GESTAO_ATIVA_MINIMA` (409): a edição deixaria menos de dois
-              usuários Gestão ativos (RN11).
+              usuários Gestão ativos, sem troca de senha pendente (RN11).
             * `ALTERAR_PROPRIO_ACESSO` (409): a Gestão tentou bloquear,
               desativar ou alterar o perfil do próprio usuário (RN11).
             * `REDEFINIR_PROPRIA_SENHA` (409): `PUT /usuarios/{id}/senha` na
