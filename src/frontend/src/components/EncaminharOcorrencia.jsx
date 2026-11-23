@@ -14,7 +14,8 @@ import {
 } from '../services/mensagensOcorrencias.js';
 import { encaminharOcorrencia } from '../services/ocorrencias.js';
 import { listarUsuarios } from '../services/usuarios.js';
-import Dialogo from './Dialogo.jsx';
+import AvisoSessaoExpirada, { sessaoExpirou } from './AvisoSessaoExpirada.jsx';
+import Dialogo, { useConfirmacaoDescarte } from './Dialogo.jsx';
 import { OpcoesDeUsuarios, OpcoesEquipe, OpcoesTutores } from './OpcoesUsuarios.jsx';
 
 const PREFIXO = 'encaminhamento';
@@ -111,6 +112,8 @@ export default function EncaminharOcorrencia({
   const [erros, setErros] = useState({});
   const [erro, setErro] = useState('');
   const [pedeAtualizacao, setPedeAtualizacao] = useState(false);
+  // Token vencido antes do envio (#128): nada é enviado nem apagado.
+  const [sessaoVencida, setSessaoVencida] = useState(false);
   const [enviando, setEnviando] = useState(false);
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
@@ -192,9 +195,15 @@ export default function EncaminharOcorrencia({
     if (campo) refs[campo].current?.focus();
   }
 
+  // Esc e "Cancelar" com texto digitado pedem confirmação antes de fechar (#128).
+  const { pedirFechamento, confirmacaoDescarte } = useConfirmacaoDescarte({
+    temTextoDigitado: dados.observacao.trim() !== '',
+    aoFechar: aoCancelar,
+  });
+
   function cancelar() {
     if (enviandoRef.current) return;
-    aoCancelar();
+    pedirFechamento();
   }
 
   function atualizarOcorrencia() {
@@ -214,6 +223,13 @@ export default function EncaminharOcorrencia({
       focarPrimeiroInvalido(novosErros);
       return;
     }
+
+    // Sessão vencida antes do envio: não envia nem limpa o formulário (#128).
+    if (sessaoExpirou()) {
+      setSessaoVencida(true);
+      return;
+    }
+    setSessaoVencida(false);
 
     enviandoRef.current = true;
     setEnviando(true);
@@ -395,6 +411,8 @@ export default function EncaminharOcorrencia({
           {mensagemCampo('observacao')}
         </div>
 
+        {sessaoVencida && <AvisoSessaoExpirada />}
+
         {erro && (
           <div className="mensagem mensagem--erro" role="alert">
             <p>{erro}</p>
@@ -462,6 +480,7 @@ export default function EncaminharOcorrencia({
       titulo="Encaminhar ocorrência"
       descricaoId={`${ID_DIALOGO}-descricao`}
       aoFechar={cancelar}
+      confirmacaoDescarte={confirmacaoDescarte}
       aoRestaurarFoco={aoRestaurarFoco}
     >
       <p id={`${ID_DIALOGO}-descricao`} className="texto-secundario">

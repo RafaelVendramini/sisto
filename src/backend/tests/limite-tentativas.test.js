@@ -222,7 +222,8 @@ describe('Configuração (SSD 1.8, Seção 12)', () => {
   });
 
   it('e-mail muito longo: o limite vale e a resposta 429 não ecoa o e-mail', async () => {
-    const longo = `${'b'.repeat(50_000)}@sisto.exemplo`;
+    // Abaixo do limite de 10 kB do corpo do login (Issue #128).
+    const longo = `${'b'.repeat(8_000)}@sisto.exemplo`;
     await falharLogin(5, longo);
     const res = await login(`  ${longo.toUpperCase()} `, SENHA_ERRADA);
     esperar429(res);

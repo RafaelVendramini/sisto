@@ -310,6 +310,34 @@ p {
   border: 0;
 }
 
+/* "Pular para o conteúdo" (#128): fora da tela até receber o foco pelo teclado. */
+.pular-conteudo {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 200;
+  padding: 0.75rem 1rem;
+  border-radius: var(--raio);
+  background-color: var(--cor-primaria);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.pular-conteudo:focus {
+  transform: none;
+  outline: 3px solid var(--cor-destaque);
+  outline-offset: 2px;
+}
+
+/* Foco levado pelo app ao conteúdo ou ao título da página (troca de página):
+   sem contorno, pois não são elementos de ação. */
+.layout__principal:focus,
+.layout__principal h1[tabindex='-1']:focus {
+  outline: none;
+}
+
 h2 {
   margin: 0 0 0.75rem;
   font-size: 1.25rem;

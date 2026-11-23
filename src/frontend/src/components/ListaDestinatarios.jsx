@@ -36,6 +36,8 @@ export const CAMPOS_DESTINATARIO = Object.freeze([
  * @param {(chave: number) => void} props.aoRemover
  * @param {{ TUTOR: Array, EQUIPE_PEDAGOGICA: Array, GESTAO: Array }} props.usuariosPorDestinatario
  *   - usuários ativos de cada tipo, só { id, nome }
+ * @param {boolean} [props.usuariosIndisponiveis] - a lista de usuários não carregou (#128):
+ *   a ajuda do tutor não diz que não há tutores cadastrados
  * @param {Array<object>} props.estudantesSelecionados - para sugerir os tutores
  * @param {Record<number, Record<string, string>>} props.erros - por chave da linha
  * @param {string} [props.erroGeral] - ex.: nenhum destinatário
@@ -47,6 +49,7 @@ export default function ListaDestinatarios({
   aoAdicionar,
   aoRemover,
   usuariosPorDestinatario,
+  usuariosIndisponiveis = false,
   estudantesSelecionados,
   erros,
   erroGeral,
@@ -88,7 +91,10 @@ export default function ListaDestinatarios({
     const ehTutor = destinatarioPerfil === 'TUTOR';
     const lista = usuariosPorDestinatario[destinatarioPerfil] ?? [];
     let ajuda;
-    if (ehTutor) {
+    if (ehTutor && usuariosIndisponiveis) {
+      ajuda =
+        'Obrigatório. A lista de tutores não carregou: carregue a lista de usuários de novo ou escolha outro destinatário.';
+    } else if (ehTutor) {
       ajuda =
         lista.length === 0
           ? 'Obrigatório. Nenhum tutor ativo cadastrado: escolha outro destinatário.'

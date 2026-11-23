@@ -277,6 +277,8 @@ describe('Registro de comunicação no detalhe da ocorrência (#52)', () => {
       const dialogo = await abrirDialogo();
       await usuario.type(campos(dialogo).destinatario, 'Algo fictício');
       await usuario.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+      // Com texto digitado, Cancelar pede confirmação antes de descartar (#128).
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Descartar' }));
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Registrar comunicação' })).toHaveFocus();
       expect(postsComunicacao()).toHaveLength(0);
@@ -297,6 +299,8 @@ describe('Registro de comunicação no detalhe da ocorrência (#52)', () => {
       await usuario.type(c.descricao, 'Texto fictício');
       await trocarData(c.dataHora, '2026-10-30T08:15');
       await usuario.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+      // Com texto digitado, Cancelar pede confirmação antes de descartar (#128).
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Descartar' }));
 
       await usuario.click(screen.getByRole('button', { name: 'Registrar comunicação' }));
       const novo = campos(await screen.findByRole('dialog', { name: 'Registrar comunicação' }));

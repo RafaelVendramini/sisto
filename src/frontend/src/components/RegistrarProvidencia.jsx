@@ -6,7 +6,8 @@ import {
   validarProvidencia,
 } from '../services/mensagensOcorrencias.js';
 import { registrarProvidencia } from '../services/ocorrencias.js';
-import Dialogo from './Dialogo.jsx';
+import AvisoSessaoExpirada, { sessaoExpirou } from './AvisoSessaoExpirada.jsx';
+import Dialogo, { useConfirmacaoDescarte } from './Dialogo.jsx';
 
 const ID_DIALOGO = 'dialogo-providencia';
 const ID_CAMPO = 'providencia-descricao';
@@ -37,6 +38,8 @@ export default function RegistrarProvidencia({
   const [erroCampo, setErroCampo] = useState('');
   const [erro, setErro] = useState('');
   const [pedeAtualizacao, setPedeAtualizacao] = useState(false);
+  // Token vencido antes do envio (#128): nada é enviado nem apagado.
+  const [sessaoVencida, setSessaoVencida] = useState(false);
   const [enviando, setEnviando] = useState(false);
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
@@ -58,9 +61,15 @@ export default function RegistrarProvidencia({
     setDescricao(evento.target.value);
   }
 
+  // Esc e "Cancelar" com texto digitado pedem confirmação antes de fechar (#128).
+  const { pedirFechamento, confirmacaoDescarte } = useConfirmacaoDescarte({
+    temTextoDigitado: descricao.trim() !== '',
+    aoFechar: aoCancelar,
+  });
+
   function cancelar() {
     if (enviandoRef.current) return;
-    aoCancelar();
+    pedirFechamento();
   }
 
   function atualizarOcorrencia() {
@@ -80,6 +89,13 @@ export default function RegistrarProvidencia({
       refDescricao.current?.focus();
       return;
     }
+
+    // Sessão vencida antes do envio: não envia nem limpa o formulário (#128).
+    if (sessaoExpirou()) {
+      setSessaoVencida(true);
+      return;
+    }
+    setSessaoVencida(false);
 
     enviandoRef.current = true;
     setEnviando(true);
@@ -107,6 +123,7 @@ export default function RegistrarProvidencia({
       titulo="Registrar providência"
       descricaoId={`${ID_DIALOGO}-descricao`}
       aoFechar={cancelar}
+      confirmacaoDescarte={confirmacaoDescarte}
       focoInicialRef={refDescricao}
       aoRestaurarFoco={aoRestaurarFoco}
     >
@@ -146,6 +163,8 @@ export default function RegistrarProvidencia({
             </span>
           )}
         </div>
+
+        {sessaoVencida && <AvisoSessaoExpirada />}
 
         {erro && (
           <div className="mensagem mensagem--erro" role="alert">

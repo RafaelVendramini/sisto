@@ -9,6 +9,42 @@ import {
 } from './middlewares/limite-tentativas.js';
 
 /**
+ * Limite do corpo JSON (Issue #128). O padrão do express.json() (100 kB) é
+ * menor que o maior corpo válido pelos limites da Seção 11 do SSD, sem
+ * espaços nas pontas dos textos nem campos extras (o que o front-end envia;
+ * o SSD mede os textos depois de tirar os espaços das pontas, e campos fora
+ * do contrato são ignorados). Esse maior corpo é o do POST /ocorrencias:
+ *   - textos: 5 da ocorrência (descricao, demaisEnvolvidos, testemunhas,
+ *     providenciasImediatas, observacoes) + 10 observações de encaminhamento,
+ *     até 5000 unidades UTF-16 cada, mais o local (150):
+ *     15 × 5000 + 150 = 75.150 unidades;
+ *   - bytes por unidade no pior caso: 3 em UTF-8 cru (ex.: "€"; acentos
+ *     comuns ocupam 2, e um emoji ocupa 4 bytes para 2 unidades) e 6 se o
+ *     cliente escapar cada caractere como \uXXXX (o JSON.stringify faz isso
+ *     com os caracteres de controle). Pior caso: 75.150 × 6 = 450.900 bytes;
+ *   - resto do corpo (nomes dos campos, aspas, dataHora, ids, 50 estudantes
+ *     com até 10 dígitos e 10 destinatários): cerca de 2 kB.
+ * Total: ~453 kB (~442 KiB). 512 kB (524.288 bytes) cobre esse pior caso com
+ * ~70 kB de folga, sem abrir espaço para corpos abusivos. O limite é global:
+ * os demais corpos (usuários, senha, turmas, estudantes, categorias,
+ * encaminhamento, comunicação, providência e status) são bem menores — o
+ * maior deles, a comunicação (150 + 150 + 5000 unidades), fica em cerca de
+ * 32 kB no pior caso.
+ * Acima do limite, a resposta é 413 em português (middlewares/erros.js).
+ */
+export const LIMITE_CORPO_JSON = '512kb';
+
+/**
+ * Limite menor só para o POST /auth/login (Issue #128). A rota é anônima,
+ * então não deve aceitar 512 kB de quem não tem login. Um login legítimo
+ * ({ email, senha }, com e-mail de até 254 caracteres e senha de até 72
+ * bytes — Seção 11) nunca passa de cerca de 1 kB; mesmo com todos os
+ * caracteres escapados como \uXXXX, fica abaixo de 2 kB. 10 kB dá folga.
+ * Acima disso, 413 com a mesma mensagem em português dos demais corpos.
+ */
+export const LIMITE_CORPO_LOGIN = '10kb';
+
+/**
  * Cria a aplicação Express sem subir o servidor (permite testes com Supertest).
  *
  * @param {object} [opcoes]
@@ -59,7 +95,11 @@ export function criarApp({
   // o preflight OPTIONS responde 204 sem exigir token, e as respostas de erro
   // (400/401/404) também levam Access-Control-Allow-Origin para origens permitidas.
   app.use(criarMiddlewareCors(opcoesCors));
-  app.use(express.json());
+  // O parser do login vem antes do global. Depois que ele lê o corpo, a
+  // requisição fica "terminada" (body-parser 2: onFinished.isFinished(req)),
+  // e o parser global a pula sem ler de novo nem trocar o req.body.
+  app.use('/auth/login', express.json({ limit: LIMITE_CORPO_LOGIN }));
+  app.use(express.json({ limit: LIMITE_CORPO_JSON }));
 
   app.use(rotas);
 

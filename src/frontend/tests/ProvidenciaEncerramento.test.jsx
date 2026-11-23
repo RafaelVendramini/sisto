@@ -343,6 +343,8 @@ describe('Providência e encerramento no detalhe da ocorrência (#84)', () => {
       const dialogo = await abrirProvidencia();
       await usuario.type(camposProvidencia(dialogo).descricao, 'Algo fictício');
       await usuario.click(within(dialogo).getByRole('button', { name: 'Cancelar' }));
+      // Com texto digitado, Cancelar pede confirmação antes de descartar (#128).
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Descartar' }));
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Registrar providência' })).toHaveFocus();
 

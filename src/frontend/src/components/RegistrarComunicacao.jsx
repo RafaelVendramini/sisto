@@ -10,7 +10,8 @@ import {
   validarComunicacao,
 } from '../services/mensagensOcorrencias.js';
 import { registrarComunicacao } from '../services/ocorrencias.js';
-import Dialogo from './Dialogo.jsx';
+import AvisoSessaoExpirada, { sessaoExpirou } from './AvisoSessaoExpirada.jsx';
+import Dialogo, { useConfirmacaoDescarte } from './Dialogo.jsx';
 
 const PREFIXO = 'comunicacao';
 const ID_DIALOGO = 'dialogo-comunicacao';
@@ -60,6 +61,8 @@ export default function RegistrarComunicacao({
   const [erros, setErros] = useState({});
   const [erro, setErro] = useState('');
   const [pedeAtualizacao, setPedeAtualizacao] = useState(false);
+  // Token vencido antes do envio (#128): nada é enviado nem apagado.
+  const [sessaoVencida, setSessaoVencida] = useState(false);
   const [enviando, setEnviando] = useState(false);
   // Trava síncrona contra duplo envio (o estado só muda no próximo render).
   const enviandoRef = useRef(false);
@@ -100,9 +103,15 @@ export default function RegistrarComunicacao({
     if (campo) refs[campo].current?.focus();
   }
 
+  // Esc e "Cancelar" com texto digitado pedem confirmação antes de fechar (#128).
+  const { pedirFechamento, confirmacaoDescarte } = useConfirmacaoDescarte({
+    temTextoDigitado: ['destinatario', 'meio', 'descricao'].some((campo) => dados[campo].trim() !== ''),
+    aoFechar: aoCancelar,
+  });
+
   function cancelar() {
     if (enviandoRef.current) return;
-    aoCancelar();
+    pedirFechamento();
   }
 
   function atualizarOcorrencia() {
@@ -122,6 +131,13 @@ export default function RegistrarComunicacao({
       focarPrimeiroInvalido(novosErros);
       return;
     }
+
+    // Sessão vencida antes do envio: não envia nem limpa o formulário (#128).
+    if (sessaoExpirou()) {
+      setSessaoVencida(true);
+      return;
+    }
+    setSessaoVencida(false);
 
     enviandoRef.current = true;
     setEnviando(true);
@@ -172,6 +188,7 @@ export default function RegistrarComunicacao({
       titulo="Registrar comunicação"
       descricaoId={`${ID_DIALOGO}-descricao`}
       aoFechar={cancelar}
+      confirmacaoDescarte={confirmacaoDescarte}
       focoInicialRef={refs.destinatario}
       aoRestaurarFoco={aoRestaurarFoco}
     >
@@ -242,6 +259,8 @@ export default function RegistrarComunicacao({
           </span>
           {mensagemCampo('dataHora')}
         </div>
+
+        {sessaoVencida && <AvisoSessaoExpirada />}
 
         {erro && (
           <div className="mensagem mensagem--erro" role="alert">
