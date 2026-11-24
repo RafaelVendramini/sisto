@@ -714,6 +714,7 @@ describe('Encaminhamento no detalhe — complementares do QA (#50)', () => {
           { id: 12, nome: 'Tutora Fictícia B' },
           { id: 13, nome: 'Tutora Fictícia C' },
         ],
+        PSICOLOGO: [],
         EQUIPE_PEDAGOGICA: [
           { id: 20, nome: 'Pedagoga Fictícia' },
           { id: 60, nome: 'Pedagoga Sem Status Fictícia' },
@@ -722,6 +723,7 @@ describe('Encaminhamento no detalhe — complementares do QA (#50)', () => {
       });
       expect(separarUsuariosPorDestinatario(undefined)).toEqual({
         TUTOR: [],
+        PSICOLOGO: [],
         EQUIPE_PEDAGOGICA: [],
         GESTAO: [],
       });

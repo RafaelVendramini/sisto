@@ -11,10 +11,14 @@ import { nomeBancoDeTeste } from './ambiente.js';
 
 export { prisma, desconectarPrisma };
 
-/** Os 5 perfis (RF01), na ordem das colunas da matriz da Seção 4. */
+/**
+ * Os 6 perfis (RF01), na ordem das colunas da matriz da Seção 4. O Psicólogo
+ * escolar (PSICOLOGO) entrou no SSD 1.18 (Issues #152 e #154).
+ */
 export const PERFIS = Object.freeze([
   'PROFESSOR',
   'TUTOR',
+  'PSICOLOGO',
   'GESTAO',
   'PEDAGOGICO',
   'TECNICO_ADMINISTRATIVO',
@@ -202,11 +206,19 @@ export async function registrarOcorrencia(
   return exigirStatus(res, 201, 'POST /ocorrencias');
 }
 
-/** POST /ocorrencias/{id}/encaminhamentos pela API (201), definindo o responsável (RN15). */
-export async function encaminhar(app, token, ocorrenciaId, { destinatarioPerfil, destinatarioUsuarioId, responsavelAcompanhamentoId }) {
+/**
+ * POST /ocorrencias/{id}/encaminhamentos pela API (201), definindo o responsável (RN15).
+ * `observacao` é a justificativa obrigatória no encaminhamento ao psicólogo (RN03, SSD 1.18).
+ */
+export async function encaminhar(
+  app,
+  token,
+  ocorrenciaId,
+  { destinatarioPerfil, destinatarioUsuarioId, responsavelAcompanhamentoId, observacao },
+) {
   const res = await enviar(app, 'POST', `/ocorrencias/${ocorrenciaId}/encaminhamentos`, {
     token,
-    corpo: { destinatarioPerfil, destinatarioUsuarioId, responsavelAcompanhamentoId },
+    corpo: { destinatarioPerfil, destinatarioUsuarioId, responsavelAcompanhamentoId, observacao },
   });
   return exigirStatus(res, 201, 'POST encaminhamentos');
 }

@@ -1,11 +1,15 @@
 // Validação e montagem do envio dos formulários de ocorrência (UC01, UC02,
-// UC04, RN02, RN03, RN14, RN15, RN16, RN17): registro, encaminhamento,
+// UC04, RN02, RN03, RN14, RN15, RN16, RN17, RN24): registro, encaminhamento,
 // comunicação e providência. É só usabilidade: a validação definitiva é a do
 // back-end (400). Separado de mensagensOcorrencias.js (#129), que continua
 // reexportando tudo daqui.
 import { dataHoraParaEnvio } from './dataHora.js';
 import { idParaEnvio, limparTexto } from './mensagensEstudantes.js';
-import { perfilDoDestinatario } from './rotulosOcorrencia.js';
+import {
+  destinatarioExigeJustificativa,
+  destinatarioExigeUsuario,
+  perfilDoDestinatario,
+} from './rotulosOcorrencia.js';
 
 // Limites do back-end (decisões do Rafael na Issue #45), após remover espaços nas pontas.
 export const TAMANHO_MAXIMO_LOCAL = 150;
@@ -26,10 +30,16 @@ export const MENSAGEM_DATA_HORA_FUTURA =
   'A data e a hora não podem estar no futuro. Informe quando o fato aconteceu.';
 export const MENSAGEM_LOCAL_OBRIGATORIO = 'Informe o local onde o fato aconteceu.';
 export const MENSAGEM_DESTINATARIOS_OBRIGATORIOS =
-  'Adicione ao menos um destinatário (tutor, equipe pedagógica ou gestão).';
+  'Adicione ao menos um destinatário (tutor, psicólogo escolar, equipe pedagógica ou gestão).';
 export const MENSAGEM_DESTINATARIOS_EXCEDIDOS = `Adicione no máximo ${MAXIMO_DESTINATARIOS} destinatários.`;
 export const MENSAGEM_TIPO_DESTINATARIO_OBRIGATORIO = 'Escolha para quem a ocorrência será encaminhada.';
 export const MENSAGEM_TUTOR_OBRIGATORIO = 'Escolha o tutor que vai receber a ocorrência.';
+// Encaminhamento ao psicólogo escolar (RN03, v1.18 — Issue #152).
+export const MENSAGEM_PSICOLOGO_OBRIGATORIO =
+  'Escolha o psicólogo escolar que vai receber a ocorrência.';
+export const MENSAGEM_JUSTIFICATIVA_OBRIGATORIA =
+  'Informe a justificativa do encaminhamento ao psicólogo escolar.';
+export const MENSAGEM_JUSTIFICATIVA_LONGA = `A justificativa deve ter no máximo ${TAMANHO_MAXIMO_TEXTO_LONGO} caracteres.`;
 export const MENSAGEM_REVISAR_CAMPOS = 'Confira os campos destacados antes de enviar.';
 export const MENSAGEM_RESPONSAVEL_OBRIGATORIO =
   'Escolha o responsável pelo acompanhamento. Ele é obrigatório quando a ocorrência está "Aberto".';
@@ -54,6 +64,33 @@ export function mensagemDestinatarioRepetido(posicaoOriginal) {
 export function textoOpcionalParaEnvio(valor) {
   const texto = limparTexto(valor);
   return texto === '' ? null : texto;
+}
+
+/**
+ * Erros do usuário destinatário e da observação de um encaminhamento (RN03):
+ * Tutor e Psicólogo escolar exigem o usuário; o Psicólogo escolar exige também
+ * a justificativa, não vazia nem só com espaços (v1.18). Vale no registro e no
+ * diálogo "Encaminhar". O tipo do destinatário já deve ser válido.
+ * @param {{ destinatarioPerfil: string, destinatarioUsuarioId: string, observacao: string }} dados
+ * @returns {Record<string, string>} erros por campo
+ */
+function errosUsuarioEObservacao(dados) {
+  const erros = {};
+  const { destinatarioPerfil } = dados;
+  if (destinatarioExigeUsuario(destinatarioPerfil) && idParaEnvio(dados.destinatarioUsuarioId) === null) {
+    erros.destinatarioUsuarioId =
+      destinatarioPerfil === 'PSICOLOGO' ? MENSAGEM_PSICOLOGO_OBRIGATORIO : MENSAGEM_TUTOR_OBRIGATORIO;
+  }
+  const observacao = limparTexto(dados.observacao);
+  const ehJustificativa = destinatarioExigeJustificativa(destinatarioPerfil);
+  if (ehJustificativa && observacao === '') {
+    erros.observacao = MENSAGEM_JUSTIFICATIVA_OBRIGATORIA;
+  } else if (observacao.length > TAMANHO_MAXIMO_TEXTO_LONGO) {
+    erros.observacao = ehJustificativa
+      ? MENSAGEM_JUSTIFICATIVA_LONGA
+      : `A observação deve ter no máximo ${TAMANHO_MAXIMO_TEXTO_LONGO} caracteres.`;
+  }
+  return erros;
 }
 
 /**
@@ -109,23 +146,24 @@ export function validarRegistro(dados, estudantes, destinatarios, agoraMs = Date
   // como no back-end (decisão do Rafael na Issue #45).
   const primeiraPosicao = new Map();
   destinatarios.forEach((destinatario, indice) => {
-    const errosLinha = {};
+    let errosLinha = {};
     const { destinatarioPerfil } = destinatario;
     const usuarioId = idParaEnvio(destinatario.destinatarioUsuarioId);
     if (!perfilDoDestinatario(destinatarioPerfil)) {
       errosLinha.destinatarioPerfil = MENSAGEM_TIPO_DESTINATARIO_OBRIGATORIO;
-    } else if (destinatarioPerfil === 'TUTOR' && usuarioId === null) {
-      errosLinha.destinatarioUsuarioId = MENSAGEM_TUTOR_OBRIGATORIO;
-    } else {
-      const chave = `${destinatarioPerfil}|${usuarioId ?? 'toda-a-equipe'}`;
-      if (primeiraPosicao.has(chave)) {
-        errosLinha.destinatarioUsuarioId = mensagemDestinatarioRepetido(primeiraPosicao.get(chave));
-      } else {
-        primeiraPosicao.set(chave, indice + 1);
+      if (limparTexto(destinatario.observacao).length > TAMANHO_MAXIMO_TEXTO_LONGO) {
+        errosLinha.observacao = `A observação deve ter no máximo ${TAMANHO_MAXIMO_TEXTO_LONGO} caracteres.`;
       }
-    }
-    if (limparTexto(destinatario.observacao).length > TAMANHO_MAXIMO_TEXTO_LONGO) {
-      errosLinha.observacao = `A observação deve ter no máximo ${TAMANHO_MAXIMO_TEXTO_LONGO} caracteres.`;
+    } else {
+      errosLinha = errosUsuarioEObservacao(destinatario);
+      if (!errosLinha.destinatarioUsuarioId) {
+        const chave = `${destinatarioPerfil}|${usuarioId ?? 'toda-a-equipe'}`;
+        if (primeiraPosicao.has(chave)) {
+          errosLinha.destinatarioUsuarioId = mensagemDestinatarioRepetido(primeiraPosicao.get(chave));
+        } else {
+          primeiraPosicao.set(chave, indice + 1);
+        }
+      }
     }
     if (Object.keys(errosLinha).length > 0) errosDestinatarios[destinatario.chave] = errosLinha;
   });
@@ -166,13 +204,16 @@ export function validarEncaminhamento(dados, statusOcorrencia) {
   const erros = {};
   if (!perfilDoDestinatario(dados.destinatarioPerfil)) {
     erros.destinatarioPerfil = MENSAGEM_TIPO_DESTINATARIO_OBRIGATORIO;
-  } else if (dados.destinatarioPerfil === 'TUTOR' && idParaEnvio(dados.destinatarioUsuarioId) === null) {
-    erros.destinatarioUsuarioId = MENSAGEM_TUTOR_OBRIGATORIO;
   }
+  const { destinatarioUsuarioId, observacao } = perfilDoDestinatario(dados.destinatarioPerfil)
+    ? errosUsuarioEObservacao(dados)
+    : {};
+  if (destinatarioUsuarioId) erros.destinatarioUsuarioId = destinatarioUsuarioId;
   if (statusOcorrencia === 'ABERTO' && idParaEnvio(dados.responsavelAcompanhamentoId) === null) {
     erros.responsavelAcompanhamentoId = MENSAGEM_RESPONSAVEL_OBRIGATORIO;
   }
-  if (limparTexto(dados.observacao).length > TAMANHO_MAXIMO_TEXTO_LONGO) {
+  if (observacao) erros.observacao = observacao;
+  else if (limparTexto(dados.observacao).length > TAMANHO_MAXIMO_TEXTO_LONGO) {
     erros.observacao = `A observação deve ter no máximo ${TAMANHO_MAXIMO_TEXTO_LONGO} caracteres.`;
   }
   return erros;

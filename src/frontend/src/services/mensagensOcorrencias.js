@@ -18,6 +18,13 @@ export const ORIENTACAO_REDACAO =
   'Escreva de forma objetiva e descritiva: conte o que aconteceu, sem opiniões. Não use ' +
   'linguagem ofensiva nem classificações que estigmatizem os estudantes.';
 
+// RN06 e RN24 (SSD 1.18, Issue #152): orientação exibida junto da justificativa
+// do encaminhamento ao psicólogo escolar, que é dado sensível.
+export const ORIENTACAO_JUSTIFICATIVA_PSICOLOGO =
+  'Explique de forma objetiva e descritiva o que você observou e por que o estudante precisa ' +
+  'de acolhimento, sem opiniões. Não use linguagem ofensiva nem classificações que ' +
+  'estigmatizem os estudantes, e inclua só os dados pessoais necessários.';
+
 const MENSAGEM_GENERICA_REGISTRAR =
   'Não foi possível registrar a ocorrência agora. Tente novamente em instantes.';
 

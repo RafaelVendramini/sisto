@@ -19,7 +19,8 @@ describe('utils/perfis', () => {
     expect(rotuloPerfil('GESTAO')).toBe('Gestão');
     expect(rotuloPerfil('PEDAGOGICO')).toBe('Pedagógico');
     expect(rotuloPerfil('TECNICO_ADMINISTRATIVO')).toBe('Técnico-administrativo');
-    expect(Object.keys(ROTULOS_PERFIL)).toHaveLength(5);
+    expect(rotuloPerfil('PSICOLOGO')).toBe('Psicólogo escolar');
+    expect(Object.keys(ROTULOS_PERFIL)).toHaveLength(6);
   });
 
   it('devolve texto vazio para perfil desconhecido', () => {

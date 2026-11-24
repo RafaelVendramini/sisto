@@ -20,9 +20,11 @@ import {
   MENSAGEM_SEM_COMUNICACOES,
   MENSAGEM_SEM_ENCAMINHAMENTOS,
   MENSAGEM_SEM_PROVIDENCIAS,
+  TEXTO_JUSTIFICATIVA_RESTRITA,
   TEXTO_NAO_INFORMADO,
   TEXTO_TODA_A_EQUIPE,
   formatarDataHora,
+  justificativaOculta,
   mensagemErroDetalheOcorrencia,
   mensagemOcorrenciaRegistrada,
   rotuloDestinatario,
@@ -60,6 +62,30 @@ function SecaoEstudantes({ estudantes }) {
   );
 }
 
+/**
+ * Observação do encaminhamento. No encaminhamento ao psicólogo escolar, é a
+ * "Justificativa" (RN03, v1.18); quando a API a devolve `null` para quem não
+ * pode lê-la (RN24), aparece o aviso fixo no lugar do texto.
+ */
+function ObservacaoEncaminhamento({ encaminhamento }) {
+  if (encaminhamento.destinatarioPerfil !== 'PSICOLOGO') {
+    return (
+      <Dado rotulo="Observação" longo>
+        {textoOuNaoInformado(encaminhamento.observacao)}
+      </Dado>
+    );
+  }
+  return (
+    <Dado rotulo="Justificativa" longo>
+      {justificativaOculta(encaminhamento) ? (
+        <span className="justificativa-oculta">{TEXTO_JUSTIFICATIVA_RESTRITA}</span>
+      ) : (
+        textoOuNaoInformado(encaminhamento.observacao)
+      )}
+    </Dado>
+  );
+}
+
 function SecaoEncaminhamentos({ encaminhamentos }) {
   return (
     <section className="detalhe-ocorrencia__secao" aria-labelledby="titulo-encaminhamentos">
@@ -80,9 +106,7 @@ function SecaoEncaminhamentos({ encaminhamentos }) {
                 <Dado rotulo="Data e hora">
                   {formatarDataHora(e.dataHora) || TEXTO_NAO_INFORMADO}
                 </Dado>
-                <Dado rotulo="Observação" longo>
-                  {textoOuNaoInformado(e.observacao)}
-                </Dado>
+                <ObservacaoEncaminhamento encaminhamento={e} />
               </dl>
             </li>
           ))}
@@ -246,6 +270,11 @@ function buscaDaLista(state) {
 // e data de encerramento). Encerrada, a ocorrência não mostra nenhuma ação.
 // Histórico (#85): seção "Histórico" no fim do cartão, recarregada depois de
 // cada ação concluída (encaminhar, comunicar, registrar providência, encerrar).
+// Psicólogo escolar (v1.18, Issue #152): vê só "Registrar comunicação" (RN16);
+// não encaminha (RN15) nem é responsável pelo acompanhamento (RN23), então não
+// vê "Encaminhar", "Registrar providência" nem "Encerrar ocorrência". A
+// justificativa do encaminhamento ao psicólogo que a API devolve `null` (RN24)
+// aparece como um aviso fixo.
 function Detalhe({ id }) {
   const location = useLocation();
   const navigate = useNavigate();

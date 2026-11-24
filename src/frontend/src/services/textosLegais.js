@@ -1,6 +1,7 @@
 // Conteúdo das páginas "Política de privacidade" e "Termos de uso" (#92).
 // Texto provisório redigido pela equipe (primeiro comentário da Issue #92),
-// revisado em 13/11/2026 para refletir o que o sistema de fato faz. Depois da homologação com a escola (#95), troque o
+// revisado em 13/11/2026 para refletir o que o sistema de fato faz e atualizado em
+// 24/11/2026 com o perfil Psicólogo escolar (Issue #154, SSD 1.18). Depois da homologação com a escola (#95), troque o
 // texto SOMENTE neste arquivo; os componentes não precisam mudar.
 //
 // Formato:
@@ -17,12 +18,19 @@ export const AVISO_TEXTO_PROVISORIO = 'Texto provisório — a validar com a esc
 /** Marcador dos trechos que dependem de decisão da escola. */
 export const MARCADOR_A_DEFINIR = '[A DEFINIR PELA ESCOLA';
 
-const NOTA_VERSAO =
-  '**Versão provisória para aprovação da escola** (versão provisória revisada em 13/11/2026). Os trechos marcados com **[A DEFINIR PELA ESCOLA]** dependem de decisão da direção ou da Diretoria de Ensino. Sugestões de mudança são bem-vindas em qualquer parte do texto.';
+/** Nota de versão do documento, com a data da última revisão de cada um. */
+function notaVersao(dataRevisao) {
+  return `**Versão provisória para aprovação da escola** (versão provisória revisada em ${dataRevisao}). Os trechos marcados com **[A DEFINIR PELA ESCOLA]** dependem de decisão da direção ou da Diretoria de Ensino. Sugestões de mudança são bem-vindas em qualquer parte do texto.`;
+}
+
+// A Política de Privacidade foi revisada em 24/11/2026 (perfil Psicólogo
+// escolar — Issue #154); os Termos de Uso não mudaram desde 13/11/2026.
+export const NOTA_VERSAO_POLITICA_PRIVACIDADE = notaVersao('24/11/2026');
+export const NOTA_VERSAO_TERMOS_USO = notaVersao('13/11/2026');
 
 export const POLITICA_PRIVACIDADE = Object.freeze({
   titulo: 'Política de Privacidade',
-  nota: NOTA_VERSAO,
+  nota: NOTA_VERSAO_POLITICA_PRIVACIDADE,
   secoes: [
     {
       titulo: '1. Sobre este documento',
@@ -49,7 +57,7 @@ export const POLITICA_PRIVACIDADE = Object.freeze({
         '**Dos funcionários (usuários):**',
         {
           lista: [
-            'nome, e-mail institucional, perfil de acesso (Gestão, Equipe Pedagógica, Professor, Tutor ou Técnico-administrativo) e situação da conta (ativa, bloqueada ou desativada);',
+            'nome, e-mail institucional, perfil de acesso (Gestão, Equipe Pedagógica, Professor, Tutor, Psicólogo escolar ou Técnico-administrativo) e situação da conta (ativa, bloqueada ou desativada);',
             'a senha **nunca** é guardada: o sistema guarda só um código cifrado (hash) que não permite descobri-la.',
           ],
         },
@@ -60,6 +68,7 @@ export const POLITICA_PRIVACIDADE = Object.freeze({
           lista: [
             'data, hora e local do fato, turma, categoria, estudantes envolvidos, descrição do ocorrido, demais envolvidos, testemunhas, providências imediatas e observações;',
             'encaminhamentos internos, responsável pelo acompanhamento, providências adotadas e status;',
+            'no encaminhamento ao psicólogo escolar, a **justificativa** escrita por quem encaminhou, explicando por que o estudante precisa de acolhimento. Ela pode conter informações sensíveis, como dados de saúde ou emocionais, e por isso só pode ser lida por algumas pessoas (veja o item 5);',
             'registros de contatos feitos **fora** do sistema (por exemplo, com a família ou o Conselho Tutelar): com quem, por qual meio, quando e o que foi tratado. **O sistema não envia mensagens a ninguém.**',
           ],
         },
@@ -70,7 +79,7 @@ export const POLITICA_PRIVACIDADE = Object.freeze({
             'registro de atividades (auditoria): qual usuário fez qual ação, em qual registro e quando. Senhas e conteúdos das ocorrências não entram nesse registro.',
           ],
         },
-        'O sistema **não** tem campo próprio para CPF, endereço, telefone ou dados de saúde, nem guarda fotos ou documentos. Porém, os campos de texto livre (descrição da ocorrência, comunicações e providências) podem conter informações sensíveis, como dados de saúde, e dados de outras pessoas. Por isso, as descrições devem ser objetivas e conter só os dados pessoais necessários (o próprio formulário orienta isso).',
+        'O sistema **não** tem campo próprio para CPF, endereço, telefone ou dados de saúde, nem guarda fotos ou documentos. Porém, os campos de texto livre (descrição da ocorrência, justificativa ao psicólogo escolar, comunicações e providências) podem conter informações sensíveis, como dados de saúde, e dados de outras pessoas. Por isso, as descrições devem ser objetivas e conter só os dados pessoais necessários (o próprio formulário orienta isso).',
       ],
     },
     {
@@ -97,8 +106,10 @@ export const POLITICA_PRIVACIDADE = Object.freeze({
           lista: [
             '**Gestão e Equipe Pedagógica:** todas as ocorrências.',
             '**Tutor:** as ocorrências que registrou, as encaminhadas a ele, as que acompanha e as dos estudantes de quem é tutor.',
+            '**Psicólogo escolar:** as ocorrências que registrou e as encaminhadas a ele.',
             '**Professor e Técnico-administrativo:** as ocorrências que registraram e as encaminhadas a eles.',
             'O código escolar dos estudantes e os e-mails dos funcionários aparecem só para a Gestão.',
+            'A **justificativa do encaminhamento ao psicólogo escolar** aparece só para o psicólogo escolar que recebeu o encaminhamento, para a Gestão e para quem fez o encaminhamento. A Equipe Pedagógica e os demais usuários que veem a ocorrência sabem que ela foi encaminhada ao psicólogo, mas só leem a justificativa dos encaminhamentos que eles mesmos fizeram.',
           ],
         },
         'Cada usuário é responsável por não repassar o que vê no sistema (veja os Termos de Uso).',
@@ -159,7 +170,7 @@ export const POLITICA_PRIVACIDADE = Object.freeze({
 
 export const TERMOS_USO = Object.freeze({
   titulo: 'Termos de Uso',
-  nota: NOTA_VERSAO,
+  nota: NOTA_VERSAO_TERMOS_USO,
   secoes: [
     {
       titulo: '1. Quem pode usar',
