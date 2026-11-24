@@ -274,7 +274,7 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
       expect(c.cadastrar).toBeEnabled();
     });
 
-    it('o seletor oferece exatamente os 5 perfis do SSD, com rótulos e valores técnicos', async () => {
+    it('o seletor oferece exatamente os 6 perfis do SSD 1.18, com rótulos e valores técnicos', async () => {
       mockarApi();
       await abrirPaginaComLista();
 
@@ -284,6 +284,7 @@ describe('Gestão de usuários — listagem e cadastro (#15)', () => {
       expect(opcoes.map((o) => [o.value, o.textContent])).toEqual([
         ['PROFESSOR', 'Professor'],
         ['TUTOR', 'Tutor'],
+        ['PSICOLOGO', 'Psicólogo escolar'],
         ['GESTAO', 'Gestão'],
         ['PEDAGOGICO', 'Pedagógico'],
         ['TECNICO_ADMINISTRATIVO', 'Técnico-administrativo'],

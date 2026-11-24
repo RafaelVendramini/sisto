@@ -65,9 +65,9 @@ describe('Schema de cadastros — models, campos e relações (DMMF)', () => {
     expect(Object.keys(Prisma.ModelName)).toEqual(expect.arrayContaining(MODELS_CADASTRO));
   });
 
-  it('enum Perfil contém os 5 perfis do RF01', () => {
+  it('enum Perfil contém os 6 perfis do RF01 (PSICOLOGO desde a v1.18)', () => {
     expect(Object.values(Perfil).sort()).toEqual(
-      ['GESTAO', 'PEDAGOGICO', 'PROFESSOR', 'TECNICO_ADMINISTRATIVO', 'TUTOR'].sort(),
+      ['GESTAO', 'PEDAGOGICO', 'PROFESSOR', 'PSICOLOGO', 'TECNICO_ADMINISTRATIVO', 'TUTOR'].sort(),
     );
   });
 

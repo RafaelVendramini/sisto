@@ -366,7 +366,7 @@ describe('listarUsuarios — service (falha fechada)', () => {
       await listarUsuarios(solicitante, {}, { db });
 
       expect(db.usuario.findMany).toHaveBeenCalledWith({
-        where: { status: 'ATIVO', perfil: { in: ['TUTOR', 'PEDAGOGICO', 'GESTAO'] } },
+        where: { status: 'ATIVO', perfil: { in: ['TUTOR', 'PSICOLOGO', 'PEDAGOGICO', 'GESTAO'] } },
         select: { id: true, nome: true, perfil: true },
         orderBy: [{ nome: 'asc' }, { id: 'asc' }],
       });

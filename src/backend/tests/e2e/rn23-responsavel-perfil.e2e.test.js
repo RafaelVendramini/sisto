@@ -1,6 +1,7 @@
 // RN23 de ponta a ponta pela API (Issue #134; SSD 1.13, Seção 6, RF04 e
-// Seção 12): a Gestão não muda para Professor nem para Técnico-administrativo
-// o perfil do responsável pelo acompanhamento de uma ocorrência não encerrada
+// Seção 12): a Gestão não muda para Professor, Técnico-administrativo nem
+// Psicólogo escolar (SSD 1.18, Issue #154) o perfil do responsável pelo
+// acompanhamento de uma ocorrência não encerrada
 // (409 RESPONSAVEL_COM_OCORRENCIAS) até trocar o responsável por um novo
 // encaminhamento (RN15); depois disso, a mudança é aceita (200).
 // App real + banco de testes real, somente dados fictícios (RN05).
@@ -67,8 +68,8 @@ afterAll(async () => {
 });
 
 describe('RN23: perfil do responsável pelo acompanhamento (Issue #134)', () => {
-  it('1. a Gestão tenta mudar o Tutor responsável para Professor ou Técnico-administrativo → 409', async () => {
-    for (const perfil of ['PROFESSOR', 'TECNICO_ADMINISTRATIVO']) {
+  it('1. a Gestão tenta mudar o Tutor responsável para Professor, Técnico-administrativo ou Psicólogo escolar → 409', async () => {
+    for (const perfil of ['PROFESSOR', 'TECNICO_ADMINISTRATIVO', 'PSICOLOGO']) {
       const res = await enviar(app, 'PUT', `/usuarios/${tutor.id}`, {
         token: tokenGestao,
         corpo: { perfil },
@@ -122,12 +123,22 @@ describe('RN23: perfil do responsável pelo acompanhamento (Issue #134)', () => 
     expect(noBanco.perfil).toBe('PROFESSOR');
   });
 
-  it('5. agora o novo responsável (Pedagógico) é quem não pode virar Professor → 409', async () => {
-    const res = await enviar(app, 'PUT', `/usuarios/${pedagogico.id}`, {
+  it('5. agora o novo responsável (Pedagógico) é quem não pode virar Professor nem Psicólogo escolar → 409', async () => {
+    for (const perfil of ['PROFESSOR', 'PSICOLOGO']) {
+      const res = await enviar(app, 'PUT', `/usuarios/${pedagogico.id}`, {
+        token: tokenGestao,
+        corpo: { perfil },
+      });
+      expect(res.status, perfil).toBe(409);
+      expect(res.body.codigo).toBe(CODIGOS_ERRO.RESPONSAVEL_COM_OCORRENCIAS);
+    }
+  });
+
+  it('6. o antigo responsável, já liberado, também pode virar Psicólogo escolar (200)', async () => {
+    const res = await enviar(app, 'PUT', `/usuarios/${tutor.id}`, {
       token: tokenGestao,
-      corpo: { perfil: 'PROFESSOR' },
+      corpo: { perfil: 'PSICOLOGO' },
     });
-    expect(res.status).toBe(409);
-    expect(res.body.codigo).toBe(CODIGOS_ERRO.RESPONSAVEL_COM_OCORRENCIAS);
+    expect(exigirStatus(res, 200, 'PROFESSOR → PSICOLOGO')).toMatchObject({ id: tutor.id, perfil: 'PSICOLOGO' });
   });
 });

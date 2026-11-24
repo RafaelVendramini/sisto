@@ -34,12 +34,26 @@ import {
 // no service.
 // Issue #83: GET /ocorrencias/{id}/historico para os 5 perfis; a visibilidade
 // (RN19) fica no service, como no detalhe.
+// Issue #153 (SSD 1.18): o PSICOLOGO entra nos perfis que registram, consultam
+// e veem o histórico (todos os perfis), e em comunicações (RN16); recebe 403
+// em encaminhamentos, providências e status, como Professor e Técnico-adm.
 // Issue #82: PATCH /ocorrencias/{id}/status (encerramento) só para GESTAO,
 // PEDAGOGICO e TUTOR (RN22), com as mesmas regras da providência no service.
+// Issue #153 (SSD 1.18): perfil PSICOLOGO. Registra, lista, detalha e vê o
+// histórico (TODOS_OS_PERFIS), registra comunicação (PERFIS_COMUNICACAO, só nas
+// ocorrências que vê — RN16, RN19) e recebe 403 já na rota em
+// encaminhamentos (RN15), providências e encerramento (RN22).
 // PUT /ocorrencias/{id} está fora do MVP (SSD 1.8).
 const rotasOcorrencias = Router();
 
-const TODOS_OS_PERFIS = ['PROFESSOR', 'TUTOR', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
+const TODOS_OS_PERFIS = [
+  'PROFESSOR',
+  'TUTOR',
+  'GESTAO',
+  'PEDAGOGICO',
+  'TECNICO_ADMINISTRATIVO',
+  'PSICOLOGO',
+];
 
 rotasOcorrencias.post('/', permitirPerfis(TODOS_OS_PERFIS), registrar);
 rotasOcorrencias.get('/', permitirPerfis(TODOS_OS_PERFIS), listar);

@@ -4,10 +4,12 @@
 //
 // COMO LER A TABELA `MATRIZ`: cada linha é um endpoint da Seção 12 do SSD
 // (às vezes repetido em mais de um contexto, ex.: "ocorrência de um
-// tutorado"), com o código HTTP esperado para cada um dos 5 perfis, nesta
+// tutorado"), com o código HTTP esperado para cada um dos 6 perfis, nesta
 // ordem de colunas (a mesma da matriz da Seção 4):
 //
-//     Prof = Professor | Tutor | Gestão | Pedag = Pedagógico | TécAdm = Técnico-administrativo
+//     Prof = Professor | Tutor | Psic = Psicólogo escolar | Gestão | Pedag = Pedagógico | TécAdm = Técnico-administrativo
+//
+// A coluna do Psicólogo escolar entrou no SSD 1.18 (Issues #152, #153 e #154).
 //
 //   2xx  = permitido (a operação foi feita de verdade, no banco de testes);
 //   403  = perfil sem permissão (permitirPerfis — Seção 4; ou RN22);
@@ -82,6 +84,27 @@ async function ocorrenciaDoTutorado() {
 }
 
 /**
+ * Ocorrência registrada pela Gestão com estudante SEM tutor e encaminhada ao
+ * psicólogo logado, com justificativa (RN03, SSD 1.18): além de Gestão e
+ * Pedagógico, só o psicólogo destinatário a vê (RN19).
+ */
+async function ocorrenciaDoPsicologo() {
+  const o = await registrarOcorrencia(app, tokenDe('GESTAO'), {
+    turmaId: c.turma.id,
+    categoriaId: c.categoria.id,
+    estudanteIds: [c.estudanteSemTutor.id],
+    encaminhamentos: [
+      {
+        destinatarioPerfil: 'PSICOLOGO',
+        destinatarioUsuarioId: c.logados.PSICOLOGO.id,
+        observacao: 'Justificativa fictícia para a matriz de permissões.',
+      },
+    ],
+  });
+  return o.id;
+}
+
+/**
  * Ocorrência "em acompanhamento" (RN15).
  * @param {'tutor' | 'pedagogico'} responsavel quem acompanha
  * @param {'semTutor' | 'tutorado'} estudante
@@ -129,7 +152,7 @@ function corpoOcorrencia() {
  * @param {string} metodo
  * @param {string} rota rota como na Seção 12
  * @param {string} regra ação da matriz da Seção 4 / regra do SSD (e o contexto, se houver)
- * @param {number[]} codigos [Prof, Tutor, Gestão, Pedag, TécAdm]
+ * @param {number[]} codigos [Prof, Tutor, Psic, Gestão, Pedag, TécAdm]
  * @param {(perfil: string) => Promise<{ url: string, corpo?: object, token?: string, publica?: boolean }>} preparar
  */
 function linha(metodo, rota, regra, codigos, preparar) {
@@ -137,86 +160,86 @@ function linha(metodo, rota, regra, codigos, preparar) {
 }
 
 const MATRIZ = [
-  //    método   rota                                    regra / contexto                                                   Prof Tutor Gestão Pedag TécAdm
-  linha('POST', '/auth/login', 'Autenticar (público, sem token)', [200, 200, 200, 200, 200], async (p) => ({
+  //    método   rota                                    regra / contexto                                                   Prof Tutor Psic Gestão Pedag TécAdm
+  linha('POST', '/auth/login', 'Autenticar (público, sem token)', [200, 200, 200, 200, 200, 200], async (p) => ({
     url: '/auth/login',
     corpo: { email: c.logados[p].email, senha: SENHA_PADRAO },
     publica: true,
   })),
-  linha('POST', '/auth/recuperar-senha', 'Reservado — não implementado no MVP', [404, 404, 404, 404, 404], async () => ({
+  linha('POST', '/auth/recuperar-senha', 'Reservado — não implementado no MVP', [404, 404, 404, 404, 404, 404], async () => ({
     url: '/auth/recuperar-senha',
     corpo: { email: 'qualquer@escola-ficticia.test' },
     publica: true,
   })),
 
   // Usuários (RN01, RN20, RF01, RF03, RF04)
-  linha('GET', '/usuarios', 'Listar usuários (reduzido para quem não é Gestão — RN20)', [200, 200, 200, 200, 200], async () => ({
+  linha('GET', '/usuarios', 'Listar usuários (reduzido para quem não é Gestão — RN20)', [200, 200, 200, 200, 200, 200], async () => ({
     url: '/usuarios',
   })),
-  linha('POST', '/usuarios', 'Gerenciar usuários', [403, 403, 201, 403, 403], async () => {
+  linha('POST', '/usuarios', 'Gerenciar usuários', [403, 403, 403, 201, 403, 403], async () => {
     const n = proximo();
     return {
       url: '/usuarios',
       corpo: { nome: `Professor Fictício Novo ${n}`, email: `novo.${n}@escola-ficticia.test`, perfil: 'PROFESSOR', senha: 'TemporariaFicticia#1' },
     };
   }),
-  linha('PUT', '/usuarios/{id}', 'Gerenciar usuários (editar)', [403, 403, 200, 403, 403], async () => ({
+  linha('PUT', '/usuarios/{id}', 'Gerenciar usuários (editar)', [403, 403, 403, 200, 403, 403], async () => ({
     url: `/usuarios/${c.alvo.id}`,
     corpo: { nome: `Professor Fictício Editado ${proximo()}` },
   })),
-  linha('PUT', '/usuarios/{id}/senha', 'Redefinir senha de usuário', [403, 403, 204, 403, 403], async () => ({
+  linha('PUT', '/usuarios/{id}/senha', 'Redefinir senha de usuário', [403, 403, 403, 204, 403, 403], async () => ({
     url: `/usuarios/${c.alvo.id}/senha`,
     corpo: { novaSenha: `TemporariaFicticia#${proximo()}` },
   })),
-  linha('PUT', '/conta/senha', 'Trocar a própria senha (usuário novo por perfil — RN12 derruba o token)', [204, 204, 204, 204, 204], async (p) => {
+  linha('PUT', '/conta/senha', 'Trocar a própria senha (usuário novo por perfil — RN12 derruba o token)', [204, 204, 204, 204, 204, 204], async (p) => {
     const u = await criarUsuarioLogado(app, p);
     return { url: '/conta/senha', token: u.token, corpo: { senhaAtual: u.senha, novaSenha: 'NovaSenhaFicticia#2026' } };
   }),
 
   // Turmas (RN20, RN21)
-  linha('GET', '/turmas', 'Consultar turmas (RN20)', [200, 200, 200, 200, 200], async () => ({ url: '/turmas' })),
-  linha('POST', '/turmas', 'Gerenciar turmas', [403, 403, 201, 403, 403], async () => ({
+  linha('GET', '/turmas', 'Consultar turmas (RN20)', [200, 200, 200, 200, 200, 200], async () => ({ url: '/turmas' })),
+  linha('POST', '/turmas', 'Gerenciar turmas', [403, 403, 403, 201, 403, 403], async () => ({
     url: '/turmas',
     corpo: { nome: `Turma Fictícia Nova ${proximo()}`, etapa: 'Ensino Médio', anoLetivo: 2026 },
   })),
-  linha('PUT', '/turmas/{id}', 'Gerenciar turmas (editar)', [403, 403, 200, 403, 403], async () => ({
+  linha('PUT', '/turmas/{id}', 'Gerenciar turmas (editar)', [403, 403, 403, 200, 403, 403], async () => ({
     url: `/turmas/${c.turmaEditavel.id}`,
     corpo: { nome: `Turma Fictícia Editada ${proximo()}`, etapa: 'Ensino Médio', anoLetivo: 2026 },
   })),
 
   // Estudantes (RN13, RN20)
-  linha('GET', '/estudantes', 'Consultar estudantes (reduzido para quem não é Gestão — RN20)', [200, 200, 200, 200, 200], async () => ({
+  linha('GET', '/estudantes', 'Consultar estudantes (reduzido para quem não é Gestão — RN20)', [200, 200, 200, 200, 200, 200], async () => ({
     url: '/estudantes',
   })),
-  linha('POST', '/estudantes', 'Gerenciar estudantes', [403, 403, 201, 403, 403], async () => ({
+  linha('POST', '/estudantes', 'Gerenciar estudantes', [403, 403, 403, 201, 403, 403], async () => ({
     url: '/estudantes',
     corpo: { nomeCompleto: `Estudante Fictício Novo ${proximo()}`, turmaId: c.turma.id },
   })),
-  linha('PUT', '/estudantes/{id}', 'Gerenciar estudantes (editar)', [403, 403, 200, 403, 403], async () => ({
+  linha('PUT', '/estudantes/{id}', 'Gerenciar estudantes (editar)', [403, 403, 403, 200, 403, 403], async () => ({
     url: `/estudantes/${c.estudanteEditavel.id}`,
     corpo: { nomeCompleto: `Estudante Fictício Editado ${proximo()}`, turmaId: c.turma.id },
   })),
 
   // Categorias (RN18, RN21)
-  linha('GET', '/categorias', 'Consultar categorias (RN20)', [200, 200, 200, 200, 200], async () => ({ url: '/categorias' })),
-  linha('POST', '/categorias', 'Gerenciar categorias', [403, 403, 201, 201, 403], async () => ({
+  linha('GET', '/categorias', 'Consultar categorias (RN20)', [200, 200, 200, 200, 200, 200], async () => ({ url: '/categorias' })),
+  linha('POST', '/categorias', 'Gerenciar categorias', [403, 403, 403, 201, 201, 403], async () => ({
     url: '/categorias',
     corpo: { nome: `Categoria Fictícia Nova ${proximo()}` },
   })),
-  linha('PUT', '/categorias/{id}', 'Gerenciar categorias (editar)', [403, 403, 200, 200, 403], async () => ({
+  linha('PUT', '/categorias/{id}', 'Gerenciar categorias (editar)', [403, 403, 403, 200, 200, 403], async () => ({
     url: `/categorias/${c.categoriaEditavel.id}`,
     corpo: { nome: `Categoria Fictícia Editada ${proximo()}` },
   })),
 
   // Ocorrências — registro e consulta (RN02, RN03, RN19)
-  linha('POST', '/ocorrencias', 'Registrar ocorrência', [201, 201, 201, 201, 201], async () => ({
+  linha('POST', '/ocorrencias', 'Registrar ocorrência', [201, 201, 201, 201, 201, 201], async () => ({
     url: '/ocorrencias',
     corpo: corpoOcorrencia(),
   })),
-  linha('GET', '/ocorrencias', 'Consultar ocorrências (lista limitada pela RN19)', [200, 200, 200, 200, 200], async () => ({
+  linha('GET', '/ocorrencias', 'Consultar ocorrências (lista limitada pela RN19)', [200, 200, 200, 200, 200, 200], async () => ({
     url: '/ocorrencias',
   })),
-  linha('GET', '/ocorrencias/{id}', 'Ver ocorrência que registrou', [200, 200, 200, 200, 200], async (p) => {
+  linha('GET', '/ocorrencias/{id}', 'Ver ocorrência que registrou', [200, 200, 200, 200, 200, 200], async (p) => {
     const o = await registrarOcorrencia(app, tokenDe(p), {
       turmaId: c.turma.id,
       categoriaId: c.categoria.id,
@@ -224,13 +247,16 @@ const MATRIZ = [
     });
     return { url: `/ocorrencias/${o.id}` };
   }),
-  linha('GET', '/ocorrencias/{id}', 'Ver ocorrência de um tutorado do Tutor', [404, 200, 200, 200, 404], async () => ({
+  linha('GET', '/ocorrencias/{id}', 'Ver ocorrência de um tutorado do Tutor', [404, 200, 404, 200, 200, 404], async () => ({
     url: `/ocorrencias/${c.ocorrenciaTutorado}`,
   })),
-  linha('GET', '/ocorrencias/{id}', 'Ver todas — ocorrência de outro usuário, sem vínculo (RN19)', [404, 404, 200, 200, 404], async () => ({
+  linha('GET', '/ocorrencias/{id}', 'Ver todas — ocorrência de outro usuário, sem vínculo (RN19)', [404, 404, 404, 200, 200, 404], async () => ({
     url: `/ocorrencias/${c.ocorrenciaForaDaVisibilidade}`,
   })),
-  linha('GET', '/ocorrencias/{id}/historico', 'Histórico de ocorrência que registrou', [200, 200, 200, 200, 200], async (p) => {
+  linha('GET', '/ocorrencias/{id}', 'Ver ocorrência encaminhada ao psicólogo destinatário (RN19, SSD 1.18)', [404, 404, 200, 200, 200, 404], async () => ({
+    url: `/ocorrencias/${c.ocorrenciaPsicologo}`,
+  })),
+  linha('GET', '/ocorrencias/{id}/historico', 'Histórico de ocorrência que registrou', [200, 200, 200, 200, 200, 200], async (p) => {
     const o = await registrarOcorrencia(app, tokenDe(p), {
       turmaId: c.turma.id,
       categoriaId: c.categoria.id,
@@ -238,19 +264,19 @@ const MATRIZ = [
     });
     return { url: `/ocorrencias/${o.id}/historico` };
   }),
-  linha('GET', '/ocorrencias/{id}/historico', 'Histórico de ocorrência de um tutorado do Tutor', [404, 200, 200, 200, 404], async () => ({
+  linha('GET', '/ocorrencias/{id}/historico', 'Histórico de ocorrência de um tutorado do Tutor', [404, 200, 404, 200, 200, 404], async () => ({
     url: `/ocorrencias/${c.ocorrenciaTutorado}/historico`,
   })),
-  linha('GET', '/ocorrencias/{id}/historico', 'Histórico de ocorrência de outro usuário, sem vínculo (RN19)', [404, 404, 200, 200, 404], async () => ({
+  linha('GET', '/ocorrencias/{id}/historico', 'Histórico de ocorrência de outro usuário, sem vínculo (RN19)', [404, 404, 404, 200, 200, 404], async () => ({
     url: `/ocorrencias/${c.ocorrenciaForaDaVisibilidade}/historico`,
   })),
-  linha('PUT', '/ocorrencias/{id}', 'Reservado — fora do MVP', [404, 404, 404, 404, 404], async () => ({
+  linha('PUT', '/ocorrencias/{id}', 'Reservado — fora do MVP', [404, 404, 404, 404, 404, 404], async () => ({
     url: `/ocorrencias/${c.ocorrenciaForaDaVisibilidade}`,
     corpo: { local: 'Outro local (fictício)' },
   })),
 
   // Ocorrências — encaminhamento (RN15)
-  linha('POST', '/ocorrencias/{id}/encaminhamentos', 'Encaminhar ocorrência (aberta)', [403, 403, 201, 201, 403], async () => ({
+  linha('POST', '/ocorrencias/{id}/encaminhamentos', 'Encaminhar ocorrência (aberta)', [403, 403, 403, 201, 201, 403], async () => ({
     url: `/ocorrencias/${await ocorrenciaForaDaVisibilidade()}/encaminhamentos`,
     corpo: {
       destinatarioPerfil: 'TUTOR',
@@ -260,45 +286,49 @@ const MATRIZ = [
   })),
 
   // Ocorrências — comunicação (RN16)
-  linha('POST', '/ocorrencias/{id}/comunicacoes', 'Registrar comunicação — ocorrência de tutorado do Tutor', [403, 201, 201, 201, 403], async () => ({
+  linha('POST', '/ocorrencias/{id}/comunicacoes', 'Registrar comunicação — ocorrência de tutorado do Tutor', [403, 201, 404, 201, 201, 403], async () => ({
     url: `/ocorrencias/${c.ocorrenciaTutorado}/comunicacoes`,
     corpo: corpoComunicacao(),
   })),
-  linha('POST', '/ocorrencias/{id}/comunicacoes', 'Registrar comunicação — fora da visibilidade do Tutor (RN16/RN19)', [403, 404, 201, 201, 403], async () => ({
+  linha('POST', '/ocorrencias/{id}/comunicacoes', 'Registrar comunicação — encaminhada ao psicólogo destinatário (RN16, SSD 1.18)', [403, 404, 201, 201, 201, 403], async () => ({
+    url: `/ocorrencias/${c.ocorrenciaPsicologo}/comunicacoes`,
+    corpo: corpoComunicacao(),
+  })),
+  linha('POST', '/ocorrencias/{id}/comunicacoes', 'Registrar comunicação — fora da visibilidade do Tutor (RN16/RN19)', [403, 404, 404, 201, 201, 403], async () => ({
     url: `/ocorrencias/${c.ocorrenciaForaDaVisibilidade}/comunicacoes`,
     corpo: corpoComunicacao(),
   })),
 
   // Ocorrências — providência (RN04, RN22)
-  linha('POST', '/ocorrencias/{id}/providencias', 'Atualizar — Tutor é o responsável pelo acompanhamento', [403, 201, 201, 201, 403], async () => ({
+  linha('POST', '/ocorrencias/{id}/providencias', 'Atualizar — Tutor é o responsável pelo acompanhamento', [403, 201, 403, 201, 201, 403], async () => ({
     url: `/ocorrencias/${await ocorrenciaEmAcompanhamento('tutor', 'semTutor')}/providencias`,
     corpo: { descricao: 'Providência fictícia da matriz.' },
   })),
-  linha('POST', '/ocorrencias/{id}/providencias', 'Atualizar — Tutor vê (tutorado), mas não é o responsável (RN22)', [403, 403, 201, 201, 403], async () => ({
+  linha('POST', '/ocorrencias/{id}/providencias', 'Atualizar — Tutor vê (tutorado), mas não é o responsável (RN22)', [403, 403, 403, 201, 201, 403], async () => ({
     url: `/ocorrencias/${await ocorrenciaEmAcompanhamento('pedagogico', 'tutorado')}/providencias`,
     corpo: { descricao: 'Providência fictícia da matriz.' },
   })),
-  linha('POST', '/ocorrencias/{id}/providencias', 'Atualizar — fora da visibilidade do Tutor (RN19)', [403, 404, 201, 201, 403], async () => ({
+  linha('POST', '/ocorrencias/{id}/providencias', 'Atualizar — fora da visibilidade do Tutor (RN19)', [403, 404, 403, 201, 201, 403], async () => ({
     url: `/ocorrencias/${await ocorrenciaEmAcompanhamento('pedagogico', 'semTutor')}/providencias`,
     corpo: { descricao: 'Providência fictícia da matriz.' },
   })),
 
   // Ocorrências — encerramento (RN04, RN22)
-  linha('PATCH', '/ocorrencias/{id}/status', 'Encerrar — Tutor é o responsável pelo acompanhamento', [403, 200, 200, 200, 403], async () => ({
+  linha('PATCH', '/ocorrencias/{id}/status', 'Encerrar — Tutor é o responsável pelo acompanhamento', [403, 200, 403, 200, 200, 403], async () => ({
     url: `/ocorrencias/${await ocorrenciaEmAcompanhamento('tutor', 'semTutor', { comProvidencia: true })}/status`,
     corpo: { status: 'ENCERRADO' },
   })),
-  linha('PATCH', '/ocorrencias/{id}/status', 'Encerrar — Tutor vê (tutorado), mas não é o responsável (RN22)', [403, 403, 200, 200, 403], async () => ({
+  linha('PATCH', '/ocorrencias/{id}/status', 'Encerrar — Tutor vê (tutorado), mas não é o responsável (RN22)', [403, 403, 403, 200, 200, 403], async () => ({
     url: `/ocorrencias/${await ocorrenciaEmAcompanhamento('pedagogico', 'tutorado', { comProvidencia: true })}/status`,
     corpo: { status: 'ENCERRADO' },
   })),
-  linha('PATCH', '/ocorrencias/{id}/status', 'Encerrar — fora da visibilidade do Tutor (RN19)', [403, 404, 200, 200, 403], async () => ({
+  linha('PATCH', '/ocorrencias/{id}/status', 'Encerrar — fora da visibilidade do Tutor (RN19)', [403, 404, 403, 200, 200, 403], async () => ({
     url: `/ocorrencias/${await ocorrenciaEmAcompanhamento('pedagogico', 'semTutor', { comProvidencia: true })}/status`,
     corpo: { status: 'ENCERRADO' },
   })),
 
   // Relatórios (UC05)
-  linha('GET', '/relatorios', 'Gerar relatórios', [403, 403, 200, 200, 403], async () => ({
+  linha('GET', '/relatorios', 'Gerar relatórios', [403, 403, 403, 200, 200, 403], async () => ({
     url: `/relatorios?tipo=categoria&dataInicio=${DIA_FATO}&dataFim=${DIA_FATO}`,
   })),
 ];
@@ -380,6 +410,7 @@ beforeAll(async () => {
 
   c.ocorrenciaForaDaVisibilidade = await ocorrenciaForaDaVisibilidade();
   c.ocorrenciaTutorado = await ocorrenciaDoTutorado();
+  c.ocorrenciaPsicologo = await ocorrenciaDoPsicologo();
 });
 
 afterAll(async () => {
@@ -419,6 +450,7 @@ describe('Visibilidade e dados reduzidos nas listas (RN19, RN20)', () => {
   it.each([
     ['PROFESSOR', false],
     ['TUTOR', false],
+    ['PSICOLOGO', false],
     ['GESTAO', true],
     ['PEDAGOGICO', true],
     ['TECNICO_ADMINISTRATIVO', false],
@@ -440,12 +472,31 @@ describe('Visibilidade e dados reduzidos nas listas (RN19, RN20)', () => {
     expect(usuarios.length).toBeGreaterThan(0);
     for (const u of usuarios) {
       expect(Object.keys(u).sort()).toEqual(['id', 'nome', 'perfil']);
-      expect(['TUTOR', 'PEDAGOGICO', 'GESTAO']).toContain(u.perfil);
+      // SSD 1.18: o Psicólogo escolar entra na lista reduzida (só como destinatário).
+      expect(['TUTOR', 'PSICOLOGO', 'PEDAGOGICO', 'GESTAO']).toContain(u.perfil);
     }
     const estudantes = exigirStatus(await enviar(app, 'GET', '/estudantes', { token: tokenDe(perfil) }), 200, 'estudantes');
     expect(estudantes.length).toBeGreaterThan(0);
     for (const e of estudantes) expect(e).not.toHaveProperty('codigoEscolar');
   });
+
+  it.each(PERFIS.filter((p) => p !== 'GESTAO'))(
+    'GET /usuarios?perfil=PSICOLOGO como %s: só psicólogos ativos, com id, nome e perfil (RN20, SSD 1.18)',
+    async (perfil) => {
+      const inativo = await criarUsuario({ perfil: 'PSICOLOGO', status: 'DESATIVADO' });
+      const lista = exigirStatus(
+        await enviar(app, 'GET', '/usuarios?perfil=PSICOLOGO', { token: tokenDe(perfil) }),
+        200,
+        'usuarios?perfil=PSICOLOGO',
+      );
+      expect(lista.map((u) => u.id)).toContain(c.logados.PSICOLOGO.id);
+      expect(lista.map((u) => u.id)).not.toContain(inativo.id);
+      for (const u of lista) {
+        expect(Object.keys(u).sort()).toEqual(['id', 'nome', 'perfil']);
+        expect(u.perfil).toBe('PSICOLOGO');
+      }
+    },
+  );
 });
 
 describe('Sem token: todo endpoint protegido responde 401 (RNF03, Seção 12)', () => {

@@ -19,7 +19,8 @@ const MSG_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
 const MSG_SEM_CONEXAO =
   'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.';
 const MSG_ESTUDANTES = 'Selecione ao menos um estudante envolvido.';
-const MSG_DESTINATARIOS = 'Adicione ao menos um destinatário (tutor, equipe pedagógica ou gestão).';
+const MSG_DESTINATARIOS =
+  'Adicione ao menos um destinatário (tutor, psicólogo escolar, equipe pedagógica ou gestão).';
 const MSG_TUTOR = 'Escolha o tutor que vai receber a ocorrência.';
 const MSG_DATA_FUTURA =
   'A data e a hora não podem estar no futuro. Informe quando o fato aconteceu.';

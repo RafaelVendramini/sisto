@@ -148,7 +148,7 @@ Na pasta `src/frontend`:
 
 ## Perfis e permissões
 
-Resumo da matriz de permissões da Seção 4 do [SSD](docs/SSD.md) (versão 1.16). **A matriz ainda é uma proposta e será validada com a escola na homologação (#95).**
+Resumo da matriz de permissões da Seção 4 do [SSD](docs/SSD.md) (versão 1.17). **A matriz ainda é uma proposta e será validada com a escola na homologação (#95).**
 
 | Ação | Professor | Tutor | Gestão | Pedagógico | Técnico-adm. |
 | ---- | :-------: | :---: | :----: | :--------: | :----------: |
@@ -187,8 +187,6 @@ Observações:
 
 ### Pendências para depois da homologação
 
-- Um usuário Gestão com a troca de senha ainda pendente é contado entre os dois usuários Gestão ativos exigidos pela RN11.
-- O seed cria a Gestão inicial **sem** troca obrigatória de senha no primeiro login.
 - `PUT /ocorrencias/{id}` (editar uma ocorrência já registrada) fica fora do MVP.
 - Os textos da Política de privacidade e dos Termos de uso são provisórios e ainda serão validados com a escola.
 - Os prints de evidência das telas da Sprint 3 ainda estão pendentes.

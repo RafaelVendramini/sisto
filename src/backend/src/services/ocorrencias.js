@@ -18,9 +18,16 @@
 //   minutos à frente do relógio do servidor. A data/hora do encaminhamento é
 //   preenchida pelo banco (@default(now()) — momento do registro).
 // - RN03: ao menos um encaminhamento. TUTOR exige destinatarioUsuarioId de um
-//   usuário TUTOR ATIVO; EQUIPE_PEDAGOGICA/GESTAO aceitam usuário opcional,
-//   que, se informado, precisa ser PEDAGOGICO/GESTAO (respectivamente) e
-//   ATIVO. O encaminhamento inicial não muda o status: nasce ABERTO.
+//   usuário TUTOR ATIVO; PSICOLOGO (SSD 1.18, Issue #153) exige
+//   destinatarioUsuarioId de um usuário PSICOLOGO ATIVO e a observação
+//   (justificativa) não vazia; EQUIPE_PEDAGOGICA/GESTAO aceitam usuário
+//   opcional, que, se informado, precisa ser PEDAGOGICO/GESTAO
+//   (respectivamente) e ATIVO. O encaminhamento inicial não muda o status:
+//   nasce ABERTO.
+// - RN24 (SSD 1.18): a justificativa do encaminhamento ao psicólogo só vai
+//   na resposta para a Gestão, o psicólogo destinatário e quem registrou
+//   aquele encaminhamento — ver podeLerObservacaoEncaminhamento, a ÚNICA
+//   definição da regra. Nunca entra no histórico nem na auditoria.
 // - Decisões do Rafael (Issue #45): até 50 estudantes distintos e até 10
 //   encaminhamentos; encaminhamentos repetidos (mesmo perfil e mesmo usuário,
 //   null incluído) são recusados; local até 150 caracteres e textos longos até
@@ -45,6 +52,8 @@
 // a ÚNICA função que define o que cada usuário pode ver. Ocorrência fora da
 // visibilidade responde 404 igual à inexistente (não revela que existe).
 // RN20: no detalhe, o código escolar dos estudantes só vai para a Gestão.
+// RN24: a observação do encaminhamento ao psicólogo segue
+// podeLerObservacaoEncaminhamento em todas as respostas com o detalhe.
 // Leitura não grava histórico nem auditoria (mesmo padrão dos outros GETs).
 // Filtros e paginação da lista (Issue #86, RF11, UC03): ver
 // validarFiltrosOcorrencias e listarOcorrencias.
@@ -106,8 +115,23 @@ export const PERFIL_DO_DESTINATARIO = Object.freeze({
   TUTOR: 'TUTOR',
   EQUIPE_PEDAGOGICA: 'PEDAGOGICO',
   GESTAO: 'GESTAO',
+  // SSD 1.18 (Issue #153): psicólogo escolar.
+  PSICOLOGO: 'PSICOLOGO',
 });
 export const DESTINATARIOS_VALIDOS = Object.freeze(Object.keys(PERFIL_DO_DESTINATARIO));
+
+/**
+ * Destinatários que designam um usuário específico, e não uma equipe:
+ * destinatarioUsuarioId é obrigatório (RN03 — Tutor e, desde a v1.18,
+ * Psicólogo escolar).
+ */
+export const DESTINATARIOS_COM_USUARIO_OBRIGATORIO = Object.freeze(['TUTOR', 'PSICOLOGO']);
+
+/**
+ * Destinatário cuja observação (justificativa) é obrigatória (RN03) e de
+ * visibilidade restrita (RN24) — SSD 1.18, Issue #153.
+ */
+export const DESTINATARIO_PSICOLOGO = 'PSICOLOGO';
 
 /** Ações do histórico (RN08): textos fixos, sem dados pessoais. */
 export const ACOES_HISTORICO = Object.freeze({
@@ -131,12 +155,15 @@ const DESCRICAO_HISTORICO_DESTINATARIO = Object.freeze({
   TUTOR: 'Destinatário: tutor',
   EQUIPE_PEDAGOGICA: 'Destinatário: equipe pedagógica',
   GESTAO: 'Destinatário: gestão',
+  // RN08/RN24: só o tipo de destinatário, nunca a justificativa.
+  PSICOLOGO: 'Destinatário: psicólogo escolar',
 });
 
 const ROTULO_PERFIL_DESTINATARIO = Object.freeze({
   TUTOR: 'Tutor',
   EQUIPE_PEDAGOGICA: 'Pedagógico',
   GESTAO: 'Gestão',
+  PSICOLOGO: 'Psicólogo escolar',
 });
 
 export const MENSAGEM_CORPO_OCORRENCIA_INVALIDO =
@@ -154,7 +181,7 @@ export const MENSAGEM_ESTUDANTES_OBRIGATORIOS =
 export const MENSAGEM_ESTUDANTE_ID_INVALIDO =
   'Cada item de estudanteIds deve ser um número inteiro positivo.';
 export const MENSAGEM_ENCAMINHAMENTOS_OBRIGATORIOS =
-  'Informe encaminhamentos com ao menos um destinatário (tutor, equipe pedagógica ou gestão).';
+  'Informe encaminhamentos com ao menos um destinatário (tutor, psicólogo escolar, equipe pedagógica ou gestão).';
 export const MENSAGEM_ESTUDANTES_EXCEDIDOS = `Informe no máximo ${MAXIMO_ESTUDANTES} estudantes por ocorrência.`;
 export const MENSAGEM_ENCAMINHAMENTOS_EXCEDIDOS = `Informe no máximo ${MAXIMO_ENCAMINHAMENTOS} encaminhamentos por ocorrência.`;
 export const MENSAGEM_TURMA_INEXISTENTE = 'A turma informada não existe.';
@@ -190,7 +217,15 @@ export function mensagemEncaminhamentoRepetido(primeira, repetida) {
   return `Os encaminhamentos ${primeira} e ${repetida} têm o mesmo destinatário. Remova o repetido.`;
 }
 export function mensagemTutorObrigatorio(posicao) {
-  return `No encaminhamento ${posicao}, o destinatário tutor exige destinatarioUsuarioId.`;
+  return `No encaminhamento ${posicao}, escolha o tutor que vai receber a ocorrência.`;
+}
+/** RN03 (v1.18): psicólogo escolar sem destinatarioUsuarioId no POST /ocorrencias. */
+export function mensagemPsicologoObrigatorio(posicao) {
+  return `No encaminhamento ${posicao}, escolha o psicólogo escolar que vai receber a ocorrência.`;
+}
+/** RN03 (v1.18): psicólogo escolar sem justificativa no POST /ocorrencias. */
+export function mensagemJustificativaPsicologoObrigatoria(posicao) {
+  return `No encaminhamento ${posicao}, informe a justificativa do encaminhamento ao psicólogo escolar.`;
 }
 export function mensagemDestinatarioInvalido(posicao, destinatarioPerfil) {
   return `No encaminhamento ${posicao}, o usuário destinatário precisa ter perfil ${ROTULO_PERFIL_DESTINATARIO[destinatarioPerfil]} e status ativo.`;
@@ -400,8 +435,13 @@ function validarEstudanteIds(valor) {
  * observacao de UM encaminhamento (sem acessar o banco). Compartilhada pelo
  * POST /ocorrencias (mensagens com a posição na lista) e pelo
  * POST /ocorrencias/{id}/encaminhamentos (mensagens sem posição).
+ * PSICOLOGO (SSD 1.18, Issue #153): como o TUTOR, exige destinatarioUsuarioId
+ * e, além disso, a observação (justificativa) — ausente, null, vazia ou só
+ * com espaços dá 400. Tipo, caractere nulo e limite de 5000 caracteres seguem
+ * as regras de qualquer observação (textoOpcional), conferidas antes.
  * @param {object} item objeto do encaminhamento (já conferido como objeto)
- * @param {{ perfilInvalido: string, usuarioIdInvalido: string, tutorObrigatorio: string, campoObservacao: string }} mensagens
+ * @param {{ perfilInvalido: string, usuarioIdInvalido: string, tutorObrigatorio: string,
+ *   psicologoObrigatorio: string, justificativaObrigatoria: string, campoObservacao: string }} mensagens
  * @throws {ErroHttp} 400
  */
 function normalizarDestinatario(item, mensagens) {
@@ -416,13 +456,21 @@ function normalizarDestinatario(item, mensagens) {
     }
     usuarioId = destinatarioUsuarioId;
   }
-  if (destinatarioPerfil === 'TUTOR' && usuarioId === null) {
-    throw new ErroHttp(400, mensagens.tutorObrigatorio);
+  if (DESTINATARIOS_COM_USUARIO_OBRIGATORIO.includes(destinatarioPerfil) && usuarioId === null) {
+    throw new ErroHttp(
+      400,
+      destinatarioPerfil === DESTINATARIO_PSICOLOGO ? mensagens.psicologoObrigatorio : mensagens.tutorObrigatorio,
+    );
+  }
+  const observacaoNormalizada = textoOpcional(observacao, mensagens.campoObservacao);
+  // RN03 (v1.18): justificativa obrigatória no encaminhamento ao psicólogo.
+  if (destinatarioPerfil === DESTINATARIO_PSICOLOGO && observacaoNormalizada === null) {
+    throw new ErroHttp(400, mensagens.justificativaObrigatoria);
   }
   return {
     destinatarioPerfil,
     destinatarioUsuarioId: usuarioId,
-    observacao: textoOpcional(observacao, mensagens.campoObservacao),
+    observacao: observacaoNormalizada,
   };
 }
 
@@ -442,6 +490,8 @@ function validarEncaminhamentos(valor) {
       perfilInvalido: mensagemDestinatarioPerfilInvalido(posicao),
       usuarioIdInvalido: mensagemDestinatarioUsuarioIdInvalido(posicao),
       tutorObrigatorio: mensagemTutorObrigatorio(posicao),
+      psicologoObrigatorio: mensagemPsicologoObrigatorio(posicao),
+      justificativaObrigatoria: mensagemJustificativaPsicologoObrigatoria(posicao),
       campoObservacao: `observacao do encaminhamento ${posicao}`,
     });
   });
@@ -507,8 +557,50 @@ export function validarOcorrencia(corpo, { agora = () => new Date() } = {}) {
   };
 }
 
-/** Converte a ocorrência lida do banco para o formato da API (camelCase). */
-export function paraRespostaOcorrencia(o) {
+/**
+ * RN24 (SSD 1.18, Issue #153) — ÚNICA definição de quem lê a observação
+ * (justificativa) de um encaminhamento. Use-a em toda resposta que devolva
+ * encaminhamentos (hoje, só paraRespostaOcorrencia, chamada pelo 201 do
+ * POST /ocorrencias e por lerDetalheOcorrencia — GET do detalhe, 201 de
+ * encaminhamento, comunicação e providência e 200 do PATCH /status).
+ *
+ * - Destinatário diferente de PSICOLOGO: todos que veem a ocorrência (RN19)
+ *   leem a observação, como antes.
+ * - PSICOLOGO: só a Gestão (perfil ATUAL de quem consulta), o psicólogo
+ *   destinatário daquele encaminhamento (destinatario_usuario_id) e quem
+ *   registrou aquele encaminhamento (registrado_por_id). A Equipe Pedagógica
+ *   só lê se ela mesma registrou (decisão do Rafael, 24/11/2026).
+ * - Destinatário e autor são comparados pelo ID do usuário, não pelo perfil:
+ *   quem mudou de perfil ou foi desativado e reativado continua lendo; um
+ *   psicólogo novo não lê as justificativas feitas a outro.
+ *
+ * O id e o perfil vêm de req.usuario, lidos do banco a cada requisição
+ * (services/sessao.js). Sem leitor válido, lança erro (falha fechada), como
+ * filtroVisibilidadeOcorrencias.
+ * @param {{ destinatarioPerfil: string, destinatarioUsuarioId: number | null, registradoPorId: number }} encaminhamento
+ * @param {{ id: number, perfil: string }} leitor usuário autenticado
+ * @returns {boolean}
+ */
+export function podeLerObservacaoEncaminhamento(encaminhamento, leitor) {
+  if (!leitor || !Number.isInteger(leitor.id) || leitor.id < 1) {
+    throw new Error('podeLerObservacaoEncaminhamento: usuário autenticado obrigatório.');
+  }
+  if (encaminhamento.destinatarioPerfil !== DESTINATARIO_PSICOLOGO) return true;
+  if (leitor.perfil === PERFIL_DADOS_COMPLETOS) return true;
+  return (
+    leitor.id === encaminhamento.destinatarioUsuarioId || leitor.id === encaminhamento.registradoPorId
+  );
+}
+
+/**
+ * Converte a ocorrência lida do banco para o formato da API (camelCase).
+ * RN24: a observação dos encaminhamentos ao psicólogo vem null para quem não
+ * pode lê-la (podeLerObservacaoEncaminhamento); o resto do encaminhamento
+ * (destinatário, data, quem registrou) vem normalmente.
+ * @param {object} o ocorrência lida (lerOcorrenciaParaResposta)
+ * @param {{ id: number, perfil: string }} leitor usuário autenticado (req.usuario)
+ */
+export function paraRespostaOcorrencia(o, leitor) {
   return {
     id: o.id,
     dataHora: o.data_hora,
@@ -539,7 +631,16 @@ export function paraRespostaOcorrencia(o) {
         : null,
       registradoPor: { id: e.registrado_por.id, nome: e.registrado_por.nome },
       dataHora: e.data_hora,
-      observacao: e.observacao,
+      observacao: podeLerObservacaoEncaminhamento(
+        {
+          destinatarioPerfil: e.destinatario_perfil,
+          destinatarioUsuarioId: e.destinatario_usuario?.id ?? null,
+          registradoPorId: e.registrado_por.id,
+        },
+        leitor,
+      )
+        ? e.observacao
+        : null,
     })),
   };
 }
@@ -590,7 +691,8 @@ async function garantirDestinatariosValidos(tx, encaminhamentos, mensagem = mens
 }
 
 /** Grava tudo (ocorrência, estudantes, encaminhamentos, histórico, auditoria). */
-async function gravarOcorrencia(tx, dados, usuarioId) {
+async function gravarOcorrencia(tx, dados, solicitante) {
+  const usuarioId = solicitante.id;
   await garantirReferenciasExistem(tx, dados);
   await garantirDestinatariosValidos(tx, dados.encaminhamentos);
 
@@ -657,7 +759,9 @@ async function gravarOcorrencia(tx, dados, usuarioId) {
     tx,
   );
 
-  return paraRespostaOcorrencia(await lerOcorrenciaParaResposta(tx, ocorrencia.id));
+  // RN24: quem registra é o autor de todos os encaminhamentos iniciais e lê
+  // as justificativas, mas a regra passa pelo mesmo ponto único.
+  return paraRespostaOcorrencia(await lerOcorrenciaParaResposta(tx, ocorrencia.id), solicitante);
 }
 
 /**
@@ -676,11 +780,10 @@ export async function registrarOcorrencia(
   { db = prisma, agora = () => new Date() } = {},
 ) {
   const dados = validarOcorrencia(corpo, { agora });
-  const usuarioId = solicitante.id;
 
   return executarSerializavel(
     db,
-    (tx) => gravarOcorrencia(tx, dados, usuarioId),
+    (tx) => gravarOcorrencia(tx, dados, solicitante),
     MENSAGEM_CONFLITO_CONCORRENTE_OCORRENCIA,
   );
 }
@@ -721,7 +824,7 @@ export function validarIdOcorrencia(valor) {
  *
  * - GESTAO e PEDAGOGICO: todas (filtro vazio).
  * - Demais perfis (mesma condição para todos, sem tratamento especial para
- *   PROFESSOR e TECNICO_ADMINISTRATIVO): as que registrou
+ *   PROFESSOR, TECNICO_ADMINISTRATIVO e PSICOLOGO — v1.18): as que registrou
  *   (profissional_responsavel_id) OU as encaminhadas a ele como usuário
  *   destinatário (destinatario_usuario_id de algum encaminhamento).
  * - TUTOR, além disso: as que acompanha como responsável
@@ -937,11 +1040,14 @@ export function paraRespostaItemListaOcorrencia(o) {
  * Detalhe: o mesmo formato do 201 do POST (paraRespostaOcorrencia) mais
  * comunicações e providências. RN20: codigoEscolar nos estudantes SOMENTE
  * para a Gestão; para os demais perfis a chave não aparece.
+ * RN24: a observação dos encaminhamentos ao psicólogo segue
+ * podeLerObservacaoEncaminhamento (via paraRespostaOcorrencia).
  * @param {object} o ocorrência lida (com comunicacoes e providencias)
+ * @param {{ id: number, perfil: string }} leitor usuário autenticado (req.usuario)
  * @param {{ codigoEscolar?: boolean }} [opcoes]
  */
-export function paraRespostaDetalheOcorrencia(o, { codigoEscolar = false } = {}) {
-  const base = paraRespostaOcorrencia(o);
+export function paraRespostaDetalheOcorrencia(o, leitor, { codigoEscolar = false } = {}) {
+  const base = paraRespostaOcorrencia(o, leitor);
   const registradoPor = (r) => ({ id: r.registrado_por.id, nome: r.registrado_por.nome });
   return {
     ...base,
@@ -1019,7 +1125,6 @@ export async function listarOcorrencias(solicitante, query = {}, { db = prisma }
 export async function obterOcorrencia(idUrl, solicitante, { db = prisma } = {}) {
   const id = validarIdOcorrencia(idUrl);
   const filtro = filtroVisibilidadeOcorrencias(solicitante);
-  const codigoEscolar = solicitante.perfil === PERFIL_DADOS_COMPLETOS;
 
   return emLeituraConsistente(db, async (tx) => {
     // A visibilidade faz parte da consulta: inexistente e não permitida dão o
@@ -1030,7 +1135,7 @@ export async function obterOcorrencia(idUrl, solicitante, { db = prisma } = {}) 
     });
     if (!visivel) throw new ErroHttp(404, MENSAGEM_OCORRENCIA_NAO_ENCONTRADA);
 
-    return lerDetalheOcorrencia(tx, id, { codigoEscolar });
+    return lerDetalheOcorrencia(tx, id, solicitante);
   });
 }
 
@@ -1040,11 +1145,14 @@ export async function obterOcorrencia(idUrl, solicitante, { db = prisma } = {}) 
  * do detalhe e pelo 201 do POST /ocorrencias/{id}/encaminhamentos, do
  * POST /ocorrencias/{id}/comunicacoes e do POST /ocorrencias/{id}/providencias,
  * e pelo 200 do PATCH /ocorrencias/{id}/status.
+ * RN20 (código escolar só para a Gestão) e RN24 (observação do encaminhamento
+ * ao psicólogo) são aplicadas aqui, a partir de quem consulta.
  * @param {object} tx client da transação
  * @param {number} id
- * @param {{ codigoEscolar?: boolean }} [opcoes] RN20: só para a Gestão
+ * @param {{ id: number, perfil: string }} solicitante req.usuario
  */
-async function lerDetalheOcorrencia(tx, id, { codigoEscolar = false } = {}) {
+async function lerDetalheOcorrencia(tx, id, solicitante) {
+  const codigoEscolar = solicitante.perfil === PERFIL_DADOS_COMPLETOS;
   const ocorrencia = await lerOcorrenciaParaResposta(tx, id, { codigoEscolar });
   const comunicacoes = await tx.comunicacao.findMany({
     where: { ocorrencia_id: id },
@@ -1070,6 +1178,7 @@ async function lerDetalheOcorrencia(tx, id, { codigoEscolar = false } = {}) {
   });
   return paraRespostaDetalheOcorrencia(
     { ...ocorrencia, comunicacoes, providencias },
+    solicitante,
     { codigoEscolar },
   );
 }
@@ -1084,9 +1193,11 @@ async function lerDetalheOcorrencia(tx, id, { codigoEscolar = false } = {}) {
 //   GET /ocorrencias/{id} (codigoEscolar só para a Gestão — RN20). Campos
 //   fora do contrato (ex.: registradoPorId, status) são ignorados.
 // - Permissão (Seção 4, RN15): só GESTAO e PEDAGOGICO (na rota).
-// - RN03: mesmas regras de destinatário do POST /ocorrencias.
+// - RN03: mesmas regras de destinatário do POST /ocorrencias, inclusive o
+//   PSICOLOGO (v1.18): usuário PSICOLOGO ATIVO e justificativa obrigatória.
 // - RN15: ABERTO exige responsavelAcompanhamentoId (usuário ATIVO com perfil
-//   TUTOR, PEDAGOGICO ou GESTAO) e passa a EM_ACOMPANHAMENTO (RN04);
+//   TUTOR, PEDAGOGICO ou GESTAO; o PSICOLOGO nunca é responsável — RN23 —
+//   e recebe 400) e passa a EM_ACOMPANHAMENTO (RN04);
 //   EM_ACOMPANHAMENTO mantém o status e a troca do responsável é opcional
 //   (o mesmo responsável atual não é troca); ENCERRADO responde 409.
 // - Decisão do Rafael: encaminhar de novo para um destinatário que já
@@ -1111,7 +1222,7 @@ async function lerDetalheOcorrencia(tx, id, { codigoEscolar = false } = {}) {
 /** Perfis que podem encaminhar uma ocorrência já registrada (RN15, Seção 4). */
 export const PERFIS_ENCAMINHAMENTO = Object.freeze(['GESTAO', 'PEDAGOGICO']);
 
-/** Perfis aceitos como responsável pelo acompanhamento (RN15). */
+/** Perfis aceitos como responsável pelo acompanhamento (RN15, RN23 — sem o PSICOLOGO). */
 export const PERFIS_RESPONSAVEL_ACOMPANHAMENTO = Object.freeze(['TUTOR', 'PEDAGOGICO', 'GESTAO']);
 
 export const MENSAGEM_CORPO_ENCAMINHAMENTO_INVALIDO =
@@ -1119,11 +1230,18 @@ export const MENSAGEM_CORPO_ENCAMINHAMENTO_INVALIDO =
 export const MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_PERFIL_INVALIDO = `Informe destinatarioPerfil com um dos valores: ${DESTINATARIOS_VALIDOS.join(', ')}.`;
 export const MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_USUARIO_ID_INVALIDO =
   'Informe destinatarioUsuarioId como número inteiro positivo (ou null).';
-export const MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO = 'O destinatário tutor exige destinatarioUsuarioId.';
+// Mensagens que a tela pode mostrar: sem nomes técnicos de campo (RNF02, Issue #157).
+export const MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO = 'Escolha o tutor que vai receber a ocorrência.';
+/** RN03/RN15 (v1.18): psicólogo escolar sem usuário destinatário. */
+export const MENSAGEM_ENCAMINHAMENTO_PSICOLOGO_OBRIGATORIO =
+  'Escolha o psicólogo escolar que vai receber a ocorrência.';
+/** RN03/RN15 (v1.18): psicólogo escolar sem justificativa (observacao). */
+export const MENSAGEM_JUSTIFICATIVA_PSICOLOGO_OBRIGATORIA =
+  'Informe a justificativa do encaminhamento ao psicólogo escolar.';
 export const MENSAGEM_RESPONSAVEL_ID_INVALIDO =
   'Informe responsavelAcompanhamentoId como número inteiro positivo (ou null).';
 export const MENSAGEM_RESPONSAVEL_OBRIGATORIO =
-  'Ocorrência com status aberto exige responsavelAcompanhamentoId (responsável pelo acompanhamento).';
+  'Escolha o responsável pelo acompanhamento. Ele é obrigatório quando a ocorrência está "Aberto".';
 export const MENSAGEM_RESPONSAVEL_INVALIDO =
   'O responsável pelo acompanhamento precisa ser um usuário com perfil Tutor, Pedagógico ou Gestão e status ativo.';
 export const MENSAGEM_OCORRENCIA_ENCERRADA_ENCAMINHAMENTO = 'Ocorrência encerrada não recebe encaminhamentos.';
@@ -1150,6 +1268,8 @@ export function validarEncaminhamento(corpo) {
     perfilInvalido: MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_PERFIL_INVALIDO,
     usuarioIdInvalido: MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_USUARIO_ID_INVALIDO,
     tutorObrigatorio: MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO,
+    psicologoObrigatorio: MENSAGEM_ENCAMINHAMENTO_PSICOLOGO_OBRIGATORIO,
+    justificativaObrigatoria: MENSAGEM_JUSTIFICATIVA_PSICOLOGO_OBRIGATORIA,
     campoObservacao: 'observacao',
   });
   let responsavelAcompanhamentoId = null;
@@ -1269,9 +1389,7 @@ async function gravarEncaminhamento(tx, id, dados, solicitante, filtro) {
     tx,
   );
 
-  return lerDetalheOcorrencia(tx, id, {
-    codigoEscolar: solicitante.perfil === PERFIL_DADOS_COMPLETOS,
-  });
+  return lerDetalheOcorrencia(tx, id, solicitante);
 }
 
 /**
@@ -1307,9 +1425,10 @@ export async function registrarEncaminhamento(idUrl, corpo, solicitante, { db = 
 //   do Rafael, mesmo padrão da #49), no formato do GET /ocorrencias/{id}, já
 //   com a nova comunicação (codigoEscolar só para a Gestão — RN20). Campos
 //   fora do contrato (ex.: registradoPorId, status) são ignorados.
-// - Permissão (Seção 4, RN16): TUTOR, GESTAO e PEDAGOGICO (na rota); o Tutor
-//   só nas ocorrências que pode visualizar (RN19 — filtroVisibilidadeOcorrencias
-//   na própria consulta; fora dela, 404 igual à inexistente).
+// - Permissão (Seção 4, RN16): TUTOR, PSICOLOGO (v1.18), GESTAO e PEDAGOGICO
+//   (na rota); o Tutor e o Psicólogo escolar só nas ocorrências que podem
+//   visualizar (RN19 — filtroVisibilidadeOcorrencias na própria consulta; fora
+//   dela, 404 igual à inexistente).
 // - RN16: a comunicação é feita FORA do sistema e só registrada aqui; o
 //   sistema não envia notificações (Seção 5). destinatario e meio são texto
 //   livre (NFC + trim, até 150 caracteres — decisão do Rafael, como o local da
@@ -1333,8 +1452,8 @@ export async function registrarEncaminhamento(idUrl, corpo, solicitante, { db = 
 // encerramento concorrente aborta uma das transações (P2034), que é repetida
 // e relê o status.
 
-/** Perfis que podem registrar comunicação (Seção 4, RN16). */
-export const PERFIS_COMUNICACAO = Object.freeze(['TUTOR', 'GESTAO', 'PEDAGOGICO']);
+/** Perfis que podem registrar comunicação (Seção 4, RN16; PSICOLOGO desde a v1.18). */
+export const PERFIS_COMUNICACAO = Object.freeze(['TUTOR', 'PSICOLOGO', 'GESTAO', 'PEDAGOGICO']);
 
 /** Limite de destinatario e meio da comunicação (decisão do Rafael, Issue #51). */
 export const TAMANHO_MAXIMO_DESTINATARIO_MEIO = 150;
@@ -1438,9 +1557,7 @@ async function gravarComunicacao(tx, id, dados, solicitante, filtro) {
     tx,
   );
 
-  return lerDetalheOcorrencia(tx, id, {
-    codigoEscolar: solicitante.perfil === PERFIL_DADOS_COMPLETOS,
-  });
+  return lerDetalheOcorrencia(tx, id, solicitante);
 }
 
 /**
@@ -1481,8 +1598,8 @@ export async function registrarComunicacao(
 //   com o DETALHE COMPLETO da ocorrência, no formato do GET /ocorrencias/{id},
 //   já com a nova providência (codigoEscolar só para a Gestão — RN20). Campos
 //   fora do contrato (ex.: registradoPorId, dataHora, status) são ignorados.
-// - Permissão (Seção 4, RN22): na rota, GESTAO, PEDAGOGICO e TUTOR (Professor
-//   e Técnico-administrativo recebem 403). No service, o Tutor só registra se
+// - Permissão (Seção 4, RN22): na rota, GESTAO, PEDAGOGICO e TUTOR (Professor,
+//   Técnico-administrativo e Psicólogo escolar recebem 403). No service, o Tutor só registra se
 //   for o RESPONSÁVEL PELO ACOMPANHAMENTO (responsavel_acompanhamento_id = ele);
 //   se vê a ocorrência (RN19) mas não é o responsável, recebe 403. Gestão e
 //   Pedagógico registram em qualquer ocorrência.
@@ -1607,9 +1724,7 @@ async function gravarProvidencia(tx, id, dados, solicitante, filtro) {
     tx,
   );
 
-  return lerDetalheOcorrencia(tx, id, {
-    codigoEscolar: solicitante.perfil === PERFIL_DADOS_COMPLETOS,
-  });
+  return lerDetalheOcorrencia(tx, id, solicitante);
 }
 
 /**
@@ -1641,7 +1756,7 @@ export async function registrarProvidencia(idUrl, corpo, solicitante, { db = pri
 // Histórico: GET /ocorrencias/{id}/historico (Issue #83, RF12, UC03 passo 3)
 // ---------------------------------------------------------------------------
 //
-// - Permissão (Seção 4/12, RN01, RN19): os 5 perfis (na rota), limitados à
+// - Permissão (Seção 4/12, RN01, RN19): todos os perfis (na rota), limitados à
 //   visibilidade da RN19 — filtroVisibilidadeOcorrencias na própria consulta;
 //   inexistente ou fora da visibilidade respondem 404 com a MESMA mensagem.
 // - Formato (Seção 12): lista de { id, acao, descricao, dataHora,
@@ -1720,8 +1835,8 @@ export async function listarHistoricoOcorrencia(idUrl, solicitante, { db = prism
 // - Valor aceito (RN04): status ausente, que não seja texto ou fora do enum
 //   -> 400; ABERTO ou EM_ACOMPANHAMENTO -> 400 (o PATCH só encerra; a
 //   passagem para EM_ACOMPANHAMENTO é exclusiva do encaminhamento — RN15).
-// - Permissão (Seção 4, RN22): na rota, GESTAO, PEDAGOGICO e TUTOR (Professor
-//   e Técnico-administrativo recebem 403). No service, o Tutor só encerra se
+// - Permissão (Seção 4, RN22): na rota, GESTAO, PEDAGOGICO e TUTOR (Professor,
+//   Técnico-administrativo e Psicólogo escolar recebem 403). No service, o Tutor só encerra se
 //   for o RESPONSÁVEL PELO ACOMPANHAMENTO; se vê a ocorrência (RN19) mas não é
 //   o responsável, recebe 403 — mesmo padrão da providência (#81).
 // - Visibilidade (RN19): inexistente ou fora da visibilidade -> 404 com a
@@ -1851,9 +1966,7 @@ async function gravarEncerramento(tx, id, solicitante, filtro, agora) {
     tx,
   );
 
-  return lerDetalheOcorrencia(tx, id, {
-    codigoEscolar: solicitante.perfil === PERFIL_DADOS_COMPLETOS,
-  });
+  return lerDetalheOcorrencia(tx, id, solicitante);
 }
 
 /**

@@ -1049,6 +1049,59 @@ h2 {
   align-self: flex-start;
 }
 
+/* Justificativa para o psicólogo escolar (RN03, RN06, RN24 — Issue #152):
+   orientação de redação e aviso de quem pode ler o texto, quebrando linha sem
+   estourar a largura no celular (RNF01). */
+.justificativa-psicologo textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.justificativa-psicologo__orientacao {
+  margin: 0 0 0.25rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.justificativa-psicologo__aviso,
+.justificativa-oculta {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--cor-primaria);
+  overflow-wrap: anywhere;
+}
+
+.justificativa-oculta {
+  font-style: italic;
+}
+
+/* Confirmação antes de apagar a justificativa/observação ao trocar o
+   destinatário (RN24 — Issue #154): botões empilhados no celular e lado a
+   lado a partir de 600px (RNF01). */
+.confirmar-troca-destinatario {
+  margin: 0.5rem 0 0;
+}
+
+.confirmar-troca-destinatario__pergunta {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.confirmar-troca-destinatario__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+@media (min-width: 600px) {
+  .confirmar-troca-destinatario__acoes {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
 @media (min-width: 600px) {
   .registro-ocorrencia__linha {
     grid-template-columns: 1fr 1fr;

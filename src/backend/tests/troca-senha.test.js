@@ -252,7 +252,10 @@ describe('PUT /usuarios/{id}/senha — sucesso', () => {
     expect(JSON.stringify(data)).not.toMatch(/\$2[aby]\$/);
   });
 
-  it('a Gestão pode redefinir a senha de outro usuário da Gestão', async () => {
+  // Com exatamente duas Gestões (3 e 7), a redefinição continua permitida,
+  // mesmo deixando a outra com troca pendente — que não conta como Gestão
+  // ativa na RN11 (decisão do Rafael, Issue #149, 23/11/2026).
+  it('a Gestão pode redefinir a senha de outro usuário da Gestão, mesmo havendo só duas (#149)', async () => {
     const tokenGestao = await tokenPorLogin(ID_GESTAO);
 
     const res = await redefinir(ID_GESTAO_ALVO, { novaSenha: SENHA_TEMPORARIA }, tokenGestao);

@@ -11,7 +11,7 @@ import { exibirFalha, useCarregamento } from '../components/useCarregamento.js';
 import { useTituloPagina } from '../components/useTituloPagina.js';
 import { listarCategorias } from '../services/categorias.js';
 import { mensagemErroCarga } from '../services/mensagens.js';
-import { rotuloTurma } from '../services/mensagensEstudantes.js';
+import { limparTexto, rotuloTurma } from '../services/mensagensEstudantes.js';
 import {
   MAXIMO_DESTINATARIOS,
   MENSAGEM_REVISAR_CAMPOS,
@@ -23,6 +23,7 @@ import {
   mensagemOcorrenciaRegistrada,
   montarEnvio,
   separarUsuariosPorDestinatario,
+  trocaApagaObservacao,
   validarRegistro,
 } from '../services/mensagensOcorrencias.js';
 import { registrarOcorrencia } from '../services/ocorrencias.js';
@@ -39,8 +40,8 @@ const MENSAGEM_GENERICA_OPCOES =
 // Só a lista de usuários falhou (#128): o formulário continua utilizável.
 export const AVISO_USUARIOS_INDISPONIVEIS =
   'Não foi possível carregar a lista de usuários. Você ainda pode encaminhar para toda a ' +
-  'equipe pedagógica ou para toda a gestão; para escolher um tutor ou uma pessoa da equipe, ' +
-  'tente carregar a lista de novo.';
+  'equipe pedagógica ou para toda a gestão; para escolher um tutor, um psicólogo escolar ou ' +
+  'uma pessoa da equipe, tente carregar a lista de novo.';
 const ID_SUCESSO = 'ocorrencia-sucesso';
 
 // Ordem dos campos na tela (UC01), usada para focar o primeiro com erro.
@@ -121,6 +122,9 @@ export default function RegistrarOcorrencia() {
   const [mostrarTurmasAnteriores, setMostrarTurmasAnteriores] = useState(false);
   const proximaChave = useRef(2);
   const [destinatarios, setDestinatarios] = useState(() => [destinatarioVazio(1)]);
+  // Troca de tipo à espera de confirmação, porque apagaria o texto digitado
+  // na justificativa ou na observação (RN24): { chave, destinatarioPerfil }.
+  const [trocaPendente, setTrocaPendente] = useState(null);
 
   const [erros, setErros] = useState({});
   const [errosDestinatarios, setErrosDestinatarios] = useState({});
@@ -234,13 +238,55 @@ export default function RegistrarOcorrencia() {
 
   function alterarDestinatario(chave, campo, valor) {
     if (enviandoRef.current) return;
+    if (campo === 'destinatarioPerfil') {
+      const linha = destinatarios.find((d) => d.chave === chave);
+      if (linha && trocaApagaObservacao(linha.destinatarioPerfil, valor)) {
+        // RN24: a justificativa ao psicólogo não vira observação comum (nem o
+        // contrário). Com texto digitado, pede confirmação antes de apagar.
+        if (limparTexto(linha.observacao) !== '') {
+          setTrocaPendente({ chave, destinatarioPerfil: valor });
+          return;
+        }
+        aplicarAlteracaoDestinatario(chave, campo, valor, { apagarObservacao: true });
+        return;
+      }
+    }
+    aplicarAlteracaoDestinatario(chave, campo, valor);
+  }
+
+  // Confirmou a troca: muda o tipo, apaga a justificativa/observação e devolve
+  // o foco ao seletor "Encaminhar para".
+  function confirmarTrocaDestinatario() {
+    if (!trocaPendente || enviandoRef.current) return;
+    const { chave, destinatarioPerfil } = trocaPendente;
+    aplicarAlteracaoDestinatario(chave, 'destinatarioPerfil', destinatarioPerfil, {
+      apagarObservacao: true,
+    });
+    document.getElementById(idCampoDestinatario(chave, 'destinatarioPerfil'))?.focus();
+  }
+
+  // Cancelou: o tipo e o texto ficam como estavam.
+  function cancelarTrocaDestinatario() {
+    if (!trocaPendente) return;
+    const { chave } = trocaPendente;
+    setTrocaPendente(null);
+    document.getElementById(idCampoDestinatario(chave, 'destinatarioPerfil'))?.focus();
+  }
+
+  function aplicarAlteracaoDestinatario(chave, campo, valor, { apagarObservacao = false } = {}) {
     limparMensagens();
+    if (campo === 'destinatarioPerfil') setTrocaPendente(null);
     setDestinatarios((atual) =>
       atual.map((d) => {
         if (d.chave !== chave) return d;
         // Ao trocar o tipo, o usuário escolhido deixa de valer.
         if (campo === 'destinatarioPerfil') {
-          return { ...d, destinatarioPerfil: valor, destinatarioUsuarioId: '' };
+          return {
+            ...d,
+            destinatarioPerfil: valor,
+            destinatarioUsuarioId: '',
+            observacao: apagarObservacao ? '' : d.observacao,
+          };
         }
         return { ...d, [campo]: valor };
       }),
@@ -250,7 +296,11 @@ export default function RegistrarOcorrencia() {
       const novo = {};
       for (const [chaveLinha, errosLinha] of Object.entries(atual)) {
         let restantes = errosLinha;
-        if (Number(chaveLinha) === chave) restantes = semErro(restantes, campo);
+        if (Number(chaveLinha) === chave) {
+          restantes = semErro(restantes, campo);
+          // Trocar o tipo muda a regra da observação (justificativa ao psicólogo — RN03).
+          if (campo === 'destinatarioPerfil') restantes = semErro(restantes, 'observacao');
+        }
         if (campo !== 'observacao') restantes = semErro(restantes, 'destinatarioUsuarioId');
         if (Object.keys(restantes).length > 0) novo[chaveLinha] = restantes;
       }
@@ -269,6 +319,7 @@ export default function RegistrarOcorrencia() {
   function removerDestinatario(chave) {
     if (enviandoRef.current) return;
     limparMensagens();
+    setTrocaPendente((atual) => (atual?.chave === chave ? null : atual));
     setDestinatarios((atual) => atual.filter((d) => d.chave !== chave));
     // A repetição e a numeração dependem de todas as linhas: além dos erros da
     // linha removida, limpa os erros de usuário das demais (como ao alterar).
@@ -305,6 +356,7 @@ export default function RegistrarOcorrencia() {
   }
 
   function limparFormulario() {
+    setTrocaPendente(null);
     setDados(dadosVazios());
     setFiltroTurma('');
     setFiltroManual(false);
@@ -558,8 +610,9 @@ export default function RegistrarOcorrencia() {
         <section className="registro-ocorrencia__secao" aria-labelledby="titulo-destinatarios">
           <h2 id="titulo-destinatarios">Destinatários</h2>
           <p className="texto-secundario">
-            Escolha ao menos um responsável interno para receber a ocorrência (tutor, equipe
-            pedagógica ou gestão). O mesmo destinatário não pode ser repetido.
+            Escolha ao menos um responsável interno para receber a ocorrência (tutor, psicólogo
+            escolar, equipe pedagógica ou gestão). O mesmo destinatário não pode ser repetido. No
+            encaminhamento ao psicólogo escolar, escreva também a justificativa.
           </p>
           {usuariosIndisponiveis && (
             <div className="mensagem mensagem--aviso" role="status">
@@ -584,6 +637,9 @@ export default function RegistrarOcorrencia() {
             estudantesSelecionados={estudantes}
             erros={errosDestinatarios}
             erroGeral={erros.destinatarios}
+            trocaPendente={trocaPendente}
+            aoConfirmarTroca={confirmarTrocaDestinatario}
+            aoCancelarTroca={cancelarTrocaDestinatario}
             somenteLeitura={enviando}
           />
         </section>
