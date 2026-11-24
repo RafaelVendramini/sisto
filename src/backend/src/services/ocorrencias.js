@@ -217,15 +217,15 @@ export function mensagemEncaminhamentoRepetido(primeira, repetida) {
   return `Os encaminhamentos ${primeira} e ${repetida} têm o mesmo destinatário. Remova o repetido.`;
 }
 export function mensagemTutorObrigatorio(posicao) {
-  return `No encaminhamento ${posicao}, o destinatário tutor exige destinatarioUsuarioId.`;
+  return `No encaminhamento ${posicao}, escolha o tutor que vai receber a ocorrência.`;
 }
 /** RN03 (v1.18): psicólogo escolar sem destinatarioUsuarioId no POST /ocorrencias. */
 export function mensagemPsicologoObrigatorio(posicao) {
-  return `No encaminhamento ${posicao}, o destinatário psicólogo escolar exige destinatarioUsuarioId.`;
+  return `No encaminhamento ${posicao}, escolha o psicólogo escolar que vai receber a ocorrência.`;
 }
 /** RN03 (v1.18): psicólogo escolar sem justificativa no POST /ocorrencias. */
 export function mensagemJustificativaPsicologoObrigatoria(posicao) {
-  return `No encaminhamento ${posicao}, informe a justificativa do encaminhamento ao psicólogo escolar (observacao).`;
+  return `No encaminhamento ${posicao}, informe a justificativa do encaminhamento ao psicólogo escolar.`;
 }
 export function mensagemDestinatarioInvalido(posicao, destinatarioPerfil) {
   return `No encaminhamento ${posicao}, o usuário destinatário precisa ter perfil ${ROTULO_PERFIL_DESTINATARIO[destinatarioPerfil]} e status ativo.`;
@@ -1230,17 +1230,18 @@ export const MENSAGEM_CORPO_ENCAMINHAMENTO_INVALIDO =
 export const MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_PERFIL_INVALIDO = `Informe destinatarioPerfil com um dos valores: ${DESTINATARIOS_VALIDOS.join(', ')}.`;
 export const MENSAGEM_ENCAMINHAMENTO_DESTINATARIO_USUARIO_ID_INVALIDO =
   'Informe destinatarioUsuarioId como número inteiro positivo (ou null).';
-export const MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO = 'O destinatário tutor exige destinatarioUsuarioId.';
+// Mensagens que a tela pode mostrar: sem nomes técnicos de campo (RNF02, Issue #157).
+export const MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO = 'Escolha o tutor que vai receber a ocorrência.';
 /** RN03/RN15 (v1.18): psicólogo escolar sem usuário destinatário. */
 export const MENSAGEM_ENCAMINHAMENTO_PSICOLOGO_OBRIGATORIO =
-  'O destinatário psicólogo escolar exige destinatarioUsuarioId.';
+  'Escolha o psicólogo escolar que vai receber a ocorrência.';
 /** RN03/RN15 (v1.18): psicólogo escolar sem justificativa (observacao). */
 export const MENSAGEM_JUSTIFICATIVA_PSICOLOGO_OBRIGATORIA =
-  'Informe a justificativa do encaminhamento ao psicólogo escolar (observacao).';
+  'Informe a justificativa do encaminhamento ao psicólogo escolar.';
 export const MENSAGEM_RESPONSAVEL_ID_INVALIDO =
   'Informe responsavelAcompanhamentoId como número inteiro positivo (ou null).';
 export const MENSAGEM_RESPONSAVEL_OBRIGATORIO =
-  'Ocorrência com status aberto exige responsavelAcompanhamentoId (responsável pelo acompanhamento).';
+  'Escolha o responsável pelo acompanhamento. Ele é obrigatório quando a ocorrência está "Aberto".';
 export const MENSAGEM_RESPONSAVEL_INVALIDO =
   'O responsável pelo acompanhamento precisa ser um usuário com perfil Tutor, Pedagógico ou Gestão e status ativo.';
 export const MENSAGEM_OCORRENCIA_ENCERRADA_ENCAMINHAMENTO = 'Ocorrência encerrada não recebe encaminhamentos.';

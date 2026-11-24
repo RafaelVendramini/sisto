@@ -1304,10 +1304,10 @@ paths:
                     erro: Os encaminhamentos 1 e 2 têm o mesmo destinatário. Remova o repetido.
                 psicologoSemUsuario:
                   value:
-                    erro: No encaminhamento 1, o destinatário psicólogo escolar exige destinatarioUsuarioId.
+                    erro: No encaminhamento 1, escolha o psicólogo escolar que vai receber a ocorrência.
                 psicologoSemJustificativa:
                   value:
-                    erro: No encaminhamento 1, informe a justificativa do encaminhamento ao psicólogo escolar (observacao).
+                    erro: No encaminhamento 1, informe a justificativa do encaminhamento ao psicólogo escolar.
                 psicologoInvalido:
                   value:
                     erro: No encaminhamento 1, o usuário destinatário precisa ter perfil Psicólogo escolar e status ativo.
@@ -1567,16 +1567,16 @@ paths:
               examples:
                 responsavelObrigatorio:
                   value:
-                    erro: Ocorrência com status aberto exige responsavelAcompanhamentoId (responsável pelo acompanhamento).
+                    erro: 'Escolha o responsável pelo acompanhamento. Ele é obrigatório quando a ocorrência está "Aberto".'
                 responsavelInvalido:
                   value:
                     erro: O responsável pelo acompanhamento precisa ser um usuário com perfil Tutor, Pedagógico ou Gestão e status ativo.
                 psicologoSemJustificativa:
                   value:
-                    erro: Informe a justificativa do encaminhamento ao psicólogo escolar (observacao).
+                    erro: Informe a justificativa do encaminhamento ao psicólogo escolar.
                 psicologoSemUsuario:
                   value:
-                    erro: O destinatário psicólogo escolar exige destinatarioUsuarioId.
+                    erro: Escolha o psicólogo escolar que vai receber a ocorrência.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
