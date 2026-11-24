@@ -11,8 +11,9 @@
 //     SEED_SENHA_USUARIOS não é exigida (e é ignorada). A Gestão é criada com
 //     troca obrigatória de senha (RN10, Issue #149): SEED_GESTAO_SENHA é
 //     temporária, e a Gestão define a própria senha no primeiro acesso.
-//   - Qualquer outro ambiente: cria 1 usuário por perfil (5 no total); os 4
-//     fictícios não-Gestão usam a senha SEED_SENHA_USUARIOS. Sem troca
+//   - Qualquer outro ambiente: cria 1 usuário por perfil (6 no total, com o
+//     Psicólogo escolar da v1.18 — Issue #153); os 5 fictícios não-Gestão
+//     usam a senha SEED_SENHA_USUARIOS. Sem troca
 //     obrigatória de senha, para o desenvolvimento e os testes (dados fictícios).
 // - Nenhuma senha no código. Senhas com no mínimo 8 caracteres (RN10), no
 //   máximo 72 bytes (limite técnico do bcrypt), sem o prefixo de exemplo
@@ -64,6 +65,8 @@ export const USUARIOS_FICTICIOS = Object.freeze([
     email: 'tecnico.administrativo@sisto.exemplo',
     perfil: 'TECNICO_ADMINISTRATIVO',
   },
+  // SSD 1.18 (Issue #153): perfil Psicólogo escolar.
+  { nome: 'Psicólogo Exemplo', email: 'psicologo@sisto.exemplo', perfil: 'PSICOLOGO' },
 ]);
 
 /** Nome do usuário de Gestão (administrador inicial). */

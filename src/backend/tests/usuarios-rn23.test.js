@@ -218,8 +218,8 @@ describe('RN23 — catálogo, perfis e mensagem', () => {
     expect(CODIGOS_ERRO.RESPONSAVEL_COM_OCORRENCIAS).toBe('RESPONSAVEL_COM_OCORRENCIAS');
   });
 
-  it('só PROFESSOR e TECNICO_ADMINISTRATIVO são os perfis recusados', () => {
-    expect([...PERFIS_SEM_ACOMPANHAMENTO].sort()).toEqual(['PROFESSOR', 'TECNICO_ADMINISTRATIVO']);
+  it('só PROFESSOR, TECNICO_ADMINISTRATIVO e PSICOLOGO (v1.18) são os perfis recusados', () => {
+    expect([...PERFIS_SEM_ACOMPANHAMENTO].sort()).toEqual(['PROFESSOR', 'PSICOLOGO', 'TECNICO_ADMINISTRATIVO']);
     expect(Object.isFrozen(PERFIS_SEM_ACOMPANHAMENTO)).toBe(true);
   });
 
@@ -234,7 +234,7 @@ describe('RN23 — catálogo, perfis e mensagem', () => {
 
 describe('PUT /usuarios/{id} — RN23 recusa (409)', () => {
   for (const [perfilAtual, id] of RESPONSAVEIS_EM_ACOMPANHAMENTO) {
-    it.each(['PROFESSOR', 'TECNICO_ADMINISTRATIVO'])(
+    it.each(['PROFESSOR', 'TECNICO_ADMINISTRATIVO', 'PSICOLOGO'])(
       `${perfilAtual} responsável por ocorrência EM_ACOMPANHAMENTO para %s: 409 e nada é gravado`,
       async (novoPerfil) => {
         const res = await put(id, { perfil: novoPerfil });
@@ -317,7 +317,7 @@ describe('PUT /usuarios/{id} — RN23 recusa (409)', () => {
 });
 
 describe('PUT /usuarios/{id} — ordem RN13 → RN23', () => {
-  it.each(['PROFESSOR', 'TECNICO_ADMINISTRATIVO'])(
+  it.each(['PROFESSOR', 'TECNICO_ADMINISTRATIVO', 'PSICOLOGO'])(
     'Tutor com tutorados e responsável por ocorrência, para %s: 409 TUTOR_COM_TUTORADOS (RN13 primeiro)',
     async (novoPerfil) => {
       const res = await put(ID_TUTOR_COM_TUDO, { perfil: novoPerfil });
@@ -385,7 +385,7 @@ describe('PUT /usuarios/{id} — o que a RN23 não recusa (200)', () => {
     expect(ocorrenciaCount).not.toHaveBeenCalled();
   });
 
-  it.each(['PROFESSOR', 'TECNICO_ADMINISTRATIVO'])(
+  it.each(['PROFESSOR', 'TECNICO_ADMINISTRATIVO', 'PSICOLOGO'])(
     'responsável só por ocorrências ENCERRADO para %s: 200 (o responsável gravado é mantido)',
     async (novoPerfil) => {
       const res = await put(ID_TUTOR_SO_ENCERRADAS, { perfil: novoPerfil });

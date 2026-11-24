@@ -6,7 +6,7 @@
 //   + minúsculas); o índice único por expressão do banco (Issue #129,
 //   lower(btrim(nome))) é a segunda barreira. Duplicidade responde 409 nos
 //   dois casos (a violação do índice, P2002, vira o mesmo 409).
-// - RN20: a listagem é a mesma para os 5 perfis (as restrições de perfil do
+// - RN20: a listagem é a mesma para todos os perfis (as restrições de perfil do
 //   POST/PUT ficam nas rotas, com permitirPerfis).
 // - RN21: categorias não são excluídas nem inativadas (não há DELETE).
 // - RNF04: criação e edição gravam LogAuditoria com recurso "categorias/<id>",

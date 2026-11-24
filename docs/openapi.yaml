@@ -27,7 +27,20 @@ info:
     (`Acesso não permitido para o seu perfil.`). A visibilidade das
     ocorrências segue a RN19: ocorrência fora da visibilidade do usuário é
     tratada como inexistente (**404**). Dados reduzidos para quem não é Gestão
-    seguem a RN20.
+    seguem a RN20. Os perfis são seis desde o SSD 1.18 (Issue #153):
+    `PROFESSOR`, `TUTOR`, `PSICOLOGO` (rótulo "Psicólogo escolar"), `GESTAO`,
+    `PEDAGOGICO` e `TECNICO_ADMINISTRATIVO`; "todos" nas operações inclui o
+    `PSICOLOGO`.
+
+    **Justificativa do encaminhamento ao psicólogo (RN24, SSD 1.18).** Nos
+    encaminhamentos com `destinatarioPerfil: PSICOLOGO`, a `observacao`
+    (justificativa, dado sensível) só vem preenchida para a Gestão, para o
+    psicólogo destinatário daquele encaminhamento e para quem registrou
+    aquele encaminhamento; para os demais (inclusive a Equipe Pedagógica que
+    não o registrou), vem `null`. Vale em todas as respostas com o detalhe da
+    ocorrência e segue o usuário (id), mesmo que ele mude de perfil ou seja
+    desativado e reativado. A justificativa nunca entra no histórico, na
+    auditoria nem nos relatórios.
 
     **Convenções de corpo.**
     * Os corpos JSON usam camelCase; o banco usa snake_case (Seção 11).
@@ -301,7 +314,7 @@ paths:
         Acima disso, **429** com `Retry-After`. O limite não altera o status
         da conta (RN07).
 
-        Perfis: todos (PROFESSOR, TUTOR, GESTAO, PEDAGOGICO,
+        Perfis: todos (PROFESSOR, TUTOR, PSICOLOGO, GESTAO, PEDAGOGICO,
         TECNICO_ADMINISTRATIVO).
       requestBody:
         required: true
@@ -366,9 +379,11 @@ paths:
           `status`) de todos os usuários, de qualquer status. O filtro
           `?perfil=` é ignorado.
         * **Demais perfis:** apenas `id`, `nome` e `perfil` dos usuários
-          `ATIVO` com perfil `TUTOR`, `PEDAGOGICO` ou `GESTAO` (possíveis
-          destinatários de encaminhamento e responsáveis pelo acompanhamento).
-          Aceita `?perfil=` com um desses três valores.
+          `ATIVO` com perfil `TUTOR`, `PSICOLOGO`, `PEDAGOGICO` ou `GESTAO`
+          (possíveis destinatários de encaminhamento e responsáveis pelo
+          acompanhamento; o `PSICOLOGO` só como destinatário — SSD 1.18).
+          Aceita `?perfil=` com um desses quatro valores (ex.:
+          `?perfil=PSICOLOGO` para montar a lista de psicólogos).
 
         Perfis: todos.
       parameters:
@@ -377,10 +392,11 @@ paths:
           required: false
           description: |
             Só para quem não é Gestão. Valor exato do enum; fora de
-            `TUTOR`, `PEDAGOGICO`, `GESTAO`, vazio ou repetido responde 400.
+            `TUTOR`, `PSICOLOGO`, `PEDAGOGICO`, `GESTAO`, vazio ou repetido
+            responde 400.
           schema:
             type: string
-            enum: [TUTOR, PEDAGOGICO, GESTAO]
+            enum: [TUTOR, PSICOLOGO, PEDAGOGICO, GESTAO]
       responses:
         '200':
           description: |
@@ -417,6 +433,9 @@ paths:
                     - id: 3
                       nome: Tutora Fictícia Três
                       perfil: TUTOR
+                    - id: 8
+                      nome: Psicóloga Fictícia Oito
+                      perfil: PSICOLOGO
         '400':
           $ref: '#/components/responses/ErroValidacao'
         '401':
@@ -504,10 +523,11 @@ paths:
           pendente — Issue #149);
         * troca de perfil de um Tutor com estudantes vinculados (RN13) —
           `TUTOR_COM_TUTORADOS`;
-        * mudança para `PROFESSOR` ou `TECNICO_ADMINISTRATIVO` do perfil de
-          um usuário que é o responsável pelo acompanhamento
-          (`responsavel_acompanhamento_id`) de ao menos uma ocorrência não
-          encerrada (RN23, SSD 1.13) — `RESPONSAVEL_COM_OCORRENCIAS`. A
+        * mudança para `PROFESSOR`, `TECNICO_ADMINISTRATIVO` ou `PSICOLOGO`
+          (SSD 1.18) do perfil de um usuário que é o responsável pelo
+          acompanhamento (`responsavel_acompanhamento_id`) de ao menos uma
+          ocorrência não encerrada (RN23, SSD 1.13) —
+          `RESPONSAVEL_COM_OCORRENCIAS`. A
           mudança entre `TUTOR`, `PEDAGOGICO` e `GESTAO`, a edição sem mudança
           de perfil e o responsável só por ocorrências encerradas não são
           recusados. Quando a RN13 e a RN23 se aplicam ao mesmo tempo, vale a
@@ -578,7 +598,7 @@ paths:
                     codigo: TUTOR_COM_TUTORADOS
                 responsavelComOcorrencias:
                   value:
-                    erro: Este usuário é o responsável pelo acompanhamento de ocorrências que ainda não foram encerradas. Troque o responsável dessas ocorrências (por um novo encaminhamento) antes de alterar o perfil para Professor ou Técnico-administrativo.
+                    erro: Este usuário é o responsável pelo acompanhamento de ocorrências que ainda não foram encerradas. Troque o responsável dessas ocorrências (por um novo encaminhamento) antes de alterar o perfil para Professor, Técnico-administrativo ou Psicólogo escolar.
                     codigo: RESPONSAVEL_COM_OCORRENCIAS
                 emailDuplicado:
                   value:
@@ -1141,16 +1161,24 @@ paths:
         `ABERTO` e o encaminhamento inicial não muda o status.
 
         Regras do encaminhamento (RN03): `TUTOR` exige `destinatarioUsuarioId`
-        de um usuário Tutor ativo; `EQUIPE_PEDAGOGICA` e `GESTAO` aceitam
+        de um usuário Tutor ativo; `PSICOLOGO` (SSD 1.18) exige
+        `destinatarioUsuarioId` de um usuário Psicólogo escolar ativo **e** a
+        `observacao` (justificativa), que não pode ser ausente, vazia nem só
+        com espaços (400), com o limite de 5000 caracteres e a recusa do
+        caractere nulo; `EQUIPE_PEDAGOGICA` e `GESTAO` aceitam
         usuário opcional, que, se informado, precisa ter o perfil
         correspondente (`PEDAGOGICO` ou `GESTAO`) e estar ativo.
+        A justificativa ao psicólogo segue a RN24 (ver a descrição geral): no
+        201, quem registrou a lê.
         Encaminhamentos repetidos (mesmo `destinatarioPerfil` e mesmo
         `destinatarioUsuarioId`, inclusive ambos sem usuário) são recusados
         (400 — Issue #45).
 
         Ocorrência, estudantes, encaminhamentos, histórico ("ocorrência
-        registrada" e um "encaminhamento registrado" por destinatário — RN08)
-        e LogAuditoria são gravados numa única transação (tudo ou nada).
+        registrada" e um "encaminhamento registrado" por destinatário — RN08,
+        com a descrição "Destinatário: psicólogo escolar" no caso do
+        psicólogo, sem a justificativa) e LogAuditoria são gravados numa
+        única transação (tudo ou nada).
 
         Perfis: todos.
       requestBody:
@@ -1173,6 +1201,9 @@ paths:
                   destinatarioUsuarioId: 3
                 - destinatarioPerfil: EQUIPE_PEDAGOGICA
                   observacao: Acompanhar a convivência da turma.
+                - destinatarioPerfil: PSICOLOGO
+                  destinatarioUsuarioId: 8
+                  observacao: Estudante demonstrou tristeza persistente nas últimas semanas (texto fictício).
       responses:
         '201':
           description: |
@@ -1241,6 +1272,17 @@ paths:
                       nome: Professora Fictícia Cinco
                     dataHora: '2026-10-20T17:40:00.000Z'
                     observacao: Acompanhar a convivência da turma.
+                  - id: 32
+                    destinatarioPerfil: PSICOLOGO
+                    destinatarioUsuario:
+                      id: 8
+                      nome: Psicóloga Fictícia Oito
+                      perfil: PSICOLOGO
+                    registradoPor:
+                      id: 5
+                      nome: Professora Fictícia Cinco
+                    dataHora: '2026-10-20T17:40:00.000Z'
+                    observacao: Estudante demonstrou tristeza persistente nas últimas semanas (texto fictício).
         '400':
           description: Dados inválidos, data futura, limites, referência inexistente, destinatário inválido ou encaminhamento repetido.
           content:
@@ -1250,7 +1292,7 @@ paths:
               examples:
                 semEncaminhamento:
                   value:
-                    erro: Informe encaminhamentos com ao menos um destinatário (tutor, equipe pedagógica ou gestão).
+                    erro: Informe encaminhamentos com ao menos um destinatário (tutor, psicólogo escolar, equipe pedagógica ou gestão).
                 dataFutura:
                   value:
                     erro: A data e hora da ocorrência não pode estar no futuro.
@@ -1260,6 +1302,15 @@ paths:
                 repetido:
                   value:
                     erro: Os encaminhamentos 1 e 2 têm o mesmo destinatário. Remova o repetido.
+                psicologoSemUsuario:
+                  value:
+                    erro: No encaminhamento 1, o destinatário psicólogo escolar exige destinatarioUsuarioId.
+                psicologoSemJustificativa:
+                  value:
+                    erro: No encaminhamento 1, informe a justificativa do encaminhamento ao psicólogo escolar (observacao).
+                psicologoInvalido:
+                  value:
+                    erro: No encaminhamento 1, o usuário destinatário precisa ter perfil Psicólogo escolar e status ativo.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
@@ -1413,8 +1464,14 @@ paths:
         comunicações e providências adotadas (Issue #47). Comunicações e
         providências vêm da mais antiga para a mais nova. A chave
         `codigoEscolar` dos estudantes só aparece para a Gestão (RN20).
+        Nos encaminhamentos com destinatário `PSICOLOGO`, a `observacao` vem
+        `null` para quem não pode lê-la (RN24 — só a Gestão, o psicólogo
+        destinatário e quem registrou aquele encaminhamento a recebem; a
+        Equipe Pedagógica só quando ela mesma registrou); o restante do
+        encaminhamento vem normalmente.
         Ocorrência inexistente ou fora da visibilidade: 404 com a mesma
-        mensagem (RN19).
+        mensagem (RN19). O `PSICOLOGO` vê as ocorrências que registrou e as
+        encaminhadas a ele como usuário destinatário (RN19).
 
         Perfis: todos (limitados pela RN19).
       parameters:
@@ -1468,18 +1525,23 @@ paths:
         da RN15:
 
         * `ABERTO`: exige `responsavelAcompanhamentoId` (usuário ativo com
-          perfil `TUTOR`, `PEDAGOGICO` ou `GESTAO`) e muda o status para
-          `EM_ACOMPANHAMENTO`;
+          perfil `TUTOR`, `PEDAGOGICO` ou `GESTAO`; um `PSICOLOGO` responde
+          400 — RN23) e muda o status para `EM_ACOMPANHAMENTO`;
         * `EM_ACOMPANHAMENTO`: o status não muda e a troca do responsável é
           opcional; informar o responsável atual não é troca;
         * `ENCERRADO`: 409.
+
+        O destinatário `PSICOLOGO` (SSD 1.18) exige `destinatarioUsuarioId`
+        de um psicólogo ativo e a `observacao` (justificativa) não vazia
+        (400); a justificativa segue a RN24 na resposta.
 
         Encaminhar de novo a um destinatário que já recebeu a ocorrência é
         permitido. Histórico (RN08): "encaminhamento registrado" e, quando
         houver, "status alterado" e "responsável pelo acompanhamento
         definido/alterado". LogAuditoria "encaminhamento registrado".
 
-        Perfis: GESTAO, PEDAGOGICO.
+        Perfis: GESTAO, PEDAGOGICO (PROFESSOR, TUTOR, PSICOLOGO e
+        TECNICO_ADMINISTRATIVO recebem 403 — RN15).
       parameters:
         - $ref: '#/components/parameters/IdOcorrencia'
       requestBody:
@@ -1509,6 +1571,12 @@ paths:
                 responsavelInvalido:
                   value:
                     erro: O responsável pelo acompanhamento precisa ser um usuário com perfil Tutor, Pedagógico ou Gestão e status ativo.
+                psicologoSemJustificativa:
+                  value:
+                    erro: Informe a justificativa do encaminhamento ao psicólogo escolar (observacao).
+                psicologoSemUsuario:
+                  value:
+                    erro: O destinatário psicólogo escolar exige destinatarioUsuarioId.
         '401':
           $ref: '#/components/responses/NaoAutenticado'
         '403':
@@ -1549,8 +1617,9 @@ paths:
         Histórico "comunicação registrada", sem o conteúdo (RN08).
         LogAuditoria "comunicação registrada".
 
-        Perfis: TUTOR (apenas nas ocorrências que pode visualizar — RN19;
-        fora delas, 404), GESTAO, PEDAGOGICO.
+        Perfis: TUTOR e PSICOLOGO (SSD 1.18) apenas nas ocorrências que podem
+        visualizar (RN19; fora delas, 404), GESTAO, PEDAGOGICO. PROFESSOR e
+        TECNICO_ADMINISTRATIVO recebem 403.
       parameters:
         - $ref: '#/components/parameters/IdOcorrencia'
       requestBody:
@@ -1619,14 +1688,15 @@ paths:
         sem o conteúdo (RN08). LogAuditoria "providência registrada".
 
         Ordem dos erros: sem token → 401; troca de senha pendente → 403;
-        Professor e Técnico-administrativo → 403 na rota, antes de validar.
+        Professor, Técnico-administrativo e Psicólogo escolar → 403 na rota,
+        antes de validar.
         Para os demais: 400 (id/corpo) → 404 (inexistente ou fora da
         visibilidade — RN19) → 403 (Tutor que não é o responsável) → 409.
 
         Perfis (RN22): GESTAO, PEDAGOGICO e o usuário que é o responsável pelo
         acompanhamento. Na rota entram GESTAO, PEDAGOGICO e TUTOR; o Tutor que
-        vê a ocorrência mas não é o responsável recebe 403. PROFESSOR e
-        TECNICO_ADMINISTRATIVO recebem 403.
+        vê a ocorrência mas não é o responsável recebe 403. PROFESSOR,
+        TECNICO_ADMINISTRATIVO e PSICOLOGO recebem 403.
       parameters:
         - $ref: '#/components/parameters/IdOcorrencia'
       requestBody:
@@ -1691,13 +1761,14 @@ paths:
         encerrado"). LogAuditoria "ocorrência encerrada".
 
         Ordem dos erros: sem token → 401; troca de senha pendente → 403;
-        Professor e Técnico-administrativo → 403 na rota, antes de validar.
+        Professor, Técnico-administrativo e Psicólogo escolar → 403 na rota,
+        antes de validar.
         Para os demais: 400 (id/corpo) → 404 (RN19) → 403 (Tutor que não é o
         responsável) → 409.
 
         Perfis (RN22): GESTAO, PEDAGOGICO e o responsável pelo acompanhamento
-        (Tutor não responsável, PROFESSOR e TECNICO_ADMINISTRATIVO recebem
-        403).
+        (Tutor não responsável, PROFESSOR, TECNICO_ADMINISTRATIVO e
+        PSICOLOGO recebem 403).
       parameters:
         - $ref: '#/components/parameters/IdOcorrencia'
       requestBody:
@@ -1771,7 +1842,11 @@ paths:
         Registros do histórico (RF12, RN08), do mais antigo para o mais novo
         (data/hora e, no empate, id), sem paginação. A ação e a descrição são
         textos fixos, sem dados pessoais nem conteúdo de comunicações ou
-        providências; do usuário vêm só `id` e `nome`.
+        providências e sem a observação dos encaminhamentos (a justificativa
+        ao psicólogo nunca aparece — RN24); do usuário vêm só `id` e `nome`.
+        A descrição do "encaminhamento registrado" traz só o tipo de
+        destinatário (ex.: "Destinatário: tutor", "Destinatário: psicólogo
+        escolar").
 
         Ações possíveis: "ocorrência registrada", "encaminhamento registrado",
         "status alterado", "responsável pelo acompanhamento definido",
@@ -2187,9 +2262,10 @@ components:
     DetalheOcorrencia:
       description: |
         Detalhe completo da ocorrência, no formato do `GET /ocorrencias/{id}`
-        (`codigoEscolar` dos estudantes só para a Gestão — RN20). Usado
-        também como resposta do encaminhamento, da comunicação, da
-        providência (201) e do encerramento (200).
+        (`codigoEscolar` dos estudantes só para a Gestão — RN20; `observacao`
+        `null` nos encaminhamentos ao psicólogo para quem não pode lê-la —
+        RN24). Usado também como resposta do encaminhamento, da comunicação,
+        da providência (201) e do encerramento (200).
       content:
         application/json:
           schema:
@@ -2296,9 +2372,10 @@ components:
               própria conta (RF03); usar `PUT /conta/senha`.
             * `TUTOR_COM_TUTORADOS` (409): troca de perfil de um Tutor com
               estudantes vinculados (RN13).
-            * `RESPONSAVEL_COM_OCORRENCIAS` (409): mudança para Professor ou
-              Técnico-administrativo do perfil do responsável pelo
-              acompanhamento de ocorrências não encerradas (RN23, SSD 1.13).
+            * `RESPONSAVEL_COM_OCORRENCIAS` (409): mudança para Professor,
+              Técnico-administrativo ou Psicólogo escolar do perfil do
+              responsável pelo acompanhamento de ocorrências não encerradas
+              (RN23, SSD 1.13 e 1.18).
             * `OCORRENCIA_ENCERRADA` (409): ocorrência encerrada não recebe
               encaminhamento, comunicação ou providência, nem é encerrada de
               novo (RN04, RN15, RN16).
@@ -2327,8 +2404,10 @@ components:
 
     Perfil:
       type: string
-      description: Perfil do usuário (valores técnicos da Seção 11).
-      enum: [PROFESSOR, TUTOR, GESTAO, PEDAGOGICO, TECNICO_ADMINISTRATIVO]
+      description: |
+        Perfil do usuário (valores técnicos da Seção 11). `PSICOLOGO` tem o
+        rótulo "Psicólogo escolar" (SSD 1.18).
+      enum: [PROFESSOR, TUTOR, GESTAO, PEDAGOGICO, TECNICO_ADMINISTRATIVO, PSICOLOGO]
     StatusUsuario:
       type: string
       enum: [ATIVO, BLOQUEADO, DESATIVADO]
@@ -2338,8 +2417,11 @@ components:
       enum: [ABERTO, EM_ACOMPANHAMENTO, ENCERRADO]
     DestinatarioPerfil:
       type: string
-      description: Tipo de destinatário do encaminhamento (RN03).
-      enum: [TUTOR, EQUIPE_PEDAGOGICA, GESTAO]
+      description: |
+        Tipo de destinatário do encaminhamento (RN03). `PSICOLOGO` (rótulo
+        "Psicólogo escolar", SSD 1.18) designa um usuário específico, como o
+        `TUTOR`, e exige a justificativa em `observacao`.
+      enum: [TUTOR, EQUIPE_PEDAGOGICA, GESTAO, PSICOLOGO]
     Id:
       type: integer
       minimum: 1
@@ -2444,7 +2526,7 @@ components:
           type: string
         perfil:
           type: string
-          enum: [TUTOR, PEDAGOGICO, GESTAO]
+          enum: [TUTOR, PSICOLOGO, PEDAGOGICO, GESTAO]
     UsuarioCadastroEntrada:
       type: object
       required: [nome, email, perfil, senha]
@@ -2616,11 +2698,16 @@ components:
           minimum: 1
           maximum: 2147483647
           nullable: true
-          description: Obrigatório para TUTOR; opcional para EQUIPE_PEDAGOGICA e GESTAO (RN03).
+          description: Obrigatório para TUTOR e PSICOLOGO (usuário ativo com o perfil correspondente); opcional para EQUIPE_PEDAGOGICA e GESTAO (RN03).
         observacao:
           type: string
           nullable: true
           maxLength: 5000
+          description: |
+            Opcional para TUTOR, EQUIPE_PEDAGOGICA e GESTAO. **Obrigatória**
+            para PSICOLOGO (justificativa — RN03, SSD 1.18): ausente, `null`,
+            vazia ou só com espaços responde 400. Visibilidade restrita na
+            resposta (RN24).
     OcorrenciaEntrada:
       type: object
       required: [dataHora, local, turmaId, categoriaId, descricao, estudanteIds, encaminhamentos]
@@ -2676,11 +2763,16 @@ components:
           minimum: 1
           maximum: 2147483647
           nullable: true
-          description: Obrigatório para TUTOR; opcional para EQUIPE_PEDAGOGICA e GESTAO (RN03).
+          description: Obrigatório para TUTOR e PSICOLOGO (usuário ativo com o perfil correspondente); opcional para EQUIPE_PEDAGOGICA e GESTAO (RN03).
         observacao:
           type: string
           nullable: true
           maxLength: 5000
+          description: |
+            Opcional para TUTOR, EQUIPE_PEDAGOGICA e GESTAO. **Obrigatória**
+            para PSICOLOGO (justificativa — RN03, SSD 1.18): ausente, `null`,
+            vazia ou só com espaços responde 400. Visibilidade restrita na
+            resposta (RN24).
         responsavelAcompanhamentoId:
           type: integer
           minimum: 1
@@ -2764,6 +2856,15 @@ components:
         observacao:
           type: string
           nullable: true
+          description: |
+            Nos destinatários `TUTOR`, `EQUIPE_PEDAGOGICA` e `GESTAO`, a
+            observação como registrada (ou `null`). No destinatário
+            `PSICOLOGO`, é a justificativa (dado sensível — RN24): vem
+            preenchida só para a Gestão, para o psicólogo destinatário deste
+            encaminhamento e para quem o registrou (`registradoPor`), mesmo
+            que mudem de perfil ou sejam desativados e reativados; para os
+            demais (inclusive a Equipe Pedagógica que não o registrou), vem
+            `null`.
     Comunicacao:
       type: object
       required: [id, destinatario, meio, descricao, dataHora, registradoPor]

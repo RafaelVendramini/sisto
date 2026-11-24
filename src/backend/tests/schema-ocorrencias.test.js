@@ -221,13 +221,13 @@ describe('Schema de ocorrências — models, campos e enums (DMMF)', () => {
     );
   });
 
-  it('destinatario_perfil é restrito a tutor, equipe pedagógica e gestão (RN03, RF08)', () => {
+  it('destinatario_perfil é restrito a tutor, psicólogo escolar, equipe pedagógica e gestão (RN03, RF08)', () => {
     expect(campoDmmf('Encaminhamento', 'destinatario_perfil')).toMatchObject({
       kind: 'enum',
       type: 'DestinatarioPerfil',
     });
     expect(Object.values(DestinatarioPerfil).sort()).toEqual(
-      ['EQUIPE_PEDAGOGICA', 'GESTAO', 'TUTOR'].sort(),
+      ['EQUIPE_PEDAGOGICA', 'GESTAO', 'PSICOLOGO', 'TUTOR'].sort(),
     );
   });
 

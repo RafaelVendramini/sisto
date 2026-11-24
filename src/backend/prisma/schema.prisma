@@ -36,12 +36,18 @@ datasource db {
 //   GESTAO                 -> Gestão
 //   PEDAGOGICO             -> Pedagógico
 //   TECNICO_ADMINISTRATIVO -> Técnico-administrativo
+//   PSICOLOGO              -> Psicólogo escolar (SSD 1.18, Issue #153)
+// PSICOLOGO foi acrescentado no FIM pela migration
+// 20261124120000_adiciona_perfil_psicologo (ALTER TYPE ... ADD VALUE, que
+// sempre acrescenta no fim do tipo no PostgreSQL); a ordem aqui acompanha a
+// do banco.
 enum Perfil {
   PROFESSOR
   TUTOR
   GESTAO
   PEDAGOGICO
   TECNICO_ADMINISTRATIVO
+  PSICOLOGO
 
   @@map("perfil")
 }
@@ -74,15 +80,20 @@ enum StatusOcorrencia {
 //   TUTOR             -> tutor
 //   EQUIPE_PEDAGOGICA -> equipe pedagógica
 //   GESTAO            -> gestão
-// Enum próprio (não reutiliza Perfil): o SSD admite só estes 3 destinatários;
+//   PSICOLOGO         -> psicólogo escolar (rótulo "Psicólogo escolar" — SSD 1.18, Issue #153)
+// Enum próprio (não reutiliza Perfil): o SSD admite só estes 4 destinatários;
 // Perfil aceitaria também PROFESSOR e TECNICO_ADMINISTRATIVO, que RN03/RF08
 // não permitem como destino. Além disso, aqui o valor designa um grupo/equipe
 // de destino, não o perfil de um usuário específico (o usuário, quando houver,
-// vai em destinatario_usuario_id).
+// vai em destinatario_usuario_id). Como TUTOR, PSICOLOGO designa um usuário
+// específico (destinatario_usuario_id obrigatório) e exige a observação
+// (justificativa), que tem visibilidade restrita (RN24). PSICOLOGO foi
+// acrescentado no FIM pela migration 20261124120000_adiciona_perfil_psicologo.
 enum DestinatarioPerfil {
   TUTOR
   EQUIPE_PEDAGOGICA
   GESTAO
+  PSICOLOGO
 
   @@map("destinatario_perfil")
 }
@@ -255,6 +266,10 @@ model Encaminhamento {
   destinatario_usuario_id Int?
   registrado_por_id       Int
   data_hora               DateTime           @default(now()) // momento do registro, preenchido pelo sistema (RN17, Issue #45)
+  // Opcional, exceto no destinatário PSICOLOGO (RN03 — obrigatória e não
+  // vazia, conferida no service). Nesse caso é dado sensível: só a Gestão, o
+  // psicólogo destinatário e quem registrou o encaminhamento a recebem (RN24 —
+  // services/ocorrencias.js, podeLerObservacaoEncaminhamento).
   observacao              String?
 
   ocorrencia           Ocorrencia @relation(fields: [ocorrencia_id], references: [id], onDelete: Restrict)

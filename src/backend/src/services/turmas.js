@@ -11,7 +11,7 @@
 //   Duplicidade: 409 nos dois casos (a violação do índice, P2002, vira o
 //   mesmo 409).
 //   A mesma turma (nome e etapa) em outro ano letivo é aceita.
-// - RN20: a listagem é a mesma para os 5 perfis (as restrições de perfil do
+// - RN20: a listagem é a mesma para todos os perfis (as restrições de perfil do
 //   POST/PUT ficam nas rotas, com permitirPerfis).
 // - RN21: turmas não são excluídas nem inativadas (não há DELETE).
 // - RNF04: criação e edição gravam LogAuditoria com recurso "turmas/<id>",

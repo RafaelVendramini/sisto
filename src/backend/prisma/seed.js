@@ -2,7 +2,8 @@
 // Somente dados fictícios (RN05, RNF06).
 // - Usuários (Subtask #9), todos ATIVO:
 //   - NODE_ENV=production: cria apenas o administrador de Gestão.
-//   - Outros ambientes: 1 usuário por perfil (Gestão + 4 fictícios).
+//   - Outros ambientes: 1 usuário por perfil (Gestão + 5 fictícios, com o
+//     Psicólogo escolar da v1.18).
 // - Categorias de exemplo (Issue #38): somente fora de produção; o seed de
 //   produção não cria categorias (Seção 11 do SSD).
 // - Turmas fictícias (Issue #40): somente fora de produção; o seed de
