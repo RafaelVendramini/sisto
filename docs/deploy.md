@@ -1,6 +1,6 @@
 # Deploy da homologação — Sisto
 
-Guia de operação do ambiente de homologação (SSD, Seção 10; Issues #79 e #80): front-end e API no **Render**, banco PostgreSQL no **Neon**, com deploy automático a partir da branch `developer`. O merge `developer` → `main` só acontece na entrega do MVP (#96).
+Guia de operação do ambiente de homologação (SSD, Seção 10; Issues #79 e #80): front-end e API no **Render**, banco PostgreSQL no **Neon**, com deploy automático a partir da branch `main`, depois do CI verde (Issue #6 de RafaelVendramini/sisto). Para publicar, abre-se um PR `developer` → `main`; o merge na `developer` não publica nada. Até 24/11/2026 o deploy saía da `developer` do repositório STATURETECH/LTD.2026.2.006.
 
 > **Segredos nunca vão para o repositório.** `DATABASE_URL`, `JWT_SECRET`, senhas do seed e a senha temporária da recuperação ficam somente nos painéis do Render/Neon ou no terminal, na hora do uso (SSD, Seção 10; RNF06).
 >
@@ -23,17 +23,17 @@ Guia de operação do ambiente de homologação (SSD, Seção 10; Issues #79 e #
 
 ## 3. API — Render (serviço web)
 
-Crie um **Web Service** ligado ao repositório `STATURETECH/LTD.2026.2.006`:
+Crie um **Web Service** ligado ao repositório `RafaelVendramini/sisto`:
 
 | Campo | Valor |
 | ----- | ----- |
-| Branch | `developer` |
+| Branch | `main` |
 | Root Directory | `src/backend` |
 | Runtime | Node |
 | Build Command (primeiro deploy) | `npm ci && npm run db:deploy && npm run db:seed` (sem testes: só para criar um serviço do zero; o deploy da homologação já foi feito) |
 | Build Command (depois do primeiro deploy) | `npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy` (testes no build — #134) |
 | Start Command | `npm start` |
-| Auto-Deploy | ligado (cada merge na `developer` publica) |
+| Auto-Deploy | **After CI checks pass** (publica a `main` só depois dos checks API, Front-end e E2E verdes) |
 | Plano | Free |
 
 - O build aplica as migrations (`prisma migrate deploy`). No **primeiro** deploy ele também roda o seed, que, com `NODE_ENV=production`, cria **só** o usuário Gestão inicial.
@@ -62,11 +62,11 @@ Crie um **Static Site** ligado ao mesmo repositório:
 
 | Campo | Valor |
 | ----- | ----- |
-| Branch | `developer` |
+| Branch | `main` |
 | Root Directory | `src/frontend` |
 | Build Command | `npm ci && npm test && npm run build` (testes no build — #134) |
 | Publish Directory | `dist` |
-| Auto-Deploy | ligado |
+| Auto-Deploy | **After CI checks pass** |
 
 **Variáveis:**
 
@@ -109,8 +109,8 @@ Sem `CORS_ORIGIN` em produção, a API não libera nenhuma origem (falha fechada
 
 **Cuidados aprendidos no primeiro deploy (15/11/2026):**
 
-- **Conexão com o GitHub:** o repositório é privado da organização STATURETECH. Conecte o GitHub ao Render pelo navegador do dia a dia; navegadores automatizados são bloqueados pelo GitHub.
-- **Valores padrão do Render:** ao criar o Web Service, o Render pode sugerir `Ruby`, branch `main`, Root Directory vazio e Build Command `yarn`. Troque todos: `Node`, `developer`, `src/backend` e o Build Command da tabela acima. Sem o Root Directory, o deploy falha com `Could not read package.json` (código 254).
+- **Conexão com o GitHub:** o repositório é `RafaelVendramini/sisto` (público, conta pessoal). Libere o acesso do Render a ele em GitHub → Settings → Applications → Render. Conecte o GitHub ao Render pelo navegador do dia a dia; navegadores automatizados são bloqueados pelo GitHub.
+- **Valores padrão do Render:** ao criar o Web Service, o Render pode sugerir `Ruby`, Root Directory vazio e Build Command `yarn`. Troque todos: `Node`, branch `main`, `src/backend` e o Build Command da tabela acima. Sem o Root Directory, o deploy falha com `Could not read package.json` (código 254).
 - **`DATABASE_URL`:** use a do **Neon**, nunca a do `.env` local (com `localhost`, o build falha com `P1001: Can't reach database server`).
 - **`NODE_ENV`:** tem que ser `production`. Com `development`, o seed criaria usuários fictícios no banco da homologação.
 - **`JWT_SECRET`:** gere um novo para a homologação; não reaproveite o do `.env` local.
@@ -273,7 +273,7 @@ Os Build Commands da API e do front-end rodam os testes automatizados antes de p
 
 ## 11. Migrations que criam restrições (ex.: unicidade da RN18, #129)
 
-Uma migration que cria um índice único falha se o banco já tiver dados que o violam. Por isso, **antes do merge na `developer`** (que publica sozinho):
+Uma migration que cria um índice único falha se o banco já tiver dados que o violam. Por isso, **antes do merge do PR `developer` → `main`** (que publica):
 
 1. **Conferir o banco de produção.** No Neon, abra o projeto `sisto` → **SQL Editor**, cole o conteúdo de `src/backend/prisma/conferencias/conferir-duplicatas-rn18.sql` e clique em **Run**. O script é só leitura (`BEGIN TRANSACTION READ ONLY` … `ROLLBACK`). As consultas 1 e 2 precisam voltar **vazias**; se tiverem linhas, renomeie as categorias ou turmas duplicadas pela tela da Gestão e confira de novo.
 2. Só então faça o merge.
@@ -312,3 +312,29 @@ No plano gratuito do Render, a API dorme depois de **15 minutos sem uso**, e o p
 **Conferência:** num dia útil, abra `https://sisto.onrender.com` às 10h. A tela de login deve responder na hora, sem a espera de cerca de 1 minuto. No Render (`sisto-api` → **Logs**), não devem aparecer reinícios por inatividade durante o horário do cron.
 
 **Ao contratar o plano pago:** pause ou apague o cronjob no cron-job.org. Ele deixa de ser necessário, mas pode continuar como monitoramento: o aviso de falha avisa se a API cair.
+
+## 13. CI e deploy depois do CI (Issue #6, 24/11/2026)
+
+O CI (`.github/workflows/ci.yml`) roda em todo PR para `developer` e `main` e em todo push nessas branches, com três jobs:
+
+| Job | O que faz |
+| --- | --- |
+| **API** | `npm ci --include=dev` e `npm test` em `src/backend`, com `NODE_ENV=production`, o `CORS_ORIGIN` do front publicado e banco/segredo fictícios (a mesma simulação do build do Render) |
+| **Front-end** | `npm ci`, `npm test` e `npm run build` em `src/frontend` |
+| **E2E** | PostgreSQL descartável (`sisto_test`) criado no próprio job, `prisma migrate deploy` e `npm run test:e2e` |
+
+O CI usa só valores fictícios; nenhum segredo real fica no GitHub.
+
+**Fluxo:** Issue → branch → PR para `developer` (CI) → merge → PR `developer` → `main` (CI) → merge → o Render publica a `main` **depois** dos três checks verdes. Um merge na `developer` não publica nada.
+
+**Proteção das branches** (GitHub → Settings → Branches): `main` e `developer` só aceitam merge por PR, com os checks **API**, **Front-end** e **E2E** obrigatórios, sem push direto, force push nem exclusão.
+
+**Reconectar o Render ao repositório novo** (uma vez, em cada serviço: `sisto-api` e `sisto`):
+
+1. No GitHub, em **Settings → Applications → Render → Configure**, libere o repositório `RafaelVendramini/sisto`.
+2. No Render, abra o serviço → **Settings** → **Repository** e conecte `RafaelVendramini/sisto`.
+3. Em **Branch**, escolha `main`.
+4. Em **Auto-Deploy**, escolha **After CI checks pass**.
+5. Clique em **Manual Deploy → Deploy latest commit** e confira o log: o commit deve ser o da `main` do repositório novo.
+
+As variáveis de ambiente, o Neon e o cron-job.org não mudam.
