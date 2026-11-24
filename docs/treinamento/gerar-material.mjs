@@ -1,5 +1,5 @@
 // Gera o material de treinamento do Sisto: 5 guias em HTML e PDF, um por perfil
-// (Issue #142; guia do Psicólogo escolar na Issue #155), e a visão geral da
+// (Issue #142; guia do Psicólogo escolar na Issue #155; tutoria da PEI na Issue #162), e a visão geral da
 // plataforma (Issue #146), com os prints de docs/treinamento/img (dados
 // fictícios — RN05).
 //
@@ -42,6 +42,31 @@ const P = {
     img: 'prof-03-inicio',
     intro: 'Depois de entrar, use o menu no alto da tela.',
     itens: ['<b>Ocorrências</b>: as ocorrências que você registrou.', '<b>Registrar ocorrência</b>: abre o formulário para registrar um fato novo.'],
+  },
+  // Orientações de tutoria da PEI (Issue #162), confirmadas pela escola em 24/11/2026.
+  tutoriaTutor: {
+    titulo: 'Tutoria na PEI',
+    cartoes: [
+      ['Este é o guia dos professores', 'Na escola de período integral (PEI), <b>todo professor é tutor</b>. Por isso, os professores entram no Sisto com o perfil <b>Tutor</b>.'],
+      ['Os seus tutorados', 'Cada aluno escolhe o seu tutor, e a Gestão registra a escolha no Sisto. Você vê <b>todas as ocorrências dos alunos que escolheram você</b>, mesmo as registradas por outra pessoa.'],
+      ['Quando o aluno troca de tutor', 'As ocorrências dele passam para o novo tutor, inclusive as antigas. Você deixa de vê-las, a não ser as que você registrou, as que foram encaminhadas a você e as que você ainda acompanha como responsável.'],
+    ],
+  },
+  tutoriaGestao: {
+    titulo: 'Tutoria na PEI',
+    cartoes: [
+      ['Todo professor é tutor', 'Na PEI, cadastre <b>todos os professores com o perfil Tutor</b>. O perfil Professor fica para exceções, por exemplo um professor eventual que não tem tutorados.'],
+      ['Ligar o aluno ao tutor', 'O aluno escolhe o tutor. Se o professor aceitar, em <b>Estudantes</b>, escolha esse professor em <b>Professor tutor</b>. Se o professor recusar, o aluno escolhe outro.'],
+      ['Trocar o tutor', 'O aluno pode trocar de tutor mais de uma vez no ano. Em <b>Estudantes</b>, toque em <b>Editar</b> e escolha o novo <b>Professor tutor</b>. O novo tutor passa a ver todas as ocorrências do aluno, inclusive as antigas, e o anterior deixa de vê-las.'],
+      ['Atenção às ocorrências em andamento', 'Se o tutor anterior era o <b>responsável pelo acompanhamento</b> de uma ocorrência não encerrada, ele continua responsável. Abra a ocorrência e toque em <b>Encaminhar</b>, escolhendo o novo tutor como responsável.'],
+    ],
+  },
+  tutoriaPedagogico: {
+    titulo: 'Tutoria na PEI',
+    cartoes: [
+      ['Todo professor é tutor', 'Na PEI, os professores usam o perfil <b>Tutor</b>, e cada aluno é ligado ao tutor que escolheu. Quem registra a escolha e as trocas é a <b>Gestão</b>.'],
+      ['Depois de uma troca de tutor', 'O novo tutor passa a ver as ocorrências do aluno, mas o <b>responsável pelo acompanhamento</b> não muda sozinho. Nas ocorrências não encerradas, toque em <b>Encaminhar</b> e escolha o novo tutor como responsável.'],
+    ],
   },
   inicioTutor: {
     titulo: 'A tela inicial',
@@ -293,6 +318,7 @@ const P = {
     img: 'gestao-02-cadastrar-usuario',
     intro: 'No menu, toque em <b>Usuários</b>.',
     itens: ['<b>Nome completo</b> da pessoa.', '<b>E-mail</b>: será usado para entrar no Sisto.', '<b>Perfil</b>: Professor, Tutor, Psicólogo escolar, Gestão, Pedagógico ou Técnico-administrativo.', '<b>Senha temporária</b>: a pessoa troca no primeiro acesso.'],
+    dica: 'Na PEI, todo professor é tutor: cadastre os professores com o perfil <b>Tutor</b>.',
   },
   usuario2: {
     titulo: 'Cadastrar um usuário: enviar',
@@ -372,21 +398,21 @@ const GUIAS = [
     arquivo: 'Guia-Sisto-Tutor',
     titulo: 'Tutor',
     resumo: ['Entrar e registrar ocorrências', 'Encaminhar ao psicólogo escolar, com justificativa', 'Acompanhar as ocorrências dos seus tutorados', 'Registrar comunicações e providências', 'Encerrar uma ocorrência'],
-    passos: ['entrar', 'primeiroAcesso', 'inicioTutor', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'tutorLista', 'filtros', 'detalhe', 'justificativaOculta', 'tutorAcoes', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'alterarSenha', 'sair'],
+    passos: ['entrar', 'primeiroAcesso', 'inicioTutor', 'tutoriaTutor', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'tutorLista', 'filtros', 'detalhe', 'justificativaOculta', 'tutorAcoes', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'alterarSenha', 'sair'],
   },
   {
     id: 'pedagogico',
     arquivo: 'Guia-Sisto-Equipe-Pedagogica',
     titulo: 'Equipe Pedagógica',
     resumo: ['Ver e procurar todas as ocorrências', 'Encaminhar (inclusive ao psicólogo escolar) e definir quem acompanha', 'Comunicações, providências e encerramento', 'Relatórios e categorias'],
-    passos: ['entrar', 'primeiroAcesso', 'inicioPedagogico', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'lista', 'filtros', 'detalhe', 'justificativaOcultaPedagogico', 'encaminharAcoes', 'encaminhar', 'encaminhar2', 'emAcompanhamento', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'relatorio', 'relatorio2', 'categorias', 'alterarSenha', 'sair'],
+    passos: ['entrar', 'primeiroAcesso', 'inicioPedagogico', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'lista', 'filtros', 'detalhe', 'justificativaOcultaPedagogico', 'encaminharAcoes', 'encaminhar', 'encaminhar2', 'emAcompanhamento', 'tutoriaPedagogico', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'relatorio', 'relatorio2', 'categorias', 'alterarSenha', 'sair'],
   },
   {
     id: 'gestao',
     arquivo: 'Guia-Sisto-Gestao',
     titulo: 'Gestão',
     resumo: ['Tudo o que a Equipe Pedagógica faz', 'Cadastrar usuários (inclusive o psicólogo escolar), bloquear e redefinir senhas', 'Cadastrar turmas e estudantes (com o tutor)', 'Relatórios e categorias'],
-    passos: ['entrar', 'primeiroAcesso', 'inicioGestao', 'usuario', 'usuario2', 'usuarioAcoes', 'redefinir', 'bloquear', 'turma', 'estudante', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'lista', 'filtros', 'detalhe', 'encaminharAcoes', 'encaminhar', 'encaminhar2', 'emAcompanhamento', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'relatorio', 'relatorio2', 'categorias', 'alterarSenha', 'sair'],
+    passos: ['entrar', 'primeiroAcesso', 'inicioGestao', 'usuario', 'usuario2', 'usuarioAcoes', 'redefinir', 'bloquear', 'turma', 'estudante', 'tutoriaGestao', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'lista', 'filtros', 'detalhe', 'encaminharAcoes', 'encaminhar', 'encaminhar2', 'emAcompanhamento', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'relatorio', 'relatorio2', 'categorias', 'alterarSenha', 'sair'],
   },
   {
     id: 'psicologo',
@@ -475,6 +501,16 @@ function paginaPasso(guia, passo, nPasso, totalPassos) {
     </div>`;
 }
 
+// Página só de texto, em cartões (Issue #162: orientações de tutoria da PEI),
+// para não precisar de print novo nem mudar a numeração dos prints existentes.
+function paginaCartoes(guia, passo, nPasso, totalPassos) {
+  return `
+    ${topo(guia)}
+    <div class="numero-passo">Passo ${nPasso} de ${totalPassos}</div>
+    <h1>${passo.titulo}</h1>
+    ${passo.cartoes.map(([titulo, texto]) => `<div class="cartao"><h2>${titulo}</h2>${texto}</div>`).join('')}`;
+}
+
 function gerarHtml(guia) {
   const paginas = [];
   // Capa
@@ -506,7 +542,8 @@ function gerarHtml(guia) {
   </section>`);
   // Passos
   guia.passos.forEach((chave, i) => {
-    paginas.push(`<section class="pagina">${paginaPasso(guia, P[chave], i + 1, guia.passos.length)}</section>`);
+    const passo = P[chave];
+    paginas.push(`<section class="pagina">${passo.cartoes ? paginaCartoes(guia, passo, i + 1, guia.passos.length) : paginaPasso(guia, passo, i + 1, guia.passos.length)}</section>`);
   });
   // No computador
   const [c1, c2] = COMPUTADOR[guia.id];
@@ -636,7 +673,7 @@ function gerarVisaoGeral() {
   const perfis = [
     ['Professor', 'Registra as ocorrências que observa em sala de aula ou na escola e consulta as que registrou.'],
     ['Técnico-administrativo', 'Igual ao Professor: registra ocorrências e consulta as que registrou.'],
-    ['Tutor', 'Além de registrar, acompanha as ocorrências dos estudantes sob sua tutoria, as que recebe e as que acompanha como responsável. Registra comunicações com a família e, quando é o responsável pelo acompanhamento, registra providências e encerra a ocorrência.'],
+    ['Tutor', 'Na PEI, todo professor é tutor, e cada aluno é ligado ao tutor que escolheu. Registra ocorrências e acompanha as dos seus tutorados, as que recebe e as que acompanha como responsável. Registra comunicações com a família e, quando é o responsável pelo acompanhamento, registra providências e encerra a ocorrência.'],
     ['Psicólogo escolar', 'Registra ocorrências e recebe as encaminhadas a ele, com a justificativa de quem pediu o acolhimento do estudante. Registra comunicações, mas não encaminha, não registra providências e não encerra.'],
     ['Equipe Pedagógica <span style="font-weight:400;font-size:11pt;color:#5b6575">(na tela, perfil "Pedagógico")</span>', 'Vê todas as ocorrências da escola, encaminha e define quem acompanha cada caso, registra comunicações e providências, encerra ocorrências, gera relatórios e cuida das categorias.'],
     ['Gestão', 'Faz tudo o que a Equipe Pedagógica faz e, além disso, cadastra usuários, turmas e estudantes, liga cada estudante ao seu tutor, redefine senhas e bloqueia ou desativa o acesso de quem sai da escola.'],
