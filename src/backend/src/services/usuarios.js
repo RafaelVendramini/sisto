@@ -10,9 +10,15 @@
 // - RNF06: nenhuma resposta inclui senha_hash (select explícito); nada de
 //   senha ou e-mail em mensagens de erro ou logs.
 // - RN01: cadastrar e editar são restritos a GESTAO nas rotas (permitirPerfis).
-// - RN20 (Issue #44): GET /usuarios é aberto aos 5 perfis; quem não é Gestão
+// - RN20 (Issue #44): GET /usuarios é aberto aos 6 perfis; quem não é Gestão
 //   recebe só id, nome e perfil dos usuários ATIVOS que podem ser
-//   destinatários (TUTOR, PEDAGOGICO, GESTAO), sem e-mail e sem status.
+//   destinatários (TUTOR, PSICOLOGO — v1.18, PEDAGOGICO, GESTAO), sem e-mail
+//   e sem status.
+// - Perfil PSICOLOGO (SSD 1.18, Issue #153): cadastrado pela Gestão como os
+//   demais; não conta para a RN11 (só GESTAO conta) e não pode ser
+//   responsável pelo acompanhamento (RN23, abaixo). A mudança de perfil de um
+//   psicólogo que é destinatário de encaminhamentos NÃO é recusada (RN24): só
+//   valem as RN13 e RN23.
 //
 // Edição, bloqueio, desativação e reativação (Issue #13):
 // - RF04 / RN07: status ATIVO, BLOQUEADO ou DESATIVADO; reativar = voltar a
@@ -28,10 +34,11 @@
 //   (troca-senha.js) continua permitida (decisão do Rafael, 23/11/2026).
 // - RN13 (Issue #44): o perfil de um usuário TUTOR com estudantes vinculados
 //   não pode ser alterado (409) até que os estudantes sejam desvinculados.
-// - RN23 (SSD 1.13, Issue #134): o perfil do responsável pelo acompanhamento
-//   de ocorrências não encerradas não pode mudar para PROFESSOR nem
-//   TECNICO_ADMINISTRATIVO (409) até a Gestão ou a Equipe Pedagógica trocar o
-//   responsável dessas ocorrências. A RN13 é verificada antes.
+// - RN23 (SSD 1.13, Issue #134; v1.18, Issue #153): o perfil do responsável
+//   pelo acompanhamento de ocorrências não encerradas não pode mudar para
+//   PROFESSOR, TECNICO_ADMINISTRATIVO nem PSICOLOGO (409) até a Gestão ou a
+//   Equipe Pedagógica trocar o responsável dessas ocorrências. A RN13 é
+//   verificada antes.
 //
 // Auditoria (Issue #91 — RNF04, RNF06): o cadastro grava "usuário criado" e a
 // edição (inclusive bloqueio, desativação e reativação) grava "usuário
@@ -237,9 +244,15 @@ const PERFIL_DADOS_COMPLETOS = Perfil.GESTAO;
 
 /**
  * Perfis que podem ser destinatários de encaminhamento ou responsáveis pelo
- * acompanhamento (RN03, RN15) — os únicos na lista reduzida (RN20).
+ * acompanhamento (RN03, RN15) — os únicos na lista reduzida (RN20). O
+ * PSICOLOGO (v1.18) entra só como destinatário: nunca é responsável (RN23).
  */
-export const PERFIS_DESTINATARIOS = Object.freeze([Perfil.TUTOR, Perfil.PEDAGOGICO, Perfil.GESTAO]);
+export const PERFIS_DESTINATARIOS = Object.freeze([
+  Perfil.TUTOR,
+  Perfil.PSICOLOGO,
+  Perfil.PEDAGOGICO,
+  Perfil.GESTAO,
+]);
 
 /** Demais perfis (RN20): e-mail e status nem são lidos do banco. */
 export const SELECAO_USUARIO_REDUZIDA = Object.freeze({ id: true, nome: true, perfil: true });
@@ -273,8 +286,8 @@ export function validarFiltroPerfil(valor, aceitos, mensagem) {
  *   status), como antes da #44. Sem filtro: ?perfil= é ignorado (decisão do
  *   Rafael na #44; o SSD só prevê o filtro para os demais perfis).
  * - Demais perfis: só id, nome e perfil dos usuários ATIVOS com perfil TUTOR,
- *   PEDAGOGICO ou GESTAO (possíveis destinatários/responsáveis). ?perfil=
- *   opcional, restrito a esses três valores.
+ *   PSICOLOGO, PEDAGOGICO ou GESTAO (possíveis destinatários/responsáveis).
+ *   ?perfil= opcional, restrito a esses quatro valores.
  * @param {{ perfil: string }} solicitante req.usuario
  * @param {{ perfil?: unknown }} [query] req.query
  * @param {object} [deps]
@@ -331,15 +344,17 @@ export const MENSAGEM_TUTOR_COM_TUTORADOS =
   'Este usuário Tutor tem estudantes vinculados. Desvincule os estudantes (ou troque o tutor deles) antes de alterar o perfil.';
 /**
  * RN23: perfis que não podem ser responsáveis pelo acompanhamento de uma
- * ocorrência (só Tutor, Pedagógico e Gestão podem — RN15, RN22).
+ * ocorrência (só Tutor, Pedagógico e Gestão podem — RN15, RN22). O
+ * PSICOLOGO entrou na v1.18 (Issue #153).
  */
 export const PERFIS_SEM_ACOMPANHAMENTO = Object.freeze([
   Perfil.PROFESSOR,
   Perfil.TECNICO_ADMINISTRATIVO,
+  Perfil.PSICOLOGO,
 ]);
 /** RN23: mudança de perfil do responsável por ocorrências não encerradas (409). Sem dados de estudantes (RNF06). */
 export const MENSAGEM_RESPONSAVEL_COM_OCORRENCIAS =
-  'Este usuário é o responsável pelo acompanhamento de ocorrências que ainda não foram encerradas. Troque o responsável dessas ocorrências (por um novo encaminhamento) antes de alterar o perfil para Professor ou Técnico-administrativo.';
+  'Este usuário é o responsável pelo acompanhamento de ocorrências que ainda não foram encerradas. Troque o responsável dessas ocorrências (por um novo encaminhamento) antes de alterar o perfil para Professor, Técnico-administrativo ou Psicólogo escolar.';
 export const MENSAGEM_CONFLITO_CONCORRENTE =
   'O usuário foi alterado por outra operação ao mesmo tempo. Tente novamente.';
 
@@ -453,7 +468,8 @@ async function verificarEAtualizar(tx, id, dados, solicitante) {
   }
 
   // RN23 — o responsável pelo acompanhamento de ocorrências não encerradas
-  // não passa a Professor nem a Técnico-administrativo (409). A mudança entre
+  // não passa a Professor, Técnico-administrativo nem Psicólogo escolar (409
+  // — PERFIS_SEM_ACOMPANHAMENTO). A mudança entre
   // TUTOR, PEDAGOGICO e GESTAO e a edição sem mudança de perfil não são
   // recusadas; ocorrências ENCERRADO não impedem (o responsável gravado nelas
   // é mantido). Verificada DEPOIS da RN13 (decisão do Rafael, 23/11/2026).

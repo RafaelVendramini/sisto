@@ -13,7 +13,7 @@
 // - RN18: codigoEscolar é opcional; texto vazio (ou só espaços) vira null; é
 //   único quando informado (índice único no banco + checagem aqui); duplicado
 //   responde 409. O nome do estudante pode se repetir.
-// - RN20: GET para os 5 perfis. Quem não é Gestão recebe só id, nomeCompleto,
+// - RN20: GET para todos os perfis. Quem não é Gestão recebe só id, nomeCompleto,
 //   turma e tutor ({ id, nome } ou null) — sem codigoEscolar, sem e-mail e sem
 //   status do tutor. Os campos restritos nem são lidos do banco nesse caso.
 // - RN14 / RN21: trocar a turma é permitido e não mexe em ocorrências (a

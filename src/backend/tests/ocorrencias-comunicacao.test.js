@@ -270,8 +270,9 @@ const DATA_HORA_CORPO_UTC = '2026-10-20T17:30:00.000Z';
 // Autenticação e permissões
 // ---------------------------------------------------------------------------
 describe('POST /ocorrencias/{id}/comunicacoes — autenticação e perfis (Seção 4, RN16)', () => {
-  it('PERFIS_COMUNICACAO são exatamente TUTOR, GESTAO e PEDAGOGICO', () => {
-    expect([...PERFIS_COMUNICACAO].sort()).toEqual(['GESTAO', 'PEDAGOGICO', 'TUTOR']);
+  it('PERFIS_COMUNICACAO são exatamente TUTOR, PSICOLOGO, GESTAO e PEDAGOGICO', () => {
+    // PSICOLOGO desde a v1.18 (Issue #153): testes em ocorrencias-psicologo.test.js.
+    expect([...PERFIS_COMUNICACAO].sort()).toEqual(['GESTAO', 'PEDAGOGICO', 'PSICOLOGO', 'TUTOR']);
   });
 
   it('sem token responde 401 sem gravar', async () => {

@@ -28,7 +28,7 @@ export const CODIGOS_ERRO = Object.freeze({
   REDEFINIR_PROPRIA_SENHA: 'REDEFINIR_PROPRIA_SENHA',
   /** RN13: troca de perfil de um Tutor com estudantes vinculados. */
   TUTOR_COM_TUTORADOS: 'TUTOR_COM_TUTORADOS',
-  /** RN23 (SSD 1.13): mudar para Professor/Técnico-administrativo o perfil do responsável pelo acompanhamento de ocorrências não encerradas. */
+  /** RN23 (SSD 1.13, 1.18): mudar para Professor/Técnico-administrativo/Psicólogo escolar o perfil do responsável pelo acompanhamento de ocorrências não encerradas. */
   RESPONSAVEL_COM_OCORRENCIAS: 'RESPONSAVEL_COM_OCORRENCIAS',
   /** RN04/RN15/RN16: operação recusada porque a ocorrência está encerrada. */
   OCORRENCIA_ENCERRADA: 'OCORRENCIA_ENCERRADA',

@@ -11,7 +11,7 @@ import {
 import { CUSTO_BCRYPT } from '../src/services/senha.js';
 
 // Valores fictícios (RN05) — nenhum teste usa o .env nem o banco.
-// Sem NODE_ENV => ambiente não-produção (cria os 5 usuários).
+// Sem NODE_ENV => ambiente não-produção (cria os 6 usuários, com o Psicólogo escolar da v1.18).
 const ENV_VALIDO = Object.freeze({
   SEED_GESTAO_EMAIL: '  Gestao.Teste@Sisto.Exemplo ',
   SEED_GESTAO_SENHA: 'senhaGestaoFicticia1',
@@ -28,7 +28,7 @@ const ENV_PRODUCAO = Object.freeze({
 // Custo baixo do bcrypt para acelerar os testes que não verificam o custo.
 const RAPIDO = Object.freeze({ custoBcrypt: 4 });
 
-const PERFIS = ['PROFESSOR', 'TUTOR', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
+const PERFIS = ['PROFESSOR', 'TUTOR', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO', 'PSICOLOGO'];
 
 /** Captura a mensagem do erro lançado por fn (falha o teste se não lançar). */
 function mensagemDeErro(fn) {
@@ -181,10 +181,10 @@ describe('Seed — montagem dos usuários', () => {
   it('monta 1 usuário por perfil, todos ATIVO, com e-mails únicos e fictícios', async () => {
     const usuarios = await montarUsuariosSeed(validarVariaveisSeed(ENV_VALIDO), RAPIDO);
 
-    expect(usuarios).toHaveLength(5);
+    expect(usuarios).toHaveLength(6);
     expect(usuarios.map((u) => u.perfil).sort()).toEqual([...PERFIS].sort());
     expect(usuarios.every((u) => u.status === 'ATIVO')).toBe(true);
-    expect(new Set(usuarios.map((u) => u.email)).size).toBe(5);
+    expect(new Set(usuarios.map((u) => u.email)).size).toBe(6);
 
     const gestao = usuarios.find((u) => u.perfil === 'GESTAO');
     expect(gestao.email).toBe('gestao.teste@sisto.exemplo');
@@ -192,6 +192,19 @@ describe('Seed — montagem dos usuários', () => {
       expect(u.email).toMatch(/@sisto\.exemplo$/);
       expect(u.email).toBe(u.email.trim().toLowerCase());
     }
+  });
+
+  it('inclui o Psicólogo Exemplo fictício só fora de produção (v1.18, Issue #153 — RN05)', async () => {
+    const usuarios = await montarUsuariosSeed(validarVariaveisSeed(ENV_VALIDO), RAPIDO);
+    expect(usuarios.find((u) => u.perfil === 'PSICOLOGO')).toMatchObject({
+      nome: 'Psicólogo Exemplo',
+      email: 'psicologo@sisto.exemplo',
+      status: 'ATIVO',
+      troca_senha_obrigatoria: false,
+    });
+
+    const producao = await montarUsuariosSeed(validarVariaveisSeed(ENV_PRODUCAO), RAPIDO);
+    expect(producao.map((u) => u.perfil)).toEqual(['GESTAO']);
   });
 
   it('grava somente hash bcrypt válido, sem senha em texto no payload', async () => {
@@ -247,15 +260,15 @@ describe('Seed — montagem dos usuários', () => {
 });
 
 describe('Seed — execução com client injetado', () => {
-  it('fora de produção cria os 5 usuários, em uma única transação', async () => {
+  it('fora de produção cria os 6 usuários, em uma única transação', async () => {
     const client = criarClientFake();
 
     const resultado = await executarSeedUsuarios(client, ENV_VALIDO, RAPIDO);
 
-    expect(client.usuarios).toHaveLength(5);
+    expect(client.usuarios).toHaveLength(6);
     expect(client.usuarios.map((u) => u.perfil).sort()).toEqual([...PERFIS].sort());
     expect(client.chamadas.transaction).toBe(1);
-    expect(resultado.criados).toHaveLength(5);
+    expect(resultado.criados).toHaveLength(6);
     expect(resultado.existentes).toHaveLength(0);
     expect(JSON.stringify(resultado)).not.toMatch(/senha|\$2[aby]\$/);
   });
@@ -304,9 +317,9 @@ describe('Seed — execução com client injetado', () => {
       RAPIDO,
     );
 
-    expect(client.usuarios).toHaveLength(5);
+    expect(client.usuarios).toHaveLength(6);
     expect(resultado.criados).toHaveLength(0);
-    expect(resultado.existentes).toHaveLength(5);
+    expect(resultado.existentes).toHaveLength(6);
     // Não reativa usuário bloqueado e não troca senha.
     expect(client.usuarios.find((u) => u.perfil === 'PROFESSOR').status).toBe('BLOQUEADO');
     expect(client.usuarios.find((u) => u.perfil === 'GESTAO').senha_hash).toBe(hashGestaoOriginal);
@@ -326,9 +339,9 @@ describe('Seed — execução com client injetado', () => {
 
     const resultado = await executarSeedUsuarios(client, ENV_VALIDO, RAPIDO);
 
-    expect(client.usuarios).toHaveLength(5);
+    expect(client.usuarios).toHaveLength(6);
     expect(resultado.criados.map((u) => u.perfil)).toEqual(['TUTOR']);
-    expect(resultado.existentes).toHaveLength(4);
+    expect(resultado.existentes).toHaveLength(5);
   });
 
   it('trocar SEED_GESTAO_EMAIL cria uma segunda Gestão e mantém a antiga ATIVA (comportamento documentado)', async () => {

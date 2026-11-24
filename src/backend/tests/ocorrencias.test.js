@@ -570,7 +570,7 @@ describe('POST /ocorrencias — autenticação', () => {
     esperarBancoVazio();
   });
 
-  it('a rota POST / vem primeiro e o middleware de perfil libera exatamente os 5 perfis', async () => {
+  it('a rota POST / vem primeiro e o middleware de perfil libera exatamente os 6 perfis', async () => {
     const { default: rotas } = await import('../src/routes/ocorrencias.js');
     const { Perfil } = await import('@prisma/client');
     // Issue #47 acrescentou GET / e GET /:id (testados em ocorrencias-consulta.test.js);
@@ -590,8 +590,11 @@ describe('POST /ocorrencias — autenticação', () => {
       ['/:id/status', ['patch']],
     ]);
 
-    // Os 5 perfis da matriz (Seção 4) são todos os valores do enum Perfil.
-    expect([...Object.values(Perfil)].sort()).toEqual([...PERFIS].sort());
+    // Os 6 perfis da matriz (Seção 4) são todos os valores do enum Perfil
+    // (PSICOLOGO desde a v1.18 — Issue #153; o registro pelo psicólogo é
+    // testado em ocorrencias-psicologo.test.js).
+    const todosOsPerfis = [...PERFIS, 'PSICOLOGO'];
+    expect([...Object.values(Perfil)].sort()).toEqual([...todosOsPerfis].sort());
 
     const camadas = rotas.stack[0].route.stack.map((c) => c.handle);
     const verificarPerfil = camadas.find((h) => h.name === 'verificarPerfil');
@@ -599,7 +602,7 @@ describe('POST /ocorrencias — autenticação', () => {
     expect(camadas.indexOf(verificarPerfil)).toBeLessThan(camadas.length - 1); // vem antes do controller
 
     const liberados = [];
-    for (const perfil of [...PERFIS, 'PERFIL_INEXISTENTE', undefined]) {
+    for (const perfil of [...todosOsPerfis, 'PERFIL_INEXISTENTE', undefined]) {
       const next = vi.fn();
       try {
         verificarPerfil({ usuario: { id: 1, perfil } }, {}, next);
@@ -609,7 +612,7 @@ describe('POST /ocorrencias — autenticação', () => {
         expect(erro.message).toBe(MENSAGEM_PERFIL_SEM_PERMISSAO);
       }
     }
-    expect(liberados).toEqual(PERFIS);
+    expect(liberados).toEqual(todosOsPerfis);
   });
 
   it('está montada em protegidas depois do bloqueio de troca de senha', async () => {
