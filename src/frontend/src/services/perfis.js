@@ -1,8 +1,10 @@
 // Rótulos amigáveis dos perfis (SSD, Seção 11). A API trafega os valores
 // técnicos; a interface sempre mostra o rótulo correspondente (RNF02).
+// PSICOLOGO entrou na v1.18 do SSD (Issue #152), na ordem da matriz da Seção 4.
 export const ROTULOS_PERFIL = Object.freeze({
   PROFESSOR: 'Professor',
   TUTOR: 'Tutor',
+  PSICOLOGO: 'Psicólogo escolar',
   GESTAO: 'Gestão',
   PEDAGOGICO: 'Pedagógico',
   TECNICO_ADMINISTRATIVO: 'Técnico-administrativo',
@@ -72,10 +74,12 @@ export function podeGerenciarEstudantes(perfil) {
 }
 
 // Perfis que registram ocorrências (UC01, RF05, matriz da Seção 4): todos os
-// cinco. Usado no menu e na rota; a proteção real é do back-end (403).
+// seis (o Psicólogo escolar desde a v1.18). Usado no menu e na rota; a
+// proteção real é do back-end (403).
 export const PERFIS_REGISTRO_OCORRENCIA = Object.freeze([
   'PROFESSOR',
   'TUTOR',
+  'PSICOLOGO',
   'GESTAO',
   'PEDAGOGICO',
   'TECNICO_ADMINISTRATIVO',
@@ -87,11 +91,12 @@ export function podeRegistrarOcorrencia(perfil) {
 }
 
 // Perfis que consultam ocorrências (UC03, RF05, matriz da Seção 4): todos os
-// cinco. O que cada um vê é decidido pelo back-end (RN19). Usado no menu e na
-// rota; a proteção real é do back-end.
+// seis (o Psicólogo escolar desde a v1.18). O que cada um vê é decidido pelo
+// back-end (RN19). Usado no menu e na rota; a proteção real é do back-end.
 export const PERFIS_CONSULTA_OCORRENCIAS = Object.freeze([
   'PROFESSOR',
   'TUTOR',
+  'PSICOLOGO',
   'GESTAO',
   'PEDAGOGICO',
   'TECNICO_ADMINISTRATIVO',
@@ -124,11 +129,16 @@ export function podeEncaminharOcorrencia(perfil) {
 }
 
 // Perfis que registram comunicações feitas fora do sistema (RF09, RN16,
-// matriz da Seção 4): Tutor, Gestão e Equipe Pedagógica. O Tutor só nas
-// ocorrências que pode ver (RN19), o que o back-end garante (404). Usado para
-// mostrar o botão "Registrar comunicação" no detalhe; a proteção real é do
-// back-end (403).
-export const PERFIS_COMUNICACAO_OCORRENCIA = Object.freeze(['TUTOR', 'GESTAO', 'PEDAGOGICO']);
+// matriz da Seção 4): Tutor, Psicólogo escolar (v1.18), Gestão e Equipe
+// Pedagógica. O Tutor e o Psicólogo só nas ocorrências que podem ver (RN19), o
+// que o back-end garante (404). Usado para mostrar o botão "Registrar
+// comunicação" no detalhe; a proteção real é do back-end (403).
+export const PERFIS_COMUNICACAO_OCORRENCIA = Object.freeze([
+  'TUTOR',
+  'PSICOLOGO',
+  'GESTAO',
+  'PEDAGOGICO',
+]);
 
 /** Indica se o perfil pode registrar comunicações numa ocorrência. */
 export function podeRegistrarComunicacao(perfil) {

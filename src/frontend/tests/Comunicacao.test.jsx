@@ -28,7 +28,7 @@ import {
 import { gravarSessaoFicticia, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 
 const URL_API = 'http://api.exemplo.test';
-const PERFIS = ['PROFESSOR', 'TUTOR', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
+const PERFIS = ['PROFESSOR', 'TUTOR', 'PSICOLOGO', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
 const STATUS = ['ABERTO', 'EM_ACOMPANHAMENTO', 'ENCERRADO'];
 
 // Relógio fixo: 31/10/2026 às 11:00 em São Paulo (UTC-3).
@@ -204,15 +204,17 @@ describe('Registro de comunicação no detalhe da ocorrência (#52)', () => {
       renderizarApp('/ocorrencias/12');
       await screen.findByText('Dados da ocorrência');
 
-      const deveVer = ['TUTOR', 'GESTAO', 'PEDAGOGICO'].includes(perfil) && status !== 'ENCERRADO';
+      const deveVer =
+        ['TUTOR', 'PSICOLOGO', 'GESTAO', 'PEDAGOGICO'].includes(perfil) && status !== 'ENCERRADO';
       const botao = screen.queryByRole('button', { name: 'Registrar comunicação' });
       if (deveVer) expect(botao).toBeInTheDocument();
       else expect(botao).not.toBeInTheDocument();
     });
 
-    it('Tutor vê só "Registrar comunicação"; Gestão e Pedagógico veem os dois', async () => {
+    it('Tutor e Psicólogo escolar veem só "Registrar comunicação"; Gestão e Pedagógico veem os dois', async () => {
       for (const [perfil, esperado] of [
         ['TUTOR', ['Registrar comunicação']],
+        ['PSICOLOGO', ['Registrar comunicação']],
         ['GESTAO', ['Encaminhar', 'Registrar comunicação']],
         ['PEDAGOGICO', ['Encaminhar', 'Registrar comunicação']],
       ]) {
@@ -243,9 +245,9 @@ describe('Registro de comunicação no detalhe da ocorrência (#52)', () => {
       }
     });
 
-    it('constante e função de perfis seguem a matriz (Tutor, Gestão e Pedagógico)', () => {
-      expect(PERFIS_COMUNICACAO_OCORRENCIA).toEqual(['TUTOR', 'GESTAO', 'PEDAGOGICO']);
-      expect(PERFIS.filter(podeRegistrarComunicacao)).toEqual(['TUTOR', 'GESTAO', 'PEDAGOGICO']);
+    it('constante e função de perfis seguem a matriz (Tutor, Psicólogo escolar, Gestão e Pedagógico)', () => {
+      expect(PERFIS_COMUNICACAO_OCORRENCIA).toEqual(['TUTOR', 'PSICOLOGO', 'GESTAO', 'PEDAGOGICO']);
+      expect(PERFIS.filter(podeRegistrarComunicacao)).toEqual(['TUTOR', 'PSICOLOGO', 'GESTAO', 'PEDAGOGICO']);
       expect(podeRegistrarComunicacao(undefined)).toBe(false);
     });
   });

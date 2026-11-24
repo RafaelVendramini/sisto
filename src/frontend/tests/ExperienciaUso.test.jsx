@@ -28,8 +28,8 @@ const AGORA = new Date('2026-10-30T11:00:00.000Z');
 const AVISO_SESSAO = 'Sua sessão expirou ou seu acesso foi encerrado. Entre novamente.';
 const AVISO_USUARIOS =
   'Não foi possível carregar a lista de usuários. Você ainda pode encaminhar para toda a ' +
-  'equipe pedagógica ou para toda a gestão; para escolher um tutor ou uma pessoa da equipe, ' +
-  'tente carregar a lista de novo.';
+  'equipe pedagógica ou para toda a gestão; para escolher um tutor, um psicólogo escolar ou ' +
+  'uma pessoa da equipe, tente carregar a lista de novo.';
 const PERGUNTA_DESCARTE = 'Descartar o que foi digitado?';
 
 const EMAIL_FICTICIO = 'gestao@exemplo.test';

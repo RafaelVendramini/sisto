@@ -71,9 +71,9 @@ describe('destinatários (RN03, RN20)', () => {
 });
 
 describe('perfis que registram ocorrência (UC01)', () => {
-  it('são os 5 perfis', () => {
-    expect(PERFIS_REGISTRO_OCORRENCIA).toHaveLength(5);
-    for (const perfil of ['PROFESSOR', 'TUTOR', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO']) {
+  it('são os 6 perfis (o Psicólogo escolar desde o SSD 1.18)', () => {
+    expect(PERFIS_REGISTRO_OCORRENCIA).toHaveLength(6);
+    for (const perfil of ['PROFESSOR', 'TUTOR', 'PSICOLOGO', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO']) {
       expect(podeRegistrarOcorrencia(perfil)).toBe(true);
     }
     expect(podeRegistrarOcorrencia(undefined)).toBe(false);

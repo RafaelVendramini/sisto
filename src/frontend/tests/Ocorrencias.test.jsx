@@ -24,7 +24,7 @@ import {
 import { gravarSessaoFicticia, paginaOcorrencias, renderizarApp, respostaFalsa } from './utilitarios.jsx';
 
 const URL_API = 'http://api.exemplo.test';
-const PERFIS = ['PROFESSOR', 'TUTOR', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
+const PERFIS = ['PROFESSOR', 'TUTOR', 'PSICOLOGO', 'GESTAO', 'PEDAGOGICO', 'TECNICO_ADMINISTRATIVO'];
 
 const MSG_SEM_PERMISSAO = 'Acesso não permitido para o seu perfil.';
 const MSG_SEM_CONEXAO =
@@ -298,7 +298,7 @@ describe('Lista e detalhe de ocorrências (#48)', () => {
       ).toHaveAttribute('aria-current', 'page');
     });
 
-    it('perfis permitidos: os cinco', () => {
+    it('perfis permitidos: os seis (SSD 1.18)', () => {
       expect([...PERFIS_CONSULTA_OCORRENCIAS].sort()).toEqual([...PERFIS].sort());
       for (const perfil of PERFIS) expect(podeConsultarOcorrencias(perfil)).toBe(true);
       expect(podeConsultarOcorrencias(undefined)).toBe(false);

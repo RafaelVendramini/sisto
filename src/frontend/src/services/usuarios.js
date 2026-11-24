@@ -1,6 +1,6 @@
 // Chamadas à API de usuários (RF01, RF04 — SSD, Seção 12). O GET /usuarios é
 // aberto aos 5 perfis (desde a #44): a Gestão recebe a lista completa e os demais
-// perfis, a lista reduzida (RN20 — só ativos de Tutor, Pedagógico e Gestão, com
+// perfis, a lista reduzida (RN20 — só ativos de Tutor, Psicólogo escolar, Pedagógico e Gestão, com
 // id, nome e perfil), usada para escolher destinatários e responsáveis.
 // Cadastrar, alterar e redefinir senha continuam só para a Gestão; a proteção
 // real é do back-end (403 para os demais perfis).
@@ -10,7 +10,7 @@ import { requisicaoAutenticada } from './auth.js';
 /**
  * Lista os usuários (GET /usuarios), já ordenados por nome.
  * - Gestão: todos os usuários, com { id, nome, email, perfil, status }.
- * - Demais perfis: lista reduzida (RN20), só usuários ativos de Tutor,
+ * - Demais perfis: lista reduzida (RN20), só usuários ativos de Tutor, Psicólogo escolar (v1.18),
  *   Pedagógico e Gestão, com { id, nome, perfil } (sem e-mail nem status).
  * @returns {Promise<Array<{ id: number, nome: string, perfil: string, email?: string, status?: string }>>}
  */

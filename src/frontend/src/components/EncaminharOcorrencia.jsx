@@ -1,20 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listarEstudantes } from '../services/estudantes.js';
+import { limparTexto } from '../services/mensagensEstudantes.js';
 import { mensagemErroCarga } from '../services/mensagens.js';
 import {
   DESTINATARIOS,
   TAMANHO_MAXIMO_TEXTO_LONGO,
   agruparResponsaveis,
   agruparTutores,
+  destinatarioExigeJustificativa,
   encaminhamentoPedeAtualizacao,
   mensagemErroEncaminhamento,
   montarEnvioEncaminhamento,
+  perguntaTrocaDestinatario,
   separarUsuariosPorDestinatario,
+  trocaApagaObservacao,
   validarEncaminhamento,
 } from '../services/mensagensOcorrencias.js';
 import { encaminharOcorrencia } from '../services/ocorrencias.js';
 import { listarUsuarios } from '../services/usuarios.js';
 import AvisoSessaoExpirada, { sessaoExpirou } from './AvisoSessaoExpirada.jsx';
+import CampoJustificativaPsicologo from './CampoJustificativaPsicologo.jsx';
+import ConfirmarTrocaDestinatario from './ConfirmarTrocaDestinatario.jsx';
 import Dialogo, { useConfirmacaoDescarte } from './Dialogo.jsx';
 import { OpcoesDeUsuarios, OpcoesEquipe, OpcoesTutores } from './OpcoesUsuarios.jsx';
 import { exibirFalha, useCarregamento } from './useCarregamento.js';
@@ -73,8 +79,11 @@ function dadosVazios() {
  * back-end (403/409).
  * - Destinatário: Tutor exige escolher o tutor (os dos estudantes da
  *   ocorrência primeiro, sem pré-seleção); Equipe pedagógica e Gestão têm
- *   "Toda a equipe" como padrão.
- * - Responsável pelo acompanhamento (Tutor, Pedagógico ou Gestão ativos):
+ *   "Toda a equipe" como padrão. Psicólogo escolar (v1.18, Issue #152) exige
+ *   escolher o psicólogo (ativos) e escrever a justificativa, com a orientação
+ *   de redação (RN06) e o aviso de quem pode lê-la (RN24).
+ * - Responsável pelo acompanhamento (Tutor, Pedagógico ou Gestão ativos; o
+ *   Psicólogo escolar nunca aparece aqui — RN15, RN23):
  *   obrigatório com a ocorrência "Aberto"; em "Em acompanhamento", a primeira
  *   opção mantém o atual (decisão do Rafael na #50) e o campo não vai no corpo.
  * - Sucesso: devolve ao detalhe a resposta 201 (detalhe completo).
@@ -104,6 +113,9 @@ export default function EncaminharOcorrencia({
   const [tutoresDestinatario, setTutoresDestinatario] = useState({ sugeridos: [], outros: [] });
 
   const [dados, setDados] = useState(dadosVazios);
+  // Novo tipo de destinatário à espera de confirmação, porque a troca apagaria
+  // a justificativa ou a observação digitada (RN24 — #154).
+  const [trocaPendente, setTrocaPendente] = useState(null);
   const [erros, setErros] = useState({});
   const [erro, setErro] = useState('');
   const [pedeAtualizacao, setPedeAtualizacao] = useState(false);
@@ -159,23 +171,60 @@ export default function EncaminharOcorrencia({
     return (evento) => {
       if (enviandoRef.current) return; // campos travados durante o envio
       const { value } = evento.target;
-      setErro('');
-      setPedeAtualizacao(false);
-      setDados((atual) =>
-        // Ao trocar o tipo, o usuário escolhido deixa de valer.
-        campo === 'destinatarioPerfil'
-          ? { ...atual, destinatarioPerfil: value, destinatarioUsuarioId: '' }
-          : { ...atual, [campo]: value },
-      );
-      setErros((atual) => {
-        const removidos =
-          campo === 'destinatarioPerfil' ? [campo, 'destinatarioUsuarioId'] : [campo];
-        if (!removidos.some((nome) => atual[nome])) return atual;
-        const restantes = { ...atual };
-        removidos.forEach((nome) => delete restantes[nome]);
-        return restantes;
-      });
+      if (campo === 'destinatarioPerfil' && trocaApagaObservacao(dados.destinatarioPerfil, value)) {
+        // RN24: a justificativa ao psicólogo não vira observação comum (nem o
+        // contrário). Com texto digitado, pede confirmação antes de apagar.
+        if (limparTexto(dados.observacao) !== '') {
+          setTrocaPendente(value);
+          return;
+        }
+        aplicarAlteracao(campo, value, { apagarObservacao: true });
+        return;
+      }
+      aplicarAlteracao(campo, value);
     };
+  }
+
+  // Confirmou a troca: muda o tipo, apaga o texto e volta o foco ao seletor.
+  function confirmarTroca() {
+    if (trocaPendente === null || enviandoRef.current) return;
+    aplicarAlteracao('destinatarioPerfil', trocaPendente, { apagarObservacao: true });
+    refs.destinatarioPerfil.current?.focus();
+  }
+
+  // Cancelou: o tipo e o texto ficam como estavam.
+  function cancelarTroca() {
+    setTrocaPendente(null);
+    refs.destinatarioPerfil.current?.focus();
+  }
+
+  function aplicarAlteracao(campo, value, { apagarObservacao = false } = {}) {
+    setErro('');
+    setPedeAtualizacao(false);
+    if (campo === 'destinatarioPerfil') setTrocaPendente(null);
+    setDados((atual) =>
+      // Ao trocar o tipo, o usuário escolhido deixa de valer.
+      campo === 'destinatarioPerfil'
+        ? {
+            ...atual,
+            destinatarioPerfil: value,
+            destinatarioUsuarioId: '',
+            observacao: apagarObservacao ? '' : atual.observacao,
+          }
+        : { ...atual, [campo]: value },
+    );
+    setErros((atual) => {
+      // Trocar o tipo muda a regra do usuário e da observação (justificativa
+      // ao psicólogo — RN03).
+      const removidos =
+        campo === 'destinatarioPerfil'
+          ? [campo, 'destinatarioUsuarioId', 'observacao']
+          : [campo];
+      if (!removidos.some((nome) => atual[nome])) return atual;
+      const restantes = { ...atual };
+      removidos.forEach((nome) => delete restantes[nome]);
+      return restantes;
+    });
   }
 
   function focarPrimeiroInvalido(novosErros) {
@@ -262,39 +311,50 @@ export default function EncaminharOcorrencia({
     const { destinatarioPerfil } = dados;
     if (!destinatarioPerfil) return null;
     const ehTutor = destinatarioPerfil === 'TUTOR';
+    const ehPsicologo = destinatarioPerfil === 'PSICOLOGO';
     const lista = usuariosPorDestinatario[destinatarioPerfil] ?? [];
-    let ajuda;
+    let ajuda = 'Opcional. Deixe "Toda a equipe" para encaminhar à equipe inteira.';
+    let rotulo = 'Pessoa da equipe (opcional)';
+    let opcoes = <OpcoesEquipe usuarios={lista} />;
     if (ehTutor) {
       ajuda =
         lista.length === 0
           ? 'Obrigatório. Nenhum tutor ativo cadastrado: escolha outro destinatário.'
           : 'Obrigatório. Só aparecem tutores com acesso ativo.';
-    } else {
-      ajuda = 'Opcional. Deixe "Toda a equipe" para encaminhar à equipe inteira.';
+      rotulo = 'Tutor que vai receber';
+      opcoes = (
+        <>
+          <option value="">Selecione o tutor</option>
+          <OpcoesTutores
+            sugeridos={tutoresDestinatario.sugeridos}
+            outros={tutoresDestinatario.outros}
+            rotuloSugeridos={ROTULO_TUTORES_DA_OCORRENCIA}
+          />
+        </>
+      );
+    } else if (ehPsicologo) {
+      ajuda =
+        lista.length === 0
+          ? 'Obrigatório. Nenhum psicólogo escolar ativo cadastrado: escolha outro destinatário.'
+          : 'Obrigatório. Só aparecem psicólogos escolares com acesso ativo.';
+      rotulo = 'Psicólogo escolar que vai receber';
+      opcoes = (
+        <>
+          <option value="">Selecione o psicólogo escolar</option>
+          <OpcoesDeUsuarios usuarios={lista} />
+        </>
+      );
     }
     return (
       <div className="campo">
-        <label htmlFor={idCampo('destinatarioUsuarioId')}>
-          {ehTutor ? 'Tutor que vai receber' : 'Pessoa da equipe (opcional)'}
-        </label>
+        <label htmlFor={idCampo('destinatarioUsuarioId')}>{rotulo}</label>
         <select
           value={dados.destinatarioUsuarioId}
           aria-disabled={enviando || undefined}
           onChange={alterar('destinatarioUsuarioId')}
           {...propsAcessibilidade('destinatarioUsuarioId', { comAjuda: true })}
         >
-          {ehTutor ? (
-            <>
-              <option value="">Selecione o tutor</option>
-              <OpcoesTutores
-                sugeridos={tutoresDestinatario.sugeridos}
-                outros={tutoresDestinatario.outros}
-                rotuloSugeridos={ROTULO_TUTORES_DA_OCORRENCIA}
-              />
-            </>
-          ) : (
-            <OpcoesEquipe usuarios={lista} />
-          )}
+          {opcoes}
         </select>
         <span id={idCampo('destinatarioUsuarioId-ajuda')} className="campo__ajuda">
           {ajuda}
@@ -378,26 +438,45 @@ export default function EncaminharOcorrencia({
             ))}
           </select>
           {mensagemCampo('destinatarioPerfil')}
+          {trocaPendente !== null && (
+            <ConfirmarTrocaDestinatario
+              id={idCampo('troca')}
+              pergunta={perguntaTrocaDestinatario(dados.destinatarioPerfil)}
+              aoConfirmar={confirmarTroca}
+              aoCancelar={cancelarTroca}
+            />
+          )}
         </div>
 
         {campoUsuarioDestinatario()}
         {campoResponsavel()}
 
-        <div className="campo">
-          <label htmlFor={idCampo('observacao')}>Observação (opcional)</label>
-          <textarea
-            rows={3}
-            maxLength={TAMANHO_MAXIMO_TEXTO_LONGO}
-            value={dados.observacao}
-            readOnly={enviando}
-            onChange={alterar('observacao')}
-            {...propsAcessibilidade('observacao', { comAjuda: true })}
+        {destinatarioExigeJustificativa(dados.destinatarioPerfil) ? (
+          <CampoJustificativaPsicologo
+            prefixoId={idCampo('observacao')}
+            valor={dados.observacao}
+            aoAlterar={(valor) => alterar('observacao')({ target: { value: valor } })}
+            erro={erros.observacao}
+            somenteLeitura={enviando}
+            refCampo={refs.observacao}
           />
-          <span id={idCampo('observacao-ajuda')} className="campo__ajuda">
-            Até {TAMANHO_MAXIMO_TEXTO_LONGO} caracteres.
-          </span>
-          {mensagemCampo('observacao')}
-        </div>
+        ) : (
+          <div className="campo">
+            <label htmlFor={idCampo('observacao')}>Observação (opcional)</label>
+            <textarea
+              rows={3}
+              maxLength={TAMANHO_MAXIMO_TEXTO_LONGO}
+              value={dados.observacao}
+              readOnly={enviando}
+              onChange={alterar('observacao')}
+              {...propsAcessibilidade('observacao', { comAjuda: true })}
+            />
+            <span id={idCampo('observacao-ajuda')} className="campo__ajuda">
+              Até {TAMANHO_MAXIMO_TEXTO_LONGO} caracteres.
+            </span>
+            {mensagemCampo('observacao')}
+          </div>
+        )}
 
         {sessaoVencida && <AvisoSessaoExpirada />}
 
