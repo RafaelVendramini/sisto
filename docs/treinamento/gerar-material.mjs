@@ -1,6 +1,7 @@
-// Gera o material de treinamento do Sisto: 4 guias em HTML e PDF, um por perfil
-// (Issue #142), e a visão geral da plataforma (Issue #146), com os prints de
-// docs/treinamento/img (dados fictícios — RN05).
+// Gera o material de treinamento do Sisto: 5 guias em HTML e PDF, um por perfil
+// (Issue #142; guia do Psicólogo escolar na Issue #155), e a visão geral da
+// plataforma (Issue #146), com os prints de docs/treinamento/img (dados
+// fictícios — RN05).
 //
 // Uso (na raiz do repositório, com o Google Chrome instalado):
 //   node docs/treinamento/gerar-material.mjs
@@ -81,8 +82,63 @@ const P = {
     img: 'prof-08-destinatario',
     secao: 'Registrar uma ocorrência (5 de 6)',
     intro: 'Escolha quem vai receber a ocorrência.',
-    itens: ['Em <b>Encaminhar para</b>, escolha <b>Tutor</b>, <b>Equipe pedagógica</b> ou <b>Gestão</b>.', 'Se escolheu <b>Tutor</b>, escolha qual tutor vai receber.'],
+    itens: ['Em <b>Encaminhar para</b>, escolha <b>Tutor</b>, <b>Psicólogo escolar</b>, <b>Equipe pedagógica</b> ou <b>Gestão</b>.', 'Se escolheu <b>Tutor</b>, escolha qual tutor vai receber.'],
     dica: 'Para encaminhar a mais de uma pessoa, toque em "Adicionar destinatário".',
+  },
+  regPsicologo: {
+    titulo: 'Registrar: encaminhar ao psicólogo escolar',
+    img: 'comum-encaminhar-psicologo',
+    secao: 'Registrar uma ocorrência (5 de 6)',
+    intro: 'Se você percebeu algo emocional ou de comportamento e o estudante precisa de acolhimento, encaminhe também ao psicólogo escolar.',
+    itens: ['Em <b>Encaminhar para</b>, escolha <b>Psicólogo escolar</b>.', 'Escolha o <b>psicólogo</b> que vai receber.', 'Escreva a <b>Justificativa</b>: o que você observou e por que o estudante precisa de acolhimento. Ela é obrigatória.'],
+    dica: 'A justificativa é sigilosa: só o psicólogo escolar, a Gestão e você a leem. Escreva só fatos, sem rótulos nem diagnósticos.',
+  },
+  trocarDestinatario: {
+    titulo: 'Mudou de ideia? A justificativa é apagada',
+    img: 'comum-trocar-destinatario',
+    secao: 'Registrar uma ocorrência (5 de 6)',
+    intro: 'Se você já escreveu a justificativa e trocar o destinatário para outra opção, o Sisto pergunta antes de apagar o texto.',
+    itens: ['<b>Não, manter como está</b>: continua com o psicólogo escolar e com o texto.', '<b>Sim, apagar e trocar</b>: apaga a justificativa e troca o destinatário.'],
+    dica: 'Assim a justificativa, que é sigilosa, não vira uma observação que todos podem ler.',
+  },
+  justificativaOculta: {
+    titulo: 'Justificativa protegida',
+    img: 'comum-justificativa-oculta',
+    intro: 'Nos detalhes da ocorrência, em <b>Encaminhamentos</b>, você vê se ela foi encaminhada ao psicólogo escolar.',
+    itens: ['Se a justificativa não foi escrita por você, aparece este <b>aviso</b> no lugar do texto.'],
+    dica: 'A justificativa fala de questões emocionais do estudante. Por isso, só o psicólogo escolar, a Gestão e quem fez o encaminhamento a leem (LGPD).',
+  },
+  justificativaOcultaPedagogico: {
+    titulo: 'Justificativa protegida',
+    img: 'comum-justificativa-oculta',
+    intro: 'Nos detalhes da ocorrência, em <b>Encaminhamentos</b>, você vê se ela foi encaminhada ao psicólogo escolar.',
+    itens: ['A Equipe Pedagógica só lê a justificativa dos encaminhamentos que <b>ela mesma fez</b>. Nos demais, aparece este <b>aviso</b> no lugar do texto.'],
+    dica: 'A justificativa fala de questões emocionais do estudante. Por isso, só o psicólogo escolar, a Gestão e quem fez o encaminhamento a leem (LGPD).',
+  },
+  inicioPsicologo: {
+    titulo: 'A tela inicial',
+    img: 'psi-01-inicio',
+    intro: 'Depois de entrar, use o menu no alto da tela.',
+    itens: ['<b>Ocorrências</b>: as encaminhadas a você e as que você registrou.', '<b>Registrar ocorrência</b>: abre o formulário para registrar um fato novo.'],
+  },
+  psiLista: {
+    titulo: 'As ocorrências encaminhadas a você',
+    img: 'psi-02-lista',
+    intro: 'Em <b>Ocorrências</b>, você vê as que foram encaminhadas a você e as que você registrou. As demais ocorrências da escola não aparecem.',
+    itens: ['Toque no <b>número da ocorrência</b> para ver todos os detalhes.'],
+  },
+  psiJustificativa: {
+    titulo: 'Ler a justificativa',
+    img: 'psi-03-justificativa',
+    intro: 'Role a tela até <b>Encaminhamentos</b>.',
+    itens: ['A <b>Justificativa</b> conta o que foi observado e por que o estudante precisa de acolhimento.'],
+    dica: 'A justificativa é sigilosa: só você, a Gestão e quem fez o encaminhamento a leem.',
+  },
+  psiAcoes: {
+    titulo: 'O que você pode fazer na ocorrência',
+    img: 'psi-04-acoes',
+    itens: ['<b>Registrar comunicação</b>: anotar um contato que você fez (com a família, o estudante ou a rede de proteção).'],
+    dica: 'O psicólogo escolar não encaminha, não registra providências e não encerra ocorrências: isso fica com a Equipe Pedagógica, a Gestão ou o responsável pelo acompanhamento.',
   },
   reg6: {
     titulo: 'Registrar: enviar',
@@ -194,7 +250,7 @@ const P = {
   encaminhar: {
     titulo: 'Encaminhar: preencher',
     img: 'ped-03-encaminhar',
-    itens: ['Em <b>Encaminhar para</b>, escolha Tutor, Equipe pedagógica ou Gestão. Se for Tutor, escolha qual tutor; se for uma equipe, pode deixar "Toda a equipe".', 'Escolha o <b>Responsável pelo acompanhamento</b>: quem vai cuidar do caso.', 'Se quiser, escreva uma <b>Observação</b>.'],
+    itens: ['Em <b>Encaminhar para</b>, escolha Tutor, Psicólogo escolar, Equipe pedagógica ou Gestão. Se for Tutor ou Psicólogo escolar, escolha a pessoa; se for uma equipe, pode deixar "Toda a equipe".', 'Escolha o <b>Responsável pelo acompanhamento</b>: quem vai cuidar do caso. O psicólogo escolar não pode ser o responsável.', 'Se quiser, escreva uma <b>Observação</b>. Para o psicólogo escolar, a <b>Justificativa</b> é obrigatória.'],
   },
   encaminhar2: {
     titulo: 'Encaminhar: enviar',
@@ -236,7 +292,7 @@ const P = {
     titulo: 'Cadastrar um usuário',
     img: 'gestao-02-cadastrar-usuario',
     intro: 'No menu, toque em <b>Usuários</b>.',
-    itens: ['<b>Nome completo</b> da pessoa.', '<b>E-mail</b>: será usado para entrar no Sisto.', '<b>Perfil</b>: Professor, Tutor, Gestão, Pedagógico ou Técnico-administrativo.', '<b>Senha temporária</b>: a pessoa troca no primeiro acesso.'],
+    itens: ['<b>Nome completo</b> da pessoa.', '<b>E-mail</b>: será usado para entrar no Sisto.', '<b>Perfil</b>: Professor, Tutor, Psicólogo escolar, Gestão, Pedagógico ou Técnico-administrativo.', '<b>Senha temporária</b>: a pessoa troca no primeiro acesso.'],
   },
   usuario2: {
     titulo: 'Cadastrar um usuário: enviar',
@@ -284,6 +340,7 @@ const COMPUTADOR = {
   tutor: ['tutor-10-computador-lista', 'tutor-09-computador-detalhe'],
   pedagogico: ['ped-10-computador-lista', 'ped-09-computador-relatorio'],
   gestao: ['gestao-09-computador-usuarios', 'gestao-10-computador-turmas'],
+  psicologo: ['psi-05-computador-lista', 'psi-06-computador-detalhe'],
 };
 
 // [pergunta, resposta, imagem (opcional), guias em que aparece (opcional; padrão: todos)].
@@ -298,8 +355,8 @@ const PROBLEMAS_COMUNS = [
   ['O Sisto demorou para abrir.', 'Fora do horário da escola (antes das 7h, depois das 20h e nos fins de semana), a primeira abertura pode levar <b>até 1 minuto</b>. Aguarde, sem fechar a página.'],
   ['Apareceu "Não foi possível conectar ao servidor".', 'Confira a internet do celular (Wi-Fi ou dados móveis) e tente de novo.'],
   ['Apareceu "Sua sessão expirou".', 'Por segurança, a entrada vale por até <b>8 horas</b>. O que você escreveu continua na tela (1): copie o texto, se precisar. Toque em <b>Entrar novamente</b> (2). O Sisto volta para a mesma tela: cole o texto e envie de novo.', 'comum-sessao-expirada'],
-  ['Apertei sem querer para fechar uma janela com texto.', 'O Sisto pergunta antes de descartar. Toque em <b>Continuar editando</b> (1) para voltar ao texto, ou em <b>Descartar</b> (2) se quiser apagar.', 'comum-descartar-texto', ['tutor', 'pedagogico', 'gestao']],
-  ['Registrei uma ocorrência com um erro.', 'Ninguém pode editar uma ocorrência depois de registrada. Avise a <b>Equipe Pedagógica</b> ou a <b>Gestão</b>, que vão orientar o que fazer.', null, ['professor', 'tutor']],
+  ['Apertei sem querer para fechar uma janela com texto.', 'O Sisto pergunta antes de descartar. Toque em <b>Continuar editando</b> (1) para voltar ao texto, ou em <b>Descartar</b> (2) se quiser apagar.', 'comum-descartar-texto', ['tutor', 'pedagogico', 'gestao', 'psicologo']],
+  ['Registrei uma ocorrência com um erro.', 'Ninguém pode editar uma ocorrência depois de registrada. Avise a <b>Equipe Pedagógica</b> ou a <b>Gestão</b>, que vão orientar o que fazer.', null, ['professor', 'tutor', 'psicologo']],
 ];
 
 const GUIAS = [
@@ -307,29 +364,36 @@ const GUIAS = [
     id: 'professor',
     arquivo: 'Guia-Sisto-Professor-e-Tecnico-administrativo',
     titulo: 'Professor e Técnico-administrativo',
-    resumo: ['Entrar e criar a sua senha', 'Registrar uma ocorrência, passo a passo', 'Ver as ocorrências que você registrou', 'Trocar a sua senha e sair'],
-    passos: ['entrar', 'primeiroAcesso', 'inicioProfessor', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'reg6', 'registrada', 'lista', 'detalhe', 'historico', 'alterarSenha', 'sair'],
+    resumo: ['Entrar e criar a sua senha', 'Registrar uma ocorrência, passo a passo', 'Encaminhar ao psicólogo escolar, com justificativa', 'Ver as ocorrências que você registrou', 'Trocar a sua senha e sair'],
+    passos: ['entrar', 'primeiroAcesso', 'inicioProfessor', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'lista', 'detalhe', 'justificativaOculta', 'historico', 'alterarSenha', 'sair'],
   },
   {
     id: 'tutor',
     arquivo: 'Guia-Sisto-Tutor',
     titulo: 'Tutor',
-    resumo: ['Entrar e registrar ocorrências', 'Acompanhar as ocorrências dos seus tutorados', 'Registrar comunicações e providências', 'Encerrar uma ocorrência'],
-    passos: ['entrar', 'primeiroAcesso', 'inicioTutor', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'reg6', 'registrada', 'tutorLista', 'filtros', 'detalhe', 'tutorAcoes', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'alterarSenha', 'sair'],
+    resumo: ['Entrar e registrar ocorrências', 'Encaminhar ao psicólogo escolar, com justificativa', 'Acompanhar as ocorrências dos seus tutorados', 'Registrar comunicações e providências', 'Encerrar uma ocorrência'],
+    passos: ['entrar', 'primeiroAcesso', 'inicioTutor', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'tutorLista', 'filtros', 'detalhe', 'justificativaOculta', 'tutorAcoes', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'alterarSenha', 'sair'],
   },
   {
     id: 'pedagogico',
     arquivo: 'Guia-Sisto-Equipe-Pedagogica',
     titulo: 'Equipe Pedagógica',
-    resumo: ['Ver e procurar todas as ocorrências', 'Encaminhar e definir quem acompanha', 'Comunicações, providências e encerramento', 'Relatórios e categorias'],
-    passos: ['entrar', 'primeiroAcesso', 'inicioPedagogico', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'reg6', 'registrada', 'lista', 'filtros', 'detalhe', 'encaminharAcoes', 'encaminhar', 'encaminhar2', 'emAcompanhamento', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'relatorio', 'relatorio2', 'categorias', 'alterarSenha', 'sair'],
+    resumo: ['Ver e procurar todas as ocorrências', 'Encaminhar (inclusive ao psicólogo escolar) e definir quem acompanha', 'Comunicações, providências e encerramento', 'Relatórios e categorias'],
+    passos: ['entrar', 'primeiroAcesso', 'inicioPedagogico', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'lista', 'filtros', 'detalhe', 'justificativaOcultaPedagogico', 'encaminharAcoes', 'encaminhar', 'encaminhar2', 'emAcompanhamento', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'relatorio', 'relatorio2', 'categorias', 'alterarSenha', 'sair'],
   },
   {
     id: 'gestao',
     arquivo: 'Guia-Sisto-Gestao',
     titulo: 'Gestão',
-    resumo: ['Tudo o que a Equipe Pedagógica faz', 'Cadastrar usuários, bloquear e redefinir senhas', 'Cadastrar turmas e estudantes (com o tutor)', 'Relatórios e categorias'],
-    passos: ['entrar', 'primeiroAcesso', 'inicioGestao', 'usuario', 'usuario2', 'usuarioAcoes', 'redefinir', 'bloquear', 'turma', 'estudante', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'reg6', 'registrada', 'lista', 'filtros', 'detalhe', 'encaminharAcoes', 'encaminhar', 'encaminhar2', 'emAcompanhamento', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'relatorio', 'relatorio2', 'categorias', 'alterarSenha', 'sair'],
+    resumo: ['Tudo o que a Equipe Pedagógica faz', 'Cadastrar usuários (inclusive o psicólogo escolar), bloquear e redefinir senhas', 'Cadastrar turmas e estudantes (com o tutor)', 'Relatórios e categorias'],
+    passos: ['entrar', 'primeiroAcesso', 'inicioGestao', 'usuario', 'usuario2', 'usuarioAcoes', 'redefinir', 'bloquear', 'turma', 'estudante', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'regPsicologo', 'trocarDestinatario', 'reg6', 'registrada', 'lista', 'filtros', 'detalhe', 'encaminharAcoes', 'encaminhar', 'encaminhar2', 'emAcompanhamento', 'comunicacao', 'comunicacao2', 'providencia', 'encerrar', 'encerrada', 'historico', 'relatorio', 'relatorio2', 'categorias', 'alterarSenha', 'sair'],
+  },
+  {
+    id: 'psicologo',
+    arquivo: 'Guia-Sisto-Psicologo-Escolar',
+    titulo: 'Psicólogo escolar',
+    resumo: ['Entrar e criar a sua senha', 'Ver as ocorrências encaminhadas a você', 'Ler a justificativa e registrar comunicações', 'Registrar ocorrências, trocar a senha e sair'],
+    passos: ['entrar', 'primeiroAcesso', 'inicioPsicologo', 'psiLista', 'detalhe', 'psiJustificativa', 'psiAcoes', 'comunicacao', 'comunicacao2', 'historico', 'reg1', 'reg2', 'reg3', 'reg4', 'reg5', 'reg6', 'registrada', 'alterarSenha', 'sair'],
   },
 ];
 
@@ -486,7 +550,7 @@ const CSS_VISAO = `
 .figura.baixa { height: 72mm; }
 .legenda { font-size: 10.5pt; color: #5b6575; margin: -2.5mm 0 4mm; }
 .colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
-.perfil { border: 1.5px solid #d9dee8; border-left: 6px solid #88185d; border-radius: 3mm; padding: 3.5mm 5mm; margin-bottom: 4mm; }
+.perfil { border: 1.5px solid #d9dee8; border-left: 6px solid #88185d; border-radius: 3mm; padding: 3mm 5mm; margin-bottom: 3mm; }
 .perfil h2 { font-size: 15pt; color: #88185d; margin: 0 0 1mm; }
 .perfil p { margin: 0; }
 .matriz { width: 100%; border-collapse: collapse; font-size: 11.5pt; }
@@ -497,6 +561,12 @@ const CSS_VISAO = `
 .matriz .sim { color: #1e7a3c; font-weight: 800; }
 .matriz .nao { color: #9aa3b2; }
 .matriz .obs { font-size: 9.5pt; color: #5b6575; display: block; }
+/* Seis perfis (Issue #155): colunas fixas e texto menor para a tabela caber na página. */
+.matriz.seis { table-layout: fixed; font-size: 10.5pt; }
+.matriz.seis th { font-size: 9.5pt; padding: 2mm 1mm; }
+.matriz.seis td { padding: 1.8mm 1.2mm; }
+.matriz.seis th:first-child, .matriz.seis td:first-child { width: 34%; }
+.matriz.seis .obs { font-size: 8.5pt; line-height: 1.2; }
 .nota { font-size: 10.5pt; color: #5b6575; margin-top: 3mm; line-height: 1.4; }
 .fluxo { display: grid; grid-template-columns: 1fr 9mm 1fr 9mm 1fr; align-items: stretch; margin: 2mm 0 5mm; }
 .etapa { border-radius: 4mm; padding: 4mm; color: #1b2433; border: 2px solid; }
@@ -567,6 +637,7 @@ function gerarVisaoGeral() {
     ['Professor', 'Registra as ocorrências que observa em sala de aula ou na escola e consulta as que registrou.'],
     ['Técnico-administrativo', 'Igual ao Professor: registra ocorrências e consulta as que registrou.'],
     ['Tutor', 'Além de registrar, acompanha as ocorrências dos estudantes sob sua tutoria, as que recebe e as que acompanha como responsável. Registra comunicações com a família e, quando é o responsável pelo acompanhamento, registra providências e encerra a ocorrência.'],
+    ['Psicólogo escolar', 'Registra ocorrências e recebe as encaminhadas a ele, com a justificativa de quem pediu o acolhimento do estudante. Registra comunicações, mas não encaminha, não registra providências e não encerra.'],
     ['Equipe Pedagógica <span style="font-weight:400;font-size:11pt;color:#5b6575">(na tela, perfil "Pedagógico")</span>', 'Vê todas as ocorrências da escola, encaminha e define quem acompanha cada caso, registra comunicações e providências, encerra ocorrências, gera relatórios e cuida das categorias.'],
     ['Gestão', 'Faz tudo o que a Equipe Pedagógica faz e, além disso, cadastra usuários, turmas e estudantes, liga cada estudante ao seu tutor, redefine senhas e bloqueia ou desativa o acesso de quem sai da escola.'],
   ];
@@ -576,29 +647,31 @@ function gerarVisaoGeral() {
     ${perfis.map(([n, d]) => `<div class="perfil"><h2>${n}</h2><p>${d}</p></div>`).join('')}
   </section>`);
 
+  const seFez = `${S}<span class="obs">se fez o encaminha&shy;mento</span>`;
   const linhas = [
-    ['Registrar ocorrência', S, S, S, S, S],
-    ['Ver as ocorrências que registrou', S, S, S, S, S],
-    ['Ver as ocorrências dos seus tutorados', N, N, S, S, S],
-    ['Ver as ocorrências encaminhadas a você ou que você acompanha', N, N, S, S, S],
-    ['Ver todas as ocorrências da escola', N, N, N, S, S],
-    ['Encaminhar ocorrência e definir quem acompanha', N, N, N, S, S],
-    ['Registrar comunicação', N, N, `${S}<span class="obs">nas que vê</span>`, S, S],
-    ['Registrar providência e encerrar', N, N, `${S}<span class="obs">se for o responsável</span>`, S, S],
-    ['Ver relatórios', N, N, N, S, S],
-    ['Cadastrar e editar categorias', N, N, N, S, S],
-    ['Cadastrar usuários, turmas e estudantes', N, N, N, N, S],
-    ['Redefinir a senha de outra pessoa', N, N, N, N, S],
-    ['Trocar a própria senha', S, S, S, S, S],
+    ['Registrar ocorrência', S, S, S, S, S, S],
+    ['Ver as ocorrências que registrou', S, S, S, S, S, S],
+    ['Ver as ocorrências dos seus tutorados', N, N, S, N, S, S],
+    ['Ver as ocorrências encaminhadas a você ou que você acompanha', N, N, S, S, S, S],
+    ['Ver todas as ocorrências da escola', N, N, N, N, S, S],
+    ['Encaminhar ocorrência e definir quem acompanha', N, N, N, N, S, S],
+    ['Ler a justificativa do encaminhamento ao psicólogo escolar', seFez, seFez, seFez, `${S}<span class="obs">se for o destinatário</span>`, seFez, S],
+    ['Registrar comunicação', N, N, `${S}<span class="obs">nas que vê</span>`, `${S}<span class="obs">nas que vê</span>`, S, S],
+    ['Registrar providência e encerrar', N, N, `${S}<span class="obs">se for o responsável</span>`, N, S, S],
+    ['Ver relatórios', N, N, N, N, S, S],
+    ['Cadastrar e editar categorias', N, N, N, N, S, S],
+    ['Cadastrar usuários, turmas e estudantes', N, N, N, N, N, S],
+    ['Redefinir a senha de outra pessoa', N, N, N, N, N, S],
+    ['Trocar a própria senha', S, S, S, S, S, S],
   ];
   paginas.push(`<section class="pagina vg">${t}
     <h1>Quem pode fazer o quê</h1>
-    <table class="matriz">
-      <thead><tr><th>O que fazer</th><th>Professor</th><th>Técnico-adm.</th><th>Tutor</th><th>Equipe Pedagógica</th><th>Gestão</th></tr></thead>
+    <table class="matriz seis">
+      <thead><tr><th>O que fazer</th><th>Professor</th><th>Técnico-adm.</th><th>Tutor</th><th>Psicólogo escolar</th><th>Equipe Pedagógica</th><th>Gestão</th></tr></thead>
       <tbody>${linhas.map((l) => `<tr>${l.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
     </table>
     <p class="nota">✔ pode fazer · — não pode fazer.<br>
-    Professor e Técnico-administrativo não recebem encaminhamentos: a ocorrência é sempre encaminhada a um tutor, à Equipe Pedagógica ou à Gestão.<br>
+    Professor e Técnico-administrativo não recebem encaminhamentos: a ocorrência é sempre encaminhada a um tutor, ao psicólogo escolar, à Equipe Pedagógica ou à Gestão.<br>
     Se a escola precisar de outra divisão, fale com a Gestão.</p>
   </section>`);
 
@@ -606,7 +679,7 @@ function gerarVisaoGeral() {
     <h1>O caminho de uma ocorrência</h1>
     <p>Toda ocorrência passa por <b>três situações</b> (status), sempre nesta ordem:</p>
     <div class="fluxo">
-      <div class="etapa aberto"><div class="st">Aberto</div><div class="qm">Qualquer perfil registra a ocorrência e escolhe para quem ela vai: um tutor, a Equipe Pedagógica ou a Gestão.</div></div>
+      <div class="etapa aberto"><div class="st">Aberto</div><div class="qm">Qualquer perfil registra a ocorrência e escolhe para quem ela vai: um tutor, o psicólogo escolar, a Equipe Pedagógica ou a Gestão.</div></div>
       <div class="seta">→</div>
       <div class="etapa acomp"><div class="st">Em acompanhamento</div><div class="qm">A Equipe Pedagógica ou a Gestão encaminha e define o <b>responsável pelo acompanhamento</b>. Nessa fase, a escola registra os contatos com a família e as providências tomadas.</div></div>
       <div class="seta">→</div>
@@ -627,7 +700,7 @@ function gerarVisaoGeral() {
     <p>Todos os perfis registram ocorrências. Quem registra fica gravado como o <b>profissional responsável</b> pelo registro.</p>
     <div class="colunas">
       <div class="cartao"><h2>O que se informa</h2>
-        <ul><li>Turma e estudante(s) envolvido(s): pode ser mais de um, até de turmas diferentes.</li><li>Categoria e descrição do fato.</li><li>Data, hora e local.</li><li>Opcionais: demais envolvidos, testemunhas, providências imediatas e observações.</li><li>Para quem a ocorrência vai.</li></ul></div>
+        <ul><li>Turma e estudante(s) envolvido(s): pode ser mais de um, até de turmas diferentes.</li><li>Categoria e descrição do fato.</li><li>Data, hora e local.</li><li>Opcionais: demais envolvidos, testemunhas, providências imediatas e observações.</li><li>Para quem a ocorrência vai. No encaminhamento ao psicólogo escolar, também a <b>justificativa</b>.</li></ul></div>
       <div class="cartao"><h2>Cuidados</h2>
         <ul><li>A data e a hora do fato não podem estar no futuro.</li><li>Escreva de forma <b>objetiva</b>, contando o que aconteceu, sem rótulos ou palavras que ofendam o estudante.</li><li>Confira tudo antes de enviar: depois de registrada, a ocorrência não pode ser editada.</li></ul></div>
     </div>
@@ -638,7 +711,7 @@ function gerarVisaoGeral() {
   paginas.push(`<section class="pagina vg">${t}
     <h1>Acompanhar uma ocorrência</h1>
     <div class="cartao"><h2>Encaminhar</h2>
-      A Equipe Pedagógica e a Gestão encaminham a ocorrência para um tutor, para a Equipe Pedagógica ou para a Gestão, e escolhem o <b>responsável pelo acompanhamento</b>. A ocorrência passa para "Em acompanhamento". Enquanto não estiver encerrada, ela pode ser encaminhada de novo, e o responsável pode ser trocado.</div>
+      A Equipe Pedagógica e a Gestão encaminham a ocorrência para um tutor, para o psicólogo escolar, para a Equipe Pedagógica ou para a Gestão, e escolhem o <b>responsável pelo acompanhamento</b> (que não pode ser o psicólogo escolar). A ocorrência passa para "Em acompanhamento". Enquanto não estiver encerrada, ela pode ser encaminhada de novo, e o responsável pode ser trocado.</div>
     <div class="cartao"><h2>Comunicação</h2>
       Registra um contato que a escola fez <b>fora do sistema</b>, por exemplo, um telefonema para a família ou um contato com a rede de proteção. O Sisto <b>não envia</b> mensagens: ele guarda quem foi avisado, por qual meio e quando.</div>
     <div class="cartao"><h2>Providência e encerramento</h2>
@@ -683,7 +756,7 @@ function gerarVisaoGeral() {
   paginas.push(`<section class="pagina vg">${t}
     <h1>Segurança e proteção dos dados</h1>
     <p>As ocorrências têm informações de <b>estudantes menores de idade</b>. Por isso, o Sisto segue a Lei Geral de Proteção de Dados (LGPD):</p>
-    <div class="cartao"><h2>Cada um vê só o necessário</h2>Professor e Técnico-administrativo veem as ocorrências que registraram; o Tutor, também as dos seus tutorados, as que recebe e as que acompanha como responsável; só a Equipe Pedagógica e a Gestão veem todas.</div>
+    <div class="cartao"><h2>Cada um vê só o necessário</h2>Professor e Técnico-administrativo veem as ocorrências que registraram; o Tutor, também as dos seus tutorados, as que recebe e as que acompanha como responsável; o Psicólogo escolar, as que registrou e as encaminhadas a ele; só a Equipe Pedagógica e a Gestão veem todas. A <b>justificativa</b> do encaminhamento ao psicólogo escolar só aparece para o psicólogo que recebeu, para a Gestão e para quem fez o encaminhamento; as demais pessoas veem um aviso no lugar do texto.</div>
     <div class="cartao"><h2>Senhas protegidas</h2>A senha é pessoal e fica guardada de forma embaralhada: ninguém consegue lê-la, nem a Gestão. Depois de 5 senhas erradas, o Sisto pede para esperar alguns minutos (até 15) antes de tentar de novo. A conta não fica bloqueada.</div>
     <div class="cartao"><h2>Tudo fica registrado</h2>O Sisto guarda quem fez cada registro ou alteração e quando. Uma ocorrência não é editada nem apagada.</div>
     <div class="cartao"><h2>Acesso cortado na hora</h2>Quando a Gestão bloqueia ou desativa uma pessoa, ela perde o acesso imediatamente, mesmo que esteja com o Sisto aberto.</div>
@@ -705,7 +778,7 @@ function gerarVisaoGeral() {
     </ul></div>
     <h1 style="margin-top:8mm">Onde buscar ajuda</h1>
     <div class="cartao"><h2>Guias de uso, passo a passo</h2>
-      Há um guia com imagens para cada perfil: <b>Professor e Técnico-administrativo</b>, <b>Tutor</b>, <b>Equipe Pedagógica</b> e <b>Gestão</b>.</div>
+      Há um guia com imagens para cada perfil: <b>Professor e Técnico-administrativo</b>, <b>Tutor</b>, <b>Psicólogo escolar</b>, <b>Equipe Pedagógica</b> e <b>Gestão</b>.</div>
     <div class="cartao"><h2>Ainda com dúvida?</h2>Procure a <b>Gestão</b> ou a <b>Equipe Pedagógica</b> da escola.</div>
   </section>`);
 
