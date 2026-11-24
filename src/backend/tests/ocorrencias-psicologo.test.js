@@ -70,6 +70,7 @@ const {
   ACOES_HISTORICO,
   DESTINATARIOS_VALIDOS,
   MENSAGEM_ENCAMINHAMENTO_PSICOLOGO_OBRIGATORIO,
+  MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO,
   MENSAGEM_JUSTIFICATIVA_PSICOLOGO_OBRIGATORIA,
   MENSAGEM_OCORRENCIA_ENCERRADA_COMUNICACAO,
   MENSAGEM_OCORRENCIA_NAO_ENCONTRADA,
@@ -88,6 +89,7 @@ const {
   mensagemJustificativaPsicologoObrigatoria,
   mensagemPsicologoObrigatorio,
   mensagemTextoLongo,
+  mensagemTutorObrigatorio,
   podeLerObservacaoEncaminhamento,
   registrarOcorrencia,
 } = await import('../src/services/ocorrencias.js');
@@ -1045,4 +1047,151 @@ describe('podeLerObservacaoEncaminhamento — ponto único da RN24', () => {
       expect(() => podeLerObservacaoEncaminhamento(PSI_ENC, leitor)).toThrow(/usuário autenticado/);
     },
   );
+});
+
+describe('Mensagens 400 de encaminhamento sem nomes técnicos de campo (RNF02, Issue #157)', () => {
+  const NOMES_TECNICOS = /destinatarioUsuarioId|destinatarioPerfil|observacao|responsavelAcompanhamentoId/;
+
+  it.each([
+    ['tutor sem usuário (POST /ocorrencias)', mensagemTutorObrigatorio(2)],
+    ['psicólogo sem usuário (POST /ocorrencias)', mensagemPsicologoObrigatorio(2)],
+    ['psicólogo sem justificativa (POST /ocorrencias)', mensagemJustificativaPsicologoObrigatoria(2)],
+    ['tutor sem usuário (POST .../encaminhamentos)', MENSAGEM_ENCAMINHAMENTO_TUTOR_OBRIGATORIO],
+    ['psicólogo sem usuário (POST .../encaminhamentos)', MENSAGEM_ENCAMINHAMENTO_PSICOLOGO_OBRIGATORIO],
+    ['psicólogo sem justificativa (POST .../encaminhamentos)', MENSAGEM_JUSTIFICATIVA_PSICOLOGO_OBRIGATORIA],
+    ['responsável obrigatório (POST .../encaminhamentos)', MENSAGEM_RESPONSAVEL_OBRIGATORIO],
+  ])('%s', (_caso, mensagem) => {
+    expect(mensagem).not.toMatch(NOMES_TECNICOS);
+  });
+
+  it('as mensagens do POST /ocorrencias mantêm a posição do encaminhamento', () => {
+    expect(mensagemTutorObrigatorio(2)).toMatch(/^No encaminhamento 2, /);
+    expect(mensagemPsicologoObrigatorio(2)).toMatch(/^No encaminhamento 2, /);
+    expect(mensagemJustificativaPsicologoObrigatoria(2)).toMatch(/^No encaminhamento 2, /);
+  });
+});
+
+// QA da Issue #157: confere pela API (Supertest) o texto LITERAL de cada uma
+// das 7 mensagens no caso certo — os testes acima comparam com as próprias
+// constantes do service, então não pegariam um texto trocado por engano.
+describe('API devolve as 7 mensagens 400 de encaminhamento com o texto revisado (RNF02, Issue #157)', () => {
+  const NOMES_TECNICOS = /destinatarioUsuarioId|destinatarioPerfil|observacao|responsavelAcompanhamentoId/;
+
+  /** 400 só com { erro } (sem `codigo`), texto exato, sem nome técnico e nada gravado. */
+  function esperar400(res, texto) {
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ erro: texto });
+    expect(res.body.erro).not.toMatch(NOMES_TECNICOS);
+    esperarNadaGravado();
+  }
+
+  describe('POST /ocorrencias (registro), no encaminhamento 2', () => {
+    it('tutor sem usuário', async () => {
+      const res = await postOcorrencia(
+        corpoOcorrencia([{ destinatarioPerfil: 'GESTAO' }, { destinatarioPerfil: 'TUTOR' }]),
+        ID_PROFESSOR,
+      );
+      esperar400(res, 'No encaminhamento 2, escolha o tutor que vai receber a ocorrência.');
+    });
+
+    it('psicólogo sem usuário', async () => {
+      const res = await postOcorrencia(
+        corpoOcorrencia([
+          { destinatarioPerfil: 'GESTAO' },
+          { destinatarioPerfil: 'PSICOLOGO', observacao: 'Justificativa fictícia.' },
+        ]),
+        ID_PROFESSOR,
+      );
+      esperar400(res, 'No encaminhamento 2, escolha o psicólogo escolar que vai receber a ocorrência.');
+    });
+
+    it.each([
+      ['ausente', undefined],
+      ['vazia', ''],
+      ['só com espaços', '   '],
+    ])('psicólogo com justificativa %s', async (_c, observacao) => {
+      const item = { destinatarioPerfil: 'PSICOLOGO', destinatarioUsuarioId: ID_PSI };
+      if (observacao !== undefined) item.observacao = observacao;
+      const res = await postOcorrencia(
+        corpoOcorrencia([{ destinatarioPerfil: 'GESTAO' }, item]),
+        ID_PROFESSOR,
+      );
+      esperar400(res, 'No encaminhamento 2, informe a justificativa do encaminhamento ao psicólogo escolar.');
+    });
+  });
+
+  describe('POST /ocorrencias/{id}/encaminhamentos (encaminhamento posterior)', () => {
+    it('tutor sem usuário', async () => {
+      const res = await encaminhar(O3, { destinatarioPerfil: 'TUTOR' }, ID_GESTAO);
+      esperar400(res, 'Escolha o tutor que vai receber a ocorrência.');
+    });
+
+    it('psicólogo sem usuário', async () => {
+      const res = await encaminhar(
+        O3,
+        { destinatarioPerfil: 'PSICOLOGO', destinatarioUsuarioId: null, observacao: 'Justificativa fictícia.' },
+        ID_PEDAGOGICO,
+      );
+      esperar400(res, 'Escolha o psicólogo escolar que vai receber a ocorrência.');
+    });
+
+    it.each([
+      ['vazia', ''],
+      ['só com espaços', '  \t '],
+    ])('psicólogo com justificativa %s', async (_c, observacao) => {
+      const res = await encaminhar(
+        O3,
+        { destinatarioPerfil: 'PSICOLOGO', destinatarioUsuarioId: ID_PSI_2, observacao },
+        ID_GESTAO,
+      );
+      esperar400(res, 'Informe a justificativa do encaminhamento ao psicólogo escolar.');
+    });
+
+    it('responsável ausente em ocorrência aberta (mesmo texto que a tela já mostra)', async () => {
+      const res = await encaminhar(O1, { destinatarioPerfil: 'EQUIPE_PEDAGOGICA' }, ID_PEDAGOGICO);
+      esperar400(
+        res,
+        'Escolha o responsável pelo acompanhamento. Ele é obrigatório quando a ocorrência está "Aberto".',
+      );
+    });
+  });
+
+  describe('mensagens de formato do corpo continuam com o nome do campo (fora da Issue)', () => {
+    it('registro: destinatarioUsuarioId com formato inválido', async () => {
+      const res = await postOcorrencia(
+        corpoOcorrencia([{ destinatarioPerfil: 'TUTOR', destinatarioUsuarioId: 'abc' }]),
+        ID_PROFESSOR,
+      );
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        erro: 'No encaminhamento 1, informe destinatarioUsuarioId como número inteiro positivo (ou null).',
+      });
+    });
+
+    it('registro: encaminhamento que não é objeto', async () => {
+      const res = await postOcorrencia(corpoOcorrencia(['texto']), ID_PROFESSOR);
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        erro: 'O encaminhamento 1 deve ser um objeto com destinatarioPerfil e, opcionalmente, destinatarioUsuarioId e observacao.',
+      });
+    });
+
+    it('posterior: destinatarioUsuarioId com formato inválido', async () => {
+      const res = await encaminhar(O3, { destinatarioPerfil: 'TUTOR', destinatarioUsuarioId: 'abc' }, ID_GESTAO);
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ erro: 'Informe destinatarioUsuarioId como número inteiro positivo (ou null).' });
+    });
+
+    it('posterior: responsavelAcompanhamentoId com formato inválido', async () => {
+      const res = await encaminhar(
+        O1,
+        { destinatarioPerfil: 'EQUIPE_PEDAGOGICA', responsavelAcompanhamentoId: 'abc' },
+        ID_GESTAO,
+      );
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        erro: 'Informe responsavelAcompanhamentoId como número inteiro positivo (ou null).',
+      });
+    });
+  });
 });
