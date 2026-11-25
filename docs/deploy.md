@@ -347,3 +347,18 @@ O CI usa só valores fictícios; nenhum segredo real fica no GitHub.
 As variáveis de ambiente, o Neon e o agendamento da seção 12 não mudam.
 
 **Atenção (visto em 24/11/2026):** ao trocar o **Repository** (Source), o Render pode **apagar o Build Command** (e, no front-end, a Publish Directory). O deploy seguinte falha com "Empty build command; skipping build" e "Publish directory dist does not exist!". Depois de trocar o Source, confira Root Directory, Build Command, Publish Directory (front-end) e Start Command (API) com as tabelas das seções 3 e 4, e use **Manual Deploy → Deploy latest commit**. Enquanto isso, a versão anterior continua no ar.
+
+## 15. CodeQL (Issue #16)
+
+O CodeQL (`.github/workflows/codeql.yml`, check **Analisar JavaScript**) procura vulnerabilidades no JavaScript do back-end e do front-end. Roda em todo PR para `developer` e `main`, em todo push nessas branches e todo domingo às 3h de Brasília. Testes, `node_modules`, `dist` e `docs/treinamento/html` ficam de fora (`.github/codeql/codeql-config.yml`).
+
+**Onde ver:** GitHub → **Security → Code scanning**. Num PR, os alertas novos também aparecem na aba **Checks** e como comentários no diff.
+
+**Como tratar cada alerta:**
+
+- **Verdadeiro:** corrigir. Se a correção for pequena, na própria Issue em andamento; se for grande, abrir uma Issue própria e citar o alerta (link) nela. O alerta fecha sozinho quando a correção chega à branch analisada.
+- **Falso positivo:** no alerta, **Dismiss alert** → **False positive** (ou **Used in tests** / **Won't fix**), sempre com um comentário curto explicando por quê (ex.: "valor vem de variável de ambiente, não do usuário").
+
+**Proteção das branches:** o check do CodeQL **ainda não é obrigatório** em `main` e `developer` (seção 13). Tornar obrigatório só depois de tratar os alertas iniciais, por decisão do Rafael.
+
+**Atenção:** se o **default setup** do Code scanning estiver ligado em Settings → Code security, o envio deste workflow falha; use só um dos dois (aqui, o workflow).

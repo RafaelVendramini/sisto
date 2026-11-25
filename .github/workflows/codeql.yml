@@ -1,0 +1,52 @@
+# Análise de segurança do código com CodeQL (Issue #16): procura
+# vulnerabilidades (injeção, XSS, vazamento de dados etc.) no JavaScript do
+# back-end e do front-end. Gratuita para repositório público.
+#
+# Roda em todo PR para `developer` e `main`, em todo push nessas branches e uma
+# vez por semana (agendado), para pegar alertas de consultas novas do CodeQL
+# mesmo sem mudança no código. Os alertas aparecem em Security → Code scanning
+# (ver docs/deploy.md, seção 15).
+#
+# O check "Analisar JavaScript" ainda NÃO é obrigatório na proteção das
+# branches: só depois de tratar os alertas iniciais (decisão do Rafael).
+name: CodeQL
+
+on:
+  pull_request:
+    branches: [developer, main]
+  push:
+    branches: [developer, main]
+  schedule:
+    # Domingo, 6h UTC = 3h de Brasília: fora do horário da escola.
+    - cron: '0 6 * * 0'
+
+# Um PR atualizado cancela a análise anterior do mesmo PR.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  analisar:
+    name: Analisar JavaScript
+    runs-on: ubuntu-latest
+    # Permissões mínimas: ler o código, ler o estado das Actions e enviar os
+    # resultados para o Code scanning.
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v5
+      # JavaScript não precisa de build (build-mode: none) nem de `npm ci`:
+      # o CodeQL lê o código-fonte direto. O v4 é a versão estável atual, e o
+      # README da ação recomenda a tag da versão principal.
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:javascript-typescript
