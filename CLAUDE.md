@@ -3,6 +3,8 @@
 Sistema de gestão de ocorrências de alunos para a EE José Carlos Nogueira Reverendo – Professor.
 Dev responsável: **Rafael Vendramini**. Orientador: Prof. Kesede Julio.
 
+Repositório: **https://github.com/RafaelVendramini/sisto** (público; dados fictícios). Desde 24/11/2026 o projeto não faz mais parte da organização da disciplina (STATURETECH/LTD.2026.2.006, mantido só como registro).
+
 ## Fontes de verdade (ler antes de qualquer trabalho)
 
 1. [docs/SSD.md](docs/SSD.md) — **define o produto** (escopo, RNs, RFs, modelo de dados, API).
@@ -13,8 +15,9 @@ Nunca invente requisitos, regras ou funcionalidades. Se algo não está no SSD o
 
 ## Regras invioláveis
 
-- **Não alterar nada em `.github/`** (afeta a nota da Sprint).
+- Mudanças em `.github/` (workflows de CI, templates) só dentro de uma Issue e com aprovação do Rafael.
 - **Nunca** fazer commit, push, criar branch remota, Issue ou Pull Request sem autorização explícita do Rafael.
+- Merge na `main` publica em produção (Render, depois do CI verde): só com autorização explícita do Rafael.
 - Nunca declarar testes executados sem executá-los; se não executou, escreva **"não executado"**.
 - Somente **dados fictícios** em seeds, testes e exemplos (RN05 / LGPD). Nenhum dado real de estudante no repositório ou em prompts.
 - Usar apenas a stack definida abaixo; nova dependência só com justificativa no relatório.
@@ -49,12 +52,14 @@ src/
     └── tests/
 ```
 
-## Fluxo Git (exigido pelo Stature Auditor)
+## Fluxo Git e CI/CD
 
 - Branch: `feature|task|bugfix|spike/<nº-da-issue>-<slug-minusculo>` — ex.: `feature/12-registrar-ocorrencia`
 - Partir de e abrir PR para **`developer`** (nunca direto para `main`).
-- Corpo do PR com `Closes #<nº>` seguindo [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md).
+- Corpo do PR com `Closes #<nº>` seguindo [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md). O `Closes` só fecha a Issue no merge na `main`; ao mergear na `developer`, feche a Issue à mão.
 - Commits em português, no imperativo, citando a Issue: `feat(ocorrencias): registra ocorrência com múltiplos estudantes (#12)`.
+- O CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) roda em todo PR para `developer` e `main` os jobs **API**, **Front-end** e **E2E** (PostgreSQL descartável); `main` e `developer` só aceitam merge com os três verdes.
+- Deploy: o Render publica a **`main`** depois do CI verde (ver [docs/deploy.md](docs/deploy.md)). Para publicar, abre-se um PR `developer` → `main`.
 
 ## Equipe de agentes
 
