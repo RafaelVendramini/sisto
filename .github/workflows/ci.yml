@@ -39,8 +39,8 @@ jobs:
       DATABASE_URL: postgresql://ficticio:ficticio@localhost:5432/ficticio
       JWT_SECRET: segredo-ficticio-do-ci-com-mais-de-32-caracteres
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.VERSAO_NODE }}
           cache: npm
@@ -59,8 +59,8 @@ jobs:
     env:
       VITE_API_URL: https://sisto-api.onrender.com
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.VERSAO_NODE }}
           cache: npm
@@ -94,8 +94,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://sisto:sisto-ficticio@localhost:5432/sisto_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.VERSAO_NODE }}
           cache: npm
