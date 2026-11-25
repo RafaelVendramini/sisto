@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { CODIGOS_ERRO } from '../src/lib/erros.js';
+import { TENTATIVAS_TRANSACAO } from '../src/lib/transacao.js';
 
 const mocks = vi.hoisted(() => ({
   usuarioFindUnique: vi.fn(),
@@ -609,7 +610,7 @@ describe('Concorrência no cadastro de turmas', () => {
     const res = await postTurmas(TURMA_VALIDA);
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_TURMA, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
-    expect(mocks.$transaction).toHaveBeenCalledTimes(3);
+    expect(mocks.$transaction).toHaveBeenCalledTimes(TENTATIVAS_TRANSACAO);
   });
 
   it('erro inesperado do banco responde 500 genérico', async () => {

@@ -70,7 +70,8 @@ describe('emTransacaoSerializavel — P2034 (conflito de serialização)', () =>
 
   it(`esgotadas as ${TENTATIVAS_TRANSACAO} tentativas, responde 409 CONFLITO_CONCORRENTE com a mensagem do service`, async () => {
     const esperar = semEspera();
-    const db = dbComResultados(erroPrisma('P2034'), erroPrisma('P2034'), erroPrisma('P2034'), 'nunca');
+    const conflitos = Array.from({ length: TENTATIVAS_TRANSACAO }, () => erroPrisma('P2034'));
+    const db = dbComResultados(...conflitos, 'nunca');
     const promessa = emTransacaoSerializavel(db, async () => 'nunca', {
       mensagemConflito: MENSAGEM,
       esperar,
@@ -83,7 +84,20 @@ describe('emTransacaoSerializavel — P2034 (conflito de serialização)', () =>
     await expect(promessa).rejects.toBeInstanceOf(ErroHttp);
     expect(db.$transaction).toHaveBeenCalledTimes(TENTATIVAS_TRANSACAO);
     // Espera só ENTRE as tentativas (não depois da última).
-    expect(esperar.mock.calls).toEqual([[1], [2]]);
+    expect(esperar.mock.calls).toEqual(Array.from({ length: TENTATIVAS_TRANSACAO - 1 }, (_, i) => [i + 1]));
+  });
+
+  it('usa 5 tentativas (Issue #12): 3 conflitos seguidos ainda se resolvem na 4ª', async () => {
+    expect(TENTATIVAS_TRANSACAO).toBe(5);
+    const esperar = semEspera();
+    const db = dbComResultados(erroPrisma('P2034'), erroPrisma('P2034'), erroPrisma('P2034'), 'quarta');
+    const resultado = await emTransacaoSerializavel(db, async (tx) => tx.valor, {
+      mensagemConflito: MENSAGEM,
+      esperar,
+    });
+    expect(resultado).toBe('quarta');
+    expect(db.$transaction).toHaveBeenCalledTimes(4);
+    expect(esperar.mock.calls).toEqual([[1], [2], [3]]);
   });
 
   it('não chama traduzirErro no P2034', async () => {
@@ -111,7 +125,7 @@ describe('emTransacaoSerializavel — P2034 (conflito de serialização)', () =>
     ).resolves.toBe('segunda');
     expect(esperar).toHaveBeenCalledTimes(1);
 
-    const sempre = dbComResultados(conflitoNoCommit, conflitoNoCommit, conflitoNoCommit);
+    const sempre = dbComResultados(...Array.from({ length: TENTATIVAS_TRANSACAO }, () => conflitoNoCommit));
     await expect(
       emTransacaoSerializavel(sempre, async () => 'x', { mensagemConflito: MENSAGEM, esperar: semEspera() }),
     ).rejects.toMatchObject({ status: 409, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
