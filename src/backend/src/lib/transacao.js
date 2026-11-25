@@ -116,6 +116,8 @@ export async function emTransacaoSerializavel(
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
     } catch (erro) {
+      // DIAGNÓSTICO TEMPORÁRIO da Issue #12 (PR fechado sem merge).
+      if (!(erro instanceof ErroHttp)) console.warn(`[DIAG-12] tentativa=${tentativa} code=${erro?.code} name=${erro?.name} kind=${erro?.cause?.kind}`);
       if (erro instanceof ErroHttp) throw erro;
       if (ehConflitoDeSerializacao(erro)) {
         if (tentativa >= tentativas) throw erroConflito();

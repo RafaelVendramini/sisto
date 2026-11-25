@@ -20,7 +20,7 @@ import { MENSAGEM_MINIMO_GESTOES_ATIVAS } from '../../src/services/usuarios.js';
 import { criarUsuario, desconectarPrisma, enviar, entrar, limparBanco, prisma } from './apoio/dados.js';
 
 const app = criarApp();
-const RODADAS = 5;
+const RODADAS = 60; // DIAGNÓSTICO TEMPORÁRIO da Issue #12
 
 beforeAll(async () => {
   await limparBanco();
