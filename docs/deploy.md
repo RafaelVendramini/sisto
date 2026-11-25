@@ -347,3 +347,21 @@ O CI usa só valores fictícios; nenhum segredo real fica no GitHub.
 As variáveis de ambiente, o Neon e o agendamento da seção 12 não mudam.
 
 **Atenção (visto em 24/11/2026):** ao trocar o **Repository** (Source), o Render pode **apagar o Build Command** (e, no front-end, a Publish Directory). O deploy seguinte falha com "Empty build command; skipping build" e "Publish directory dist does not exist!". Depois de trocar o Source, confira Root Directory, Build Command, Publish Directory (front-end) e Start Command (API) com as tabelas das seções 3 e 4, e use **Manual Deploy → Deploy latest commit**. Enquanto isso, a versão anterior continua no ar.
+
+## 16. render.yaml (Spike #19)
+
+O arquivo [`docs/infra/render.yaml`](infra/render.yaml) descreve em Render Blueprint a configuração **atual** da `sisto-api` e do `sisto` (seções 3 e 4), sem nenhum segredo: as variáveis estão com `sync: false`. **Ele é só documentação versionada e não está ligado ao Render.** O painel continua sendo a fonte de verdade: ao mudar algo lá, atualize também o `render.yaml`. Ele fica em `docs/infra/` (e não na raiz, onde o Render procura o `render.yaml` ao criar um Blueprint) para não ser usado por engano. Para adotar um dia, o caminho do arquivo é informado ao Render (ou o arquivo é copiado para a raiz) seguindo o passo a passo abaixo.
+
+**Conclusão do spike (25/11/2026): manter só como documentação.** Motivos, pela documentação do Render ([Blueprints](https://render.com/docs/infrastructure-as-code) e [Blueprint YAML Reference](https://render.com/docs/blueprint-spec)):
+
+- Criar o Blueprint pelo painel (**New → Blueprint**) **não adota** os serviços atuais: quando os nomes coincidem, o Render cria serviços **novos**, com sufixo no nome. Seria uma segunda API ligada à `main`, pedindo `DATABASE_URL` e rodando `db:deploy` no build, e gastando as 750 horas gratuitas (seção 12).
+- Adotar os serviços existentes só é possível pela CLI (`render ea blueprints`, opção `--existing-resources adopt`), que está em **acesso antecipado** e pode mudar.
+- Depois de adotados, o Blueprint manda: cada push na branch ligada que altera o `render.yaml` sincroniza e reimplanta os serviços, e o sync **sobrescreve** mudanças feitas à mão no painel. A região da API não pode ser trocada depois da criação e não está registrada aqui.
+- Variáveis com `sync: false` são ignoradas em serviços já gerenciados (os valores do painel ficam), e variáveis fora do arquivo não são apagadas.
+
+> **Não crie um Blueprint no painel com este arquivo.** Se um dia o Rafael decidir adotar, siga antes estes passos, com tudo conferido e sem pressa:
+>
+> 1. No painel, selecione `sisto-api` e `sisto` e clique em **Generate Blueprint** (só gera o arquivo, não muda nada). Compare com o `render.yaml` e acerte as diferenças (incluindo a `region` da API e o `NODE_VERSION` do front, se existir).
+> 2. Tire prints das telas de Settings, Environment, Redirects/Rewrites e Headers dos dois serviços.
+> 3. Use a CLI do Render com `--existing-resources adopt` e **Auto Sync desligado**; rode o *plan* e só aprove se ele não mostrar nenhuma mudança além de passar a gerenciar os dois serviços.
+> 4. Confira as seções 3, 4 e 6 (login, cabeçalhos, `curl` da `/saude`). Se algo mudar, corrija no painel; a versão anterior continua no ar se o build falhar.

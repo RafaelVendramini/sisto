@@ -1,0 +1,81 @@
+# Render Blueprint do Sisto (Spike #19) — SOMENTE DOCUMENTAÇÃO.
+#
+# Este arquivo descreve a configuração ATUAL dos dois serviços do Render
+# (conferida pelo Rafael em 24 e 25/11/2026). Ele NÃO está ligado ao Render:
+# nenhum Blueprint foi criado no painel. Até decisão do Rafael, quem manda é o
+# painel do Render; ao mudar algo lá, atualize este arquivo e o docs/deploy.md.
+#
+# NÃO crie um Blueprint no painel (New → Blueprint) com este arquivo sem seguir
+# o passo a passo do docs/deploy.md, seção 16. O painel do Render cria serviços
+# NOVOS com sufixo no nome quando já existem serviços iguais, e um Blueprint
+# ligado sobrescreve no sync o que for mudado à mão no painel.
+#
+# Segredos: nenhum valor de variável fica aqui. As variáveis usam `sync: false`
+# (o valor só é pedido ao criar um serviço novo pelo Blueprint; em serviços que
+# já existem o Render ignora essas variáveis e mantém os valores do painel).
+#
+# Referência: https://render.com/docs/blueprint-spec
+
+services:
+  # API (docs/deploy.md, seção 3) — https://sisto-api.onrender.com
+  - type: web
+    name: sisto-api
+    runtime: node
+    plan: free
+    # region: não pode ser alterada depois da criação; se omitida, o Render usa
+    # `oregon` para serviço NOVO. A região atual da sisto-api não está
+    # registrada: conferir no painel (ou no "Generate Blueprint") antes de adotar.
+    repo: https://github.com/RafaelVendramini/sisto
+    branch: main
+    rootDir: src/backend
+    # Testes no build (#134): instala as dependências de desenvolvimento, roda os
+    # testes, remove-as e só então aplica as migrations.
+    buildCommand: npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy
+    startCommand: npm start
+    # Auto-Deploy "After CI Checks Pass" (Issue #6).
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DATABASE_URL # connection string direta do Neon (segredo)
+        sync: false
+      - key: JWT_SECRET # segredo, 32 caracteres ou mais
+        sync: false
+      - key: CORS_ORIGIN # https://sisto.onrender.com (sem barra no fim)
+        sync: false
+      - key: NODE_ENV # production
+        sync: false
+      - key: NODE_VERSION # 22
+        sync: false
+
+  # Front-end (docs/deploy.md, seção 4) — https://sisto.onrender.com
+  # No Blueprint, site estático é `type: web` com `runtime: static` (sem plan/region).
+  - type: web
+    name: sisto
+    runtime: static
+    repo: https://github.com/RafaelVendramini/sisto
+    branch: main
+    rootDir: src/frontend
+    buildCommand: npm ci && npm test && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: VITE_API_URL # https://sisto-api.onrender.com (sem barra no fim; vai para o navegador, nunca segredo)
+        sync: false
+    # Endereços abertos direto (ex.: /ocorrencias/12) e a página 404 (#78) chegam ao React.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    # Cabeçalhos de segurança (#127). Se a API mudar de endereço, troque o connect-src.
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://sisto-api.onrender.com; manifest-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
