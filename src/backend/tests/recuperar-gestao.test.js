@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import bcrypt from 'bcrypt';
+import { TENTATIVAS_TRANSACAO } from '../src/lib/transacao.js';
 
 const { findUnique, findMany, update, $transaction, $queryRaw, criarLog } = vi.hoisted(() => ({
   findUnique: vi.fn(),
@@ -442,13 +443,13 @@ describe('recuperarGestao — recusas (nada é gravado)', () => {
     expect(logs).toHaveLength(1);
   });
 
-  it('desiste com mensagem clara após 3 conflitos seguidos', async () => {
+  it(`desiste com mensagem clara após ${TENTATIVAS_TRANSACAO} conflitos seguidos`, async () => {
     $transaction.mockImplementation(async () => {
       throw erroPrisma('P2034');
     });
 
     await esperarRecusa(recuperar(EMAIL_GESTAO), MENSAGEM_CONFLITO);
-    expect($transaction).toHaveBeenCalledTimes(3);
+    expect($transaction).toHaveBeenCalledTimes(TENTATIVAS_TRANSACAO);
     esperarNadaAlterado();
   });
 
@@ -471,7 +472,7 @@ describe('recuperarGestao — recusas (nada é gravado)', () => {
     expect(logs).toHaveLength(1);
   });
 
-  it('conflito no COMMIT 3 vezes seguidas: mesma recusa clara do P2034', async () => {
+  it(`conflito no COMMIT ${TENTATIVAS_TRANSACAO} vezes seguidas: mesma recusa clara do P2034`, async () => {
     $transaction.mockImplementation(async () => {
       throw Object.assign(new Error('TransactionWriteConflict'), {
         name: 'DriverAdapterError',
@@ -480,7 +481,7 @@ describe('recuperarGestao — recusas (nada é gravado)', () => {
     });
 
     await esperarRecusa(recuperar(EMAIL_GESTAO), MENSAGEM_CONFLITO);
-    expect($transaction).toHaveBeenCalledTimes(3);
+    expect($transaction).toHaveBeenCalledTimes(TENTATIVAS_TRANSACAO);
     esperarNadaAlterado();
   });
 

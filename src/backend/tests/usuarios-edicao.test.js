@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { CODIGOS_ERRO } from '../src/lib/erros.js';
+import { TENTATIVAS_TRANSACAO } from '../src/lib/transacao.js';
 
 const { findUnique, findMany, create, update, count, $transaction, criarLog } = vi.hoisted(() => ({
   criarLog: vi.fn(),
@@ -785,7 +786,7 @@ describe('PUT /usuarios/{id} — concorrência (transação serializável)', () 
     });
 
     esperarErro(await put(ID_ALVO, { nome: 'Docente Editado' }), 409, MENSAGEM_CONFLITO_CONCORRENTE, CODIGOS_ERRO.CONFLITO_CONCORRENTE);
-    expect($transaction).toHaveBeenCalledTimes(3);
+    expect($transaction).toHaveBeenCalledTimes(TENTATIVAS_TRANSACAO);
   });
 });
 

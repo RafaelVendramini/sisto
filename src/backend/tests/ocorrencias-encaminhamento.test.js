@@ -9,6 +9,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { CODIGOS_ERRO } from '../src/lib/erros.js';
 import { OPERACOES_ESCRITA, criarBancoEmMemoria } from './apoio/bancoEmMemoria.js';
+import { TENTATIVAS_TRANSACAO } from '../src/lib/transacao.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -756,7 +757,7 @@ describe('transação única SERIALIZABLE', () => {
     const res = await encaminhar(O_ABERTA, { destinatarioPerfil: 'GESTAO', responsavelAcompanhamentoId: ID_TUTOR });
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_ENCAMINHAMENTO, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
-    expect(mocks.$transaction).toHaveBeenCalledTimes(3);
+    expect(mocks.$transaction).toHaveBeenCalledTimes(TENTATIVAS_TRANSACAO);
     esperarNadaGravado();
   });
 

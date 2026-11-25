@@ -36,7 +36,8 @@
 import { parseArgs } from 'node:util';
 import { Prisma } from '@prisma/client';
 import { criarPrismaClient } from '../src/lib/prisma.js';
-import { ehConflitoDeSerializacao } from '../src/lib/transacao.js';
+// Mesmo número de tentativas dos services (lib/transacao.js; 5 desde a Issue #12).
+import { TENTATIVAS_TRANSACAO, ehConflitoDeSerializacao } from '../src/lib/transacao.js';
 import { gerarHashSenha, mensagemPoliticaSenha } from '../src/services/senha.js';
 import { normalizarEmail } from '../src/services/email.js';
 import { proximaSenhaAlteradaEm } from '../src/services/troca-senha.js';
@@ -70,9 +71,6 @@ export const PREFIXO_RECUSA = 'Recuperação recusada — nada foi alterado.';
  */
 export const MENSAGEM_FALHA_BANCO =
   'Falha ao conectar ou gravar no banco — verifique a DATABASE_URL e confira o resultado antes de executar de novo.';
-
-/** Tentativas da transação serializável antes de desistir (mesmo valor da troca de senha). */
-const TENTATIVAS_TRANSACAO = 3;
 
 /**
  * Erro de validação do script. A mensagem é segura para exibir: nunca

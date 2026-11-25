@@ -9,6 +9,7 @@ import jwt from 'jsonwebtoken';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { CODIGOS_ERRO } from '../src/lib/erros.js';
+import { TENTATIVAS_TRANSACAO } from '../src/lib/transacao.js';
 
 const mocks = vi.hoisted(() => ({
   $transaction: vi.fn(),
@@ -1165,7 +1166,7 @@ describe('POST /ocorrencias — transação única', () => {
     const res = await postOcorrencia(corpoValido());
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_CONCORRENTE_OCORRENCIA, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
-    expect(mocks.$transaction).toHaveBeenCalledTimes(3);
+    expect(mocks.$transaction).toHaveBeenCalledTimes(TENTATIVAS_TRANSACAO);
   });
 
   it('o service aceita db e relógio injetados', async () => {

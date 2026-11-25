@@ -33,8 +33,17 @@
 import { Prisma } from '@prisma/client';
 import { CODIGOS_ERRO, ErroHttp } from './erros.js';
 
-/** Tentativas da transação serializável antes de desistir com 409. */
-export const TENTATIVAS_TRANSACAO = 3;
+/**
+ * Tentativas da transação serializável antes de desistir com 409.
+ *
+ * Eram 3 até a Issue #12 (RafaelVendramini/sisto). No CI (2 vCPU, PostgreSQL
+ * em contêiner), duas desativações simultâneas de Gestões colidem na 1ª
+ * tentativa em quase todas as rodadas e se resolvem na 2ª; às vezes as 3
+ * colidiam seguidas, e a segunda operação recebia o 409 CONFLITO_CONCORRENTE
+ * genérico em vez da mensagem da regra (RN11). Com 5, esse caso fica muito
+ * mais raro; o custo é só no conflito repetido (pior caso de ~0,5 s de espera).
+ */
+export const TENTATIVAS_TRANSACAO = 5;
 
 /** Faixa da espera aleatória entre tentativas, multiplicada pelo número da tentativa. */
 export const ESPERA_MINIMA_MS = 10;
