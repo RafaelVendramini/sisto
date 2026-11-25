@@ -14,6 +14,6 @@ Descreva objetivamente a implementação realizada.
 
 ## Checklist
 
-- [ ] Minha branch segue o padrão da disciplina
+- [ ] Minha branch segue o padrão do projeto (`tipo/nº-da-issue-slug`)
 - [ ] Vinculei a Issue com `Closes #`
 - [ ] O código foi testado antes do envio

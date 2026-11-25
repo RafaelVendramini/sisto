@@ -1,6 +1,6 @@
 # Deploy da homologação — Sisto
 
-Guia de operação do ambiente de homologação (SSD, Seção 10; Issues #79 e #80): front-end e API no **Render**, banco PostgreSQL no **Neon**, com deploy automático a partir da branch `developer`. O merge `developer` → `main` só acontece na entrega do MVP (#96).
+Guia de operação do ambiente de homologação (SSD, Seção 10; Issues #79 e #80): front-end e API no **Render**, banco PostgreSQL no **Neon**, com deploy automático a partir da branch `main`, depois do CI verde (Issue #6 de RafaelVendramini/sisto). Para publicar, abre-se um PR `developer` → `main`; o merge na `developer` não publica nada. Até 24/11/2026 o deploy saía da `developer` do repositório STATURETECH/LTD.2026.2.006.
 
 > **Segredos nunca vão para o repositório.** `DATABASE_URL`, `JWT_SECRET`, senhas do seed e a senha temporária da recuperação ficam somente nos painéis do Render/Neon ou no terminal, na hora do uso (SSD, Seção 10; RNF06).
 >
@@ -23,17 +23,17 @@ Guia de operação do ambiente de homologação (SSD, Seção 10; Issues #79 e #
 
 ## 3. API — Render (serviço web)
 
-Crie um **Web Service** ligado ao repositório `STATURETECH/LTD.2026.2.006`:
+Crie um **Web Service** ligado ao repositório `RafaelVendramini/sisto`:
 
 | Campo | Valor |
 | ----- | ----- |
-| Branch | `developer` |
+| Branch | `main` |
 | Root Directory | `src/backend` |
 | Runtime | Node |
 | Build Command (primeiro deploy) | `npm ci && npm run db:deploy && npm run db:seed` (sem testes: só para criar um serviço do zero; o deploy da homologação já foi feito) |
 | Build Command (depois do primeiro deploy) | `npm ci --include=dev && npm test && npm prune --omit=dev && npm run db:deploy` (testes no build — #134) |
 | Start Command | `npm start` |
-| Auto-Deploy | ligado (cada merge na `developer` publica) |
+| Auto-Deploy | **After CI checks pass** (publica a `main` só depois dos checks API, Front-end e E2E verdes) |
 | Plano | Free |
 
 - O build aplica as migrations (`prisma migrate deploy`). No **primeiro** deploy ele também roda o seed, que, com `NODE_ENV=production`, cria **só** o usuário Gestão inicial.
@@ -62,11 +62,11 @@ Crie um **Static Site** ligado ao mesmo repositório:
 
 | Campo | Valor |
 | ----- | ----- |
-| Branch | `developer` |
+| Branch | `main` |
 | Root Directory | `src/frontend` |
 | Build Command | `npm ci && npm test && npm run build` (testes no build — #134) |
 | Publish Directory | `dist` |
-| Auto-Deploy | ligado |
+| Auto-Deploy | **After CI checks pass** |
 
 **Variáveis:**
 
@@ -109,8 +109,8 @@ Sem `CORS_ORIGIN` em produção, a API não libera nenhuma origem (falha fechada
 
 **Cuidados aprendidos no primeiro deploy (15/11/2026):**
 
-- **Conexão com o GitHub:** o repositório é privado da organização STATURETECH. Conecte o GitHub ao Render pelo navegador do dia a dia; navegadores automatizados são bloqueados pelo GitHub.
-- **Valores padrão do Render:** ao criar o Web Service, o Render pode sugerir `Ruby`, branch `main`, Root Directory vazio e Build Command `yarn`. Troque todos: `Node`, `developer`, `src/backend` e o Build Command da tabela acima. Sem o Root Directory, o deploy falha com `Could not read package.json` (código 254).
+- **Conexão com o GitHub:** o repositório é `RafaelVendramini/sisto` (público, conta pessoal). Libere o acesso do Render a ele em GitHub → Settings → Applications → Render. Conecte o GitHub ao Render pelo navegador do dia a dia; navegadores automatizados são bloqueados pelo GitHub.
+- **Valores padrão do Render:** ao criar o Web Service, o Render pode sugerir `Ruby`, Root Directory vazio e Build Command `yarn`. Troque todos: `Node`, branch `main`, `src/backend` e o Build Command da tabela acima. Sem o Root Directory, o deploy falha com `Could not read package.json` (código 254).
 - **`DATABASE_URL`:** use a do **Neon**, nunca a do `.env` local (com `localhost`, o build falha com `P1001: Can't reach database server`).
 - **`NODE_ENV`:** tem que ser `production`. Com `development`, o seed criaria usuários fictícios no banco da homologação.
 - **`JWT_SECRET`:** gere um novo para a homologação; não reaproveite o do `.env` local.
@@ -273,7 +273,7 @@ Os Build Commands da API e do front-end rodam os testes automatizados antes de p
 
 ## 11. Migrations que criam restrições (ex.: unicidade da RN18, #129)
 
-Uma migration que cria um índice único falha se o banco já tiver dados que o violam. Por isso, **antes do merge na `developer`** (que publica sozinho):
+Uma migration que cria um índice único falha se o banco já tiver dados que o violam. Por isso, **antes do merge do PR `developer` → `main`** (que publica):
 
 1. **Conferir o banco de produção.** No Neon, abra o projeto `sisto` → **SQL Editor**, cole o conteúdo de `src/backend/prisma/conferencias/conferir-duplicatas-rn18.sql` e clique em **Run**. O script é só leitura (`BEGIN TRANSACTION READ ONLY` … `ROLLBACK`). As consultas 1 e 2 precisam voltar **vazias**; se tiverem linhas, renomeie as categorias ou turmas duplicadas pela tela da Gestão e confira de novo.
 2. Só então faça o merge.
@@ -290,25 +290,60 @@ Uma migration que cria um índice único falha se o banco já tiver dados que o 
 
 Nada é criado pela metade: o PostgreSQL executa a migration inteira numa transação.
 
-## 12. Manter a API acordada no plano gratuito (cron externo, #138)
+## 12. Manter a API acordada no plano gratuito (GitHub Actions, #9)
 
-No plano gratuito do Render, a API dorme depois de **15 minutos sem uso**, e o primeiro acesso seguinte leva de 30 a 60 segundos. O front-end (site estático) não dorme, e o Neon volta em menos de 1 segundo. Para a homologação, um **cron externo gratuito** chama `GET /saude` a cada 10 minutos no horário de uso da escola. A rota não acessa o banco, então não gasta as horas do Neon. O plano pago (Render Starter, sempre ligado) fica para a implantação com a escola (#95).
+No plano gratuito do Render, a API dorme depois de **15 minutos sem uso**, e o primeiro acesso seguinte leva de 20 a 60 segundos. O front-end (site estático) não dorme, e o Neon volta em menos de 1 segundo. Um agendamento chama `GET /saude` a cada 10 minutos no horário de uso da escola. A rota não acessa o banco, então não gasta as horas do Neon. O plano pago (Render Starter, sempre ligado) fica para a implantação com a escola (#3).
 
-**Conta das horas:** o plano gratuito dá **750 horas por mês para o workspace inteiro**. A escola funciona em **período integral**, e o cron roda de segunda a sexta, das 7h às 19h50 (última chamada). Com os 15 minutos que a API ainda fica acordada depois, são cerca de 13 horas por dia útil, ou seja, cerca de **300 horas por mês**, com folga para acessos fora do horário (antes das 7h e depois das 20h, o primeiro acesso leva cerca de 1 minuto). **Não** deixe o cron 24 horas por dia, 7 dias por semana: seriam cerca de 744 horas, praticamente todo o limite, e se ele acabar o Render suspende os serviços gratuitos até o mês seguinte.
+**Histórico:** de 23/11 a 25/11/2026 essas chamadas eram feitas pelo **cron-job.org** (Issue #138 do repositório antigo). Em 25/11/2026 ele foi **desativado automaticamente** depois de 26 falhas seguidas com **429 (muitas solicitações)**. O 429 não vinha da API (a `/saude` não tem limite de tentativas): era a borda do Render (Cloudflare) barrando os servidores do cron-job.org. O cronjob continua desativado na conta do Rafael e não deve ser reativado.
 
-**Configuração no cron-job.org** (uma vez):
+**Conta das horas:** o plano gratuito dá **750 horas por mês para o workspace inteiro**. A escola funciona em **período integral**, e o agendamento roda de segunda a sexta, das 7h às 19h50 (última chamada). Com os 15 minutos que a API ainda fica acordada depois, são cerca de 13 horas por dia útil, ou seja, cerca de **300 horas por mês**, com folga para acessos fora do horário. **Não** chame a API 24 horas por dia, 7 dias por semana (nem por monitor): seriam cerca de 744 horas, praticamente todo o limite, e se ele acabar o Render suspende os serviços gratuitos até o mês seguinte.
 
-1. Crie uma conta gratuita em https://cron-job.org e entre.
-2. Clique em **Create cronjob**:
-   - **Title:** `Sisto — manter API acordada`
-   - **URL:** `https://sisto-api.onrender.com/saude`
-   - **Execution schedule:** escolha **Custom** e marque: minutos de 10 em 10 (`0, 10, 20, 30, 40, 50`); horas `7` a `19`; dias da semana **segunda a sexta**; todos os dias do mês e todos os meses. O campo **Crontab expression** deve mostrar `*/10 7-19 * * 1-5` (configurado assim em 23/11/2026).
-   - **Time zone** do cronjob: `America/Sao_Paulo`.
-3. Em **Notifications**, ative o aviso por e-mail quando o cronjob falhar várias vezes seguidas (serve de alerta de que a API caiu).
-4. Ative **Save responses in job history** (para ver cabeçalhos e corpo de cada execução), salve e use **Test run** (ou espere o próximo horário): o histórico do cronjob deve mostrar **200**.
+**Como funciona:** o workflow `.github/workflows/manter-api-acordada.yml` roda com `cron: '*/10 10-22 * * 1-5'` (o GitHub usa UTC: 10h–22h50 UTC = 7h–19h50 de Brasília). Ele chama `/saude` com até 90 segundos de espera e até 3 novas tentativas, e **falha** se a resposta não for 200.
 
-**429 isolado no histórico:** a borda do Render pode, de vez em quando, limitar os servidores do cron-job.org e responder **429 Too Many Requests** (aconteceu na primeira execução, em 23/11/2026, e o teste seguinte deu 200). A rota `/saude` em si não tem limite de tentativas. Um 429 isolado não faz a API dormir (ela só dorme depois de 15 minutos sem nenhum acesso, e o cron chama a cada 10). Se os 429 ficarem frequentes, troque o serviço por outro gratuito com IPs diferentes (ex.: UptimeRobot, monitor a cada 5 minutos).
+- **Teste manual:** GitHub → **Actions** → **Manter API acordada** → **Run workflow** (branch `main`). A execução deve terminar verde, com `Resposta de …/saude: 200` no log.
+- **Alerta de queda da API:** quando uma execução falha, o GitHub manda e-mail a quem configurou o agendamento (em **Settings → Notifications → Actions** da conta, deixe ligado "Send notifications for failed workflows only").
+- **Limitações:** o GitHub pode atrasar execuções agendadas alguns minutos (a API pode dormir de vez em quando), e **desativa agendamentos de repositórios públicos depois de 60 dias sem atividade**. Se o repositório ficar parado, reative em **Actions → Manter API acordada → Enable workflow**.
+- O agendamento só roda a partir da branch padrão (`main`): ele passa a valer depois do PR `developer` → `main`.
 
-**Conferência:** num dia útil, abra `https://sisto.onrender.com` às 10h. A tela de login deve responder na hora, sem a espera de cerca de 1 minuto. No Render (`sisto-api` → **Logs**), não devem aparecer reinícios por inatividade durante o horário do cron.
+**Monitor do front-end (UptimeRobot):** um monitor gratuito, de fora do Render, avisa por e-mail se o site cair. Ele observa **só o front-end**, que não dorme e não consome as horas da API. Um monitor da API 24 horas por dia gastaria as 750 horas (ver acima), e um monitor espaçado daria alarme falso enquanto a API acorda.
 
-**Ao contratar o plano pago:** pause ou apague o cronjob no cron-job.org. Ele deixa de ser necessário, mas pode continuar como monitoramento: o aviso de falha avisa se a API cair.
+1. Crie uma conta gratuita em https://uptimerobot.com e entre.
+2. Clique em **New monitor**:
+   - **Monitor type:** HTTP(s)
+   - **Friendly name:** `Sisto — front-end`
+   - **URL:** `https://sisto.onrender.com/`
+   - **Monitoring interval:** 5 minutos
+3. Em **Alert contacts**, deixe o seu e-mail marcado e salve.
+4. Em alguns minutos, o monitor deve aparecer como **Up**.
+
+**Conferência:** num dia útil, abra `https://sisto.onrender.com` às 10h. A tela de login deve responder na hora, sem espera. No GitHub, **Actions → Manter API acordada** deve mostrar execuções a cada ~10 minutos, todas verdes.
+
+**Ao contratar o plano pago:** desative o workflow (Actions → Manter API acordada → **Disable workflow**) ou apague o arquivo. O monitor do UptimeRobot pode continuar, e passa a valer a pena incluir também a API nele.
+
+## 13. CI e deploy depois do CI (Issue #6, 24/11/2026)
+
+O CI (`.github/workflows/ci.yml`) roda em todo PR para `developer` e `main` e em todo push nessas branches, com três jobs:
+
+| Job | O que faz |
+| --- | --- |
+| **API** | `npm ci --include=dev` e `npm test` em `src/backend`, com `NODE_ENV=production`, o `CORS_ORIGIN` do front publicado e banco/segredo fictícios (a mesma simulação do build do Render) |
+| **Front-end** | `npm ci`, `npm test` e `npm run build` em `src/frontend` |
+| **E2E** | PostgreSQL descartável (`sisto_test`) criado no próprio job, `prisma migrate deploy` e `npm run test:e2e` |
+
+O CI usa só valores fictícios; nenhum segredo real fica no GitHub.
+
+**Fluxo:** Issue → branch → PR para `developer` (CI) → merge → PR `developer` → `main` (CI) → merge → o Render publica a `main` **depois** dos três checks verdes. Um merge na `developer` não publica nada.
+
+**Proteção das branches** (GitHub → Settings → Branches): `main` e `developer` só aceitam merge por PR, com os checks **API**, **Front-end** e **E2E** obrigatórios, sem push direto, force push nem exclusão.
+
+**Reconectar o Render ao repositório novo** (uma vez, em cada serviço: `sisto-api` e `sisto`):
+
+1. No GitHub, em **Settings → Applications → Render → Configure**, libere o repositório `RafaelVendramini/sisto`.
+2. No Render, abra o serviço → **Settings** → **Repository** e conecte `RafaelVendramini/sisto`.
+3. Em **Branch**, escolha `main`.
+4. Em **Auto-Deploy**, escolha **After CI checks pass**.
+5. Clique em **Manual Deploy → Deploy latest commit** e confira o log: o commit deve ser o da `main` do repositório novo.
+
+As variáveis de ambiente, o Neon e o agendamento da seção 12 não mudam.
+
+**Atenção (visto em 24/11/2026):** ao trocar o **Repository** (Source), o Render pode **apagar o Build Command** (e, no front-end, a Publish Directory). O deploy seguinte falha com "Empty build command; skipping build" e "Publish directory dist does not exist!". Depois de trocar o Source, confira Root Directory, Build Command, Publish Directory (front-end) e Start Command (API) com as tabelas das seções 3 e 4, e use **Manual Deploy → Deploy latest commit**. Enquanto isso, a versão anterior continua no ar.

@@ -1,0 +1,107 @@
+# CI do Sisto (Issue #6): roda em todo PR para `developer` e `main` e em todo
+# push nessas branches. Os 3 jobs são os checks exigidos pela proteção das
+# branches e pelo deploy do Render ("After CI checks pass").
+#
+# Só valores fictícios: nenhum segredo real é usado aqui (RN05 / LGPD).
+name: CI
+
+on:
+  pull_request:
+    branches: [developer, main]
+  push:
+    branches: [developer, main]
+
+# Um PR atualizado cancela a execução anterior do mesmo PR.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Nome próprio do projeto (em português); NODE_ENV, DATABASE_URL etc. são exigidos pelas ferramentas.
+  VERSAO_NODE: '22' # mesma versão do Render (variável NODE_VERSION do painel)
+
+jobs:
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/backend
+    # Mesmo ambiente da simulação do build do Render feita antes de cada merge:
+    # produção, CORS do front publicado e banco/segredo fictícios. O `npm test`
+    # troca a DATABASE_URL por uma fictícia (tests/setup-unitarios.js).
+    env:
+      NODE_ENV: production
+      CORS_ORIGIN: https://sisto.onrender.com
+      DATABASE_URL: postgresql://ficticio:ficticio@localhost:5432/ficticio
+      JWT_SECRET: segredo-ficticio-do-ci-com-mais-de-32-caracteres
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.VERSAO_NODE }}
+          cache: npm
+          cache-dependency-path: src/backend/package-lock.json
+      # --include=dev: com NODE_ENV=production o npm pularia o Vitest.
+      - run: npm ci --include=dev
+      - run: npm test
+
+  front:
+    name: Front-end
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+    # Sem NODE_ENV=production: com ele o `npm ci` não instala o Vite.
+    env:
+      VITE_API_URL: https://sisto-api.onrender.com
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.VERSAO_NODE }}
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/backend
+    # Banco de testes descartável, criado só para este job. Os testes e2e só
+    # aceitam banco local com nome terminado em "_test" (tests/e2e/apoio/ambiente.js).
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: sisto
+          POSTGRES_PASSWORD: sisto-ficticio
+          POSTGRES_DB: sisto_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sisto -d sisto_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://sisto:sisto-ficticio@localhost:5432/sisto_test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.VERSAO_NODE }}
+          cache: npm
+          cache-dependency-path: src/backend/package-lock.json
+      - run: npm ci
+      # O `npm run test:e2e` lê o .env.test; aqui ele é criado com o banco do job.
+      - run: echo "DATABASE_URL=$DATABASE_URL" > .env.test
+      - run: npx prisma migrate deploy
+      - run: npm run test:e2e

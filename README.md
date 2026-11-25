@@ -7,7 +7,7 @@
 | Campo           | Valor          |
 | --------------- | -------------- |
 | **Equipe**      | LTD.2026.2-006 |
-| **Repositório** | [STATURETECH/LTD.2026.2.006](https://github.com/STATURETECH/LTD.2026.2.006) |
+| **Repositório** | [RafaelVendramini/sisto](https://github.com/RafaelVendramini/sisto) (até 24/11/2026: [STATURETECH/LTD.2026.2.006](https://github.com/STATURETECH/LTD.2026.2.006), mantido como registro da disciplina) |
 | **Turma**       | Quinta-feira   |
 
 
