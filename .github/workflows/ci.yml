@@ -20,7 +20,8 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: '24'
+  # Nome próprio do projeto (em português); NODE_ENV, DATABASE_URL etc. são exigidos pelas ferramentas.
+  VERSAO_NODE: '22' # mesma versão do Render (variável NODE_VERSION do painel)
 
 jobs:
   api:
@@ -41,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ env.VERSAO_NODE }}
           cache: npm
           cache-dependency-path: src/backend/package-lock.json
       # --include=dev: com NODE_ENV=production o npm pularia o Vitest.
@@ -61,7 +62,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ env.VERSAO_NODE }}
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: npm ci
@@ -96,7 +97,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ env.VERSAO_NODE }}
           cache: npm
           cache-dependency-path: src/backend/package-lock.json
       - run: npm ci
