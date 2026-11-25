@@ -1,0 +1,44 @@
+# Mantém a API acordada no plano gratuito do Render (Issue #9).
+#
+# No plano gratuito, a API dorme depois de 15 minutos sem acesso e o primeiro
+# acesso seguinte demora. Este agendamento chama GET /saude a cada 10 minutos
+# no horário da escola (período integral): segunda a sexta, das 7h às 19h50 de
+# Brasília. O GitHub usa UTC: 7h–19h50 de Brasília = 10h–22h50 UTC.
+#
+# Substitui o cron-job.org, desativado em 25/11/2026 depois de falhas seguidas
+# com 429 (bloqueio da borda do Render aos servidores dele). Ver docs/deploy.md,
+# seção 12. Não rodar 24 horas por dia: as 750 horas mensais do plano gratuito
+# acabariam e o Render suspenderia os serviços.
+#
+# Observações: o GitHub pode atrasar execuções agendadas alguns minutos, e
+# desativa agendamentos de repositórios públicos depois de 60 dias sem
+# atividade. Se o job falhar, o GitHub avisa por e-mail quem configurou.
+name: Manter API acordada
+
+on:
+  schedule:
+    - cron: '*/10 10-22 * * 1-5'
+  # Execução manual, para testar (Actions → Manter API acordada → Run workflow).
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  # Nome próprio do projeto, em português (padrão do Sisto).
+  ENDERECO_SAUDE: https://sisto-api.onrender.com/saude
+
+jobs:
+  manter-api-acordada:
+    name: Chamar /saude
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Até 3 novas tentativas, com 20 segundos entre elas e até 90 segundos
+      # por chamada (a API pode estar acordando). Falha se não vier 200.
+      - name: Chamar a rota de saúde da API
+        run: |
+          codigo=$(curl --silent --fail --output /dev/null --write-out '%{http_code}' \
+            --max-time 90 --retry 3 --retry-delay 20 --retry-all-errors \
+            "$ENDERECO_SAUDE") || true
+          echo "Resposta de $ENDERECO_SAUDE: $codigo"
+          test "$codigo" = "200"
