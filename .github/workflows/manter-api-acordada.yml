@@ -31,14 +31,17 @@ jobs:
   manter-api-acordada:
     name: Chamar /saude
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 4 chamadas de até 90 s + 3 esperas de 20 s = até 7 minutos; folga para 8.
+    timeout-minutes: 8
     steps:
       # Até 3 novas tentativas, com 20 segundos entre elas e até 90 segundos
-      # por chamada (a API pode estar acordando). Falha se não vier 200.
+      # por chamada (a API pode estar acordando). Falha se o curl não terminar
+      # bem (ex.: resposta cortada) ou se não vier 200.
       - name: Chamar a rota de saúde da API
         run: |
+          saida_curl=0
           codigo=$(curl --silent --fail --output /dev/null --write-out '%{http_code}' \
             --max-time 90 --retry 3 --retry-delay 20 --retry-all-errors \
-            "$ENDERECO_SAUDE") || true
-          echo "Resposta de $ENDERECO_SAUDE: $codigo"
-          test "$codigo" = "200"
+            "$ENDERECO_SAUDE") || saida_curl=$?
+          echo "Resposta de $ENDERECO_SAUDE: $codigo (saída do curl: $saida_curl)"
+          test "$saida_curl" = "0" && test "$codigo" = "200"
