@@ -18,17 +18,25 @@ on:
 
 permissions: {}
 
+# Um aviso por vez para o mesmo workflow e branch: evita duas Issues iguais
+# quando duas falhas terminam juntas.
+concurrency:
+  group: avisar-ci-${{ github.event.workflow_run.name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
 jobs:
   avisar:
     name: Abrir aviso
-    # O filtro de branches também deixa passar o PR developer → main (a branch
-    # de origem é a developer), por isso o evento pull_request é descartado.
+    # Falha, tempo esgotado ou erro ao iniciar. O filtro de branches também
+    # deixa passar o PR developer → main (a branch de origem é a developer),
+    # por isso o evento pull_request é descartado.
     if: >-
-      github.event.workflow_run.conclusion == 'failure' &&
+      contains(fromJSON('["failure", "timed_out", "startup_failure"]'), github.event.workflow_run.conclusion) &&
       github.event.workflow_run.event != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      actions: read
       contents: read
       issues: write
     steps:
@@ -43,12 +51,25 @@ jobs:
           NOME_WORKFLOW: ${{ github.event.workflow_run.name }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
           EVENTO: ${{ github.event.workflow_run.event }}
+          CONCLUSAO: ${{ github.event.workflow_run.conclusion }}
           COMMIT: ${{ github.event.workflow_run.head_sha }}
+          ID_WORKFLOW: ${{ github.event.workflow_run.workflow_id }}
+          ID_EXECUCAO: ${{ github.event.workflow_run.id }}
           ENDERECO_EXECUCAO: ${{ github.event.workflow_run.html_url }}
         run: |
+          # Se uma execução mais nova do mesmo workflow e branch já ficou
+          # verde, o problema já foi resolvido: não abre aviso atrasado.
+          verde_mais_nova=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/$ID_WORKFLOW/runs?branch=$BRANCH&status=success&per_page=1" \
+            --jq '.workflow_runs[0].id // 0')
+          if [ "$verde_mais_nova" -gt "$ID_EXECUCAO" ]; then
+            echo "Já existe execução verde mais nova ($verde_mais_nova): aviso dispensado."
+            exit 0
+          fi
+
           titulo="$NOME_WORKFLOW falhou na $BRANCH (aviso automático)"
           {
-            echo "O workflow **$NOME_WORKFLOW** falhou na branch \`$BRANCH\`."
+            echo "O workflow **$NOME_WORKFLOW** falhou na branch \`$BRANCH\` (resultado: \`$CONCLUSAO\`)."
             echo
             echo "- Execução: $ENDERECO_EXECUCAO"
             echo "- Commit: \`${COMMIT:0:7}\`"

@@ -33,6 +33,13 @@ on:
 
 permissions: {}
 
+# Uma execução por vez: durante uma queda, uma execução (até 12 minutos) pode
+# passar do intervalo de 10 minutos, e duas ao mesmo tempo poderiam abrir duas
+# Issues de aviso iguais. A seguinte espera na fila.
+concurrency:
+  group: manter-api-acordada
+  cancel-in-progress: false
+
 env:
   # Nomes próprios do projeto, em português (padrão do Sisto).
   ENDERECO_SAUDE: https://sisto-api.onrender.com/saude

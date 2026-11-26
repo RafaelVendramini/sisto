@@ -418,6 +418,8 @@ Dois workflows abrem uma Issue quando algo quebra, para ninguém precisar ficar 
 | CI ou CodeQL com falha na `developer` ou na `main` | `avisar-ci-quebrado.yml` | `ci-quebrado` | `<workflow> falhou na <branch> (aviso automático)` |
 
 - **Falhas em PRs** não abrem Issue: o próprio PR já mostra o check vermelho.
+- **O que conta como falha no CI:** falha, tempo esgotado (`timed_out`) ou erro ao iniciar (`startup_failure`). Se uma execução mais nova do mesmo workflow e branch já ficou verde, o aviso atrasado é dispensado.
+- **Sem duplicar:** cada workflow de aviso roda um por vez (`concurrency`), então duas falhas seguidas não abrem duas Issues iguais.
 - **Ao resolver:** feche a Issue de aviso. A próxima falha abre uma nova.
 - **Produção:** durante uma queda, cada execução do agendamento (a cada 10 minutos) comenta na Issue aberta, e o comentário mostra se ainda está fora.
 - **CI quebrado:** o GitHub só dispara esse aviso a partir do arquivo na `main`. Ele passa a valer depois do PR `developer` → `main`.
