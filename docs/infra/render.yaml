@@ -60,6 +60,8 @@ services:
     envVars:
       - key: VITE_API_URL # https://sisto-api.onrender.com (sem barra no fim; vai para o navegador, nunca segredo)
         sync: false
+      - key: NODE_VERSION # 22 (o log do build de 24/11/2026 mostra "Using Node.js version 22.23.5 via environment variable NODE_VERSION")
+        sync: false
     # Endereços abertos direto (ex.: /ocorrencias/12) e a página 404 (#78) chegam ao React.
     routes:
       - type: rewrite
