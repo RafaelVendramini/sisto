@@ -1,0 +1,60 @@
+# Dependabot do Sisto (Issue #15): abre toda segunda-feira PRs de atualização
+# de dependências para a `developer`, que passam pelo CI antes do merge.
+# Atualizações minor e patch vêm juntas num PR por ecossistema (grupo
+# `dependencias-menores`); cada atualização major vem num PR separado.
+# Orientação de uso: docs/deploy.md, seção 14.
+version: 2
+
+updates:
+  # API (Node.js + Express + Prisma)
+  - package-ecosystem: "npm"
+    directory: "/src/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    target-branch: "developer"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels: ["dependencies"]
+    groups:
+      dependencias-menores:
+        update-types: ["minor", "patch"]
+
+  # Front-end (React + Vite)
+  - package-ecosystem: "npm"
+    directory: "/src/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    target-branch: "developer"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels: ["dependencies"]
+    groups:
+      dependencias-menores:
+        update-types: ["minor", "patch"]
+
+  # Ações usadas nos workflows (.github/workflows)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    target-branch: "developer"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies"]
+    groups:
+      dependencias-menores:
+        update-types: ["minor", "patch"]
