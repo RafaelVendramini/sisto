@@ -6,6 +6,8 @@
 # falhar, o PR fica aberto. Atualizações major NÃO entram: continuam esperando
 # o ok do Rafael (decisão de 26/11/2026). Os PRs de segurança do Dependabot vão
 # para a `main` e também não entram (merge na `main` = deploy).
+# Só pacotes npm (Issue #42): as atualizações das GitHub Actions mudam arquivos
+# em .github/ e, pelo CLAUDE.md, esperam o merge do Rafael.
 #
 # Pré-requisito: Settings → General → "Allow auto-merge" ligado.
 # Ver docs/deploy.md, seção 14.
@@ -34,12 +36,13 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Lista do que pode (e não do que não pode): se o tipo vier vazio ou for
-      # major, nada acontece.
-      - name: Ligar o merge automático (minor e patch)
+      # Lista do que pode (e não do que não pode): se o ecossistema não for npm,
+      # ou se o tipo vier vazio ou for major, nada acontece.
+      - name: Ligar o merge automático (npm, minor e patch)
         if: >-
-          steps.atualizacao.outputs.update-type == 'version-update:semver-minor' ||
-          steps.atualizacao.outputs.update-type == 'version-update:semver-patch'
+          steps.atualizacao.outputs.package-ecosystem == 'npm_and_yarn' &&
+          (steps.atualizacao.outputs.update-type == 'version-update:semver-minor' ||
+          steps.atualizacao.outputs.update-type == 'version-update:semver-patch')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ENDERECO_PR: ${{ github.event.pull_request.html_url }}
@@ -47,9 +50,11 @@ jobs:
 
       - name: Registrar quando fica para o Rafael
         if: >-
-          steps.atualizacao.outputs.update-type != 'version-update:semver-minor' &&
-          steps.atualizacao.outputs.update-type != 'version-update:semver-patch'
+          steps.atualizacao.outputs.package-ecosystem != 'npm_and_yarn' ||
+          (steps.atualizacao.outputs.update-type != 'version-update:semver-minor' &&
+          steps.atualizacao.outputs.update-type != 'version-update:semver-patch')
         env:
+          ECOSSISTEMA: ${{ steps.atualizacao.outputs.package-ecosystem }}
           TIPO: ${{ steps.atualizacao.outputs.update-type }}
         run: |
-          echo "Atualização '$TIPO' fora do merge automático: espera o ok do Rafael."
+          echo "Atualização '$TIPO' de '$ECOSSISTEMA' fora do merge automático: espera o ok do Rafael."

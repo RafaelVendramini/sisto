@@ -20,6 +20,20 @@ export const MENSAGENS_ERRO_CORPO = Object.freeze({
 export const MENSAGEM_ERRO_CORPO_GENERICA = 'Não foi possível ler o corpo da requisição.';
 
 /**
+ * Texto do log de um erro 500 (LGPD, Issue #42): nome, código (ex.: P2002 do
+ * Prisma) e só as linhas "at ..." da stack. A mensagem fica de fora porque
+ * algumas mensagens do Prisma repetem os valores enviados, que podem ser dados
+ * pessoais de estudantes. Pelo mesmo motivo, o objeto completo não é registrado.
+ */
+export function resumoErroParaLog(err) {
+  const linhasDaPilha =
+    typeof err?.stack === 'string' ? err.stack.split('\n').filter((linha) => /^\s+at /.test(linha)) : [];
+  return [err?.name, err?.code, ...linhasDaPilha]
+    .filter((parte) => typeof parte === 'string' && parte !== '')
+    .join('\n');
+}
+
+/**
  * Mensagem de um erro 4xx: a do ErroHttp, a traduzida do body-parser ou, para
  * outros erros, a original só quando `expose` permite.
  */
@@ -69,10 +83,9 @@ export function tratarErros(err, req, res, next) {
     return res.status(status).json({ erro: mensagem });
   }
 
-  // Registra só nome e stack: o objeto completo (ex.: erros do Prisma) pode
-  // carregar dados pessoais de estudantes (LGPD).
+  // Nem o objeto completo nem a mensagem vão para o log (ver resumoErroParaLog).
   if (process.env.NODE_ENV !== 'test') {
-    console.error(err?.name, err?.stack);
+    console.error(resumoErroParaLog(err));
   }
 
   return res.status(500).json({ erro: 'Erro interno do servidor' });
