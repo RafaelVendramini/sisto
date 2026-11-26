@@ -38,7 +38,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       # JavaScript não precisa de build (build-mode: none) nem de `npm ci`:
       # o CodeQL lê o código-fonte direto. O v4 é a versão estável atual, e o
       # README da ação recomenda a tag da versão principal.
