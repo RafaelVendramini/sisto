@@ -352,7 +352,7 @@ As variáveis de ambiente, o Neon e o agendamento da seção 12 não mudam.
 
 O CodeQL (`.github/workflows/codeql.yml`, check **Analisar JavaScript**) procura vulnerabilidades no JavaScript do back-end e do front-end. Roda em todo PR para `developer` e `main`, em todo push nessas branches e todo domingo às 3h de Brasília. Testes, `node_modules`, `dist` e `docs/treinamento/html` ficam de fora (`.github/codeql/codeql-config.yml`).
 
-**Onde ver:** GitHub → **Security → Code scanning**. Num PR, os alertas novos também aparecem na aba **Checks** e como comentários no diff.
+**Onde ver:** GitHub → **Security → Code scanning**. Num PR, os alertas novos também aparecem na aba **Checks** e como comentários no diff. Exceção: em PR vindo de um **fork** (cópia do repositório de outra pessoa), o GitHub não deixa o CodeQL publicar os resultados no PR; a análise do código só aparece depois do merge, no push da `developer`.
 
 **Como tratar cada alerta:**
 

@@ -11,10 +11,10 @@
 name: Configuração do CodeQL do Sisto
 
 paths-ignore:
-  - '**/node_modules'
-  - '**/dist'
-  - 'src/backend/tests'
-  - 'src/frontend/tests'
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - 'src/backend/tests/**'
+  - 'src/frontend/tests/**'
   - '**/*.test.js'
   - '**/*.test.jsx'
-  - 'docs/treinamento/html'
+  - 'docs/treinamento/html/**'
