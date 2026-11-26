@@ -12,7 +12,12 @@
 #
 # Observações: o GitHub pode atrasar execuções agendadas alguns minutos, e
 # desativa agendamentos de repositórios públicos depois de 60 dias sem
-# atividade. Se o job falhar, o GitHub avisa por e-mail quem configurou.
+# atividade.
+#
+# Aviso de produção fora do ar (Issue #32): também confere o site e, se a API ou
+# o site falharem depois das novas tentativas, abre uma Issue com o rótulo
+# `producao` (ou comenta na que já estiver aberta). Fica no mesmo horário para
+# não gastar horas extras do Render.
 name: Manter API acordada
 
 on:
@@ -20,28 +25,98 @@ on:
     - cron: '*/10 10-22 * * 1-5'
   # Execução manual, para testar (Actions → Manter API acordada → Run workflow).
   workflow_dispatch:
+    inputs:
+      simular_falha:
+        description: 'Simular falha da API (testa o aviso; abre uma Issue de simulação)'
+        type: boolean
+        default: false
 
 permissions: {}
 
+# Uma execução por vez: durante uma queda, uma execução (até 12 minutos) pode
+# passar do intervalo de 10 minutos, e duas ao mesmo tempo poderiam abrir duas
+# Issues de aviso iguais. A seguinte espera na fila.
+concurrency:
+  group: manter-api-acordada
+  cancel-in-progress: false
+
 env:
-  # Nome próprio do projeto, em português (padrão do Sisto).
+  # Nomes próprios do projeto, em português (padrão do Sisto).
   ENDERECO_SAUDE: https://sisto-api.onrender.com/saude
+  ENDERECO_SITE: https://sisto.onrender.com/
+  # Rota que não existe (404), usada só na simulação.
+  ENDERECO_SIMULACAO: https://sisto-api.onrender.com/rota-inexistente-simulacao
 
 jobs:
   manter-api-acordada:
     name: Chamar /saude
     runs-on: ubuntu-latest
-    # 4 chamadas de até 90 s + 3 esperas de 20 s = até 7 minutos; folga para 8.
-    timeout-minutes: 8
+    # API: até 7 minutos (4 chamadas de até 90 s + 3 esperas de 20 s); site: até
+    # 3 minutos; aviso: menos de 1 minuto. Folga para 12.
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      issues: write
     steps:
       # Até 3 novas tentativas, com 20 segundos entre elas e até 90 segundos
       # por chamada (a API pode estar acordando). Falha se o curl não terminar
       # bem (ex.: resposta cortada) ou se não vier 200.
       - name: Chamar a rota de saúde da API
+        id: api
+        env:
+          SIMULAR_FALHA: ${{ inputs.simular_falha }}
         run: |
+          if [ "$SIMULAR_FALHA" = "true" ]; then
+            echo "Simulação de falha: chamando uma rota que não existe."
+            ENDERECO_SAUDE="$ENDERECO_SIMULACAO"
+          fi
           saida_curl=0
           codigo=$(curl --silent --fail --output /dev/null --write-out '%{http_code}' \
             --max-time 90 --retry 3 --retry-delay 20 --retry-all-errors \
             "$ENDERECO_SAUDE") || saida_curl=$?
           echo "Resposta de $ENDERECO_SAUDE: $codigo (saída do curl: $saida_curl)"
           test "$saida_curl" = "0" && test "$codigo" = "200"
+
+      # O site é estático e não dorme: até 30 segundos por chamada e 3 novas
+      # tentativas. Roda mesmo se a API falhou, para o aviso dizer o que caiu.
+      - name: Conferir o site
+        id: site
+        if: ${{ !cancelled() }}
+        run: |
+          saida_curl=0
+          codigo=$(curl --silent --fail --output /dev/null --write-out '%{http_code}' \
+            --max-time 30 --retry 3 --retry-delay 20 --retry-all-errors \
+            "$ENDERECO_SITE") || saida_curl=$?
+          echo "Resposta de $ENDERECO_SITE: $codigo (saída do curl: $saida_curl)"
+          test "$saida_curl" = "0" && test "$codigo" = "200"
+
+      - name: Baixar o script do aviso
+        if: failure()
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Abrir ou comentar o aviso de produção
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIMULAR_FALHA: ${{ inputs.simular_falha }}
+          RESULTADO_API: ${{ steps.api.outcome }}
+          RESULTADO_SITE: ${{ steps.site.outcome }}
+          ENDERECO_EXECUCAO: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          titulo='Produção fora do ar (aviso automático)'
+          if [ "$SIMULAR_FALHA" = "true" ]; then
+            titulo="[Simulação] $titulo"
+          fi
+          traduzir() { [ "$1" = "success" ] && echo "ok" || echo "**falhou**"; }
+          {
+            echo "A conferência de produção falhou em $(TZ=America/Sao_Paulo date '+%d/%m/%Y %H:%M') (horário de Brasília)."
+            echo
+            echo "- API (\`/saude\`): $(traduzir "$RESULTADO_API")"
+            echo "- Site: $(traduzir "$RESULTADO_SITE")"
+            echo "- Execução: $ENDERECO_EXECUCAO"
+            echo
+            echo "Confira o painel do Render (Events e Logs) e o Neon. Feche este aviso quando a produção voltar."
+          } > "$RUNNER_TEMP/aviso.md"
+          bash .github/scripts/avisar-por-issue.sh producao "$titulo" "$RUNNER_TEMP/aviso.md"

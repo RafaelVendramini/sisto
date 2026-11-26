@@ -1,0 +1,55 @@
+# Merge automático dos PRs do Dependabot com atualizações pequenas (Issue #32).
+#
+# Liga o "auto-merge" do GitHub nos PRs do Dependabot para a `developer` cuja
+# maior mudança é minor ou patch. O GitHub só mergeia depois dos checks
+# obrigatórios da proteção da branch (API, Front-end e E2E) verdes; se algum
+# falhar, o PR fica aberto. Atualizações major NÃO entram: continuam esperando
+# o ok do Rafael (decisão de 26/11/2026). Os PRs de segurança do Dependabot vão
+# para a `main` e também não entram (merge na `main` = deploy).
+#
+# Pré-requisito: Settings → General → "Allow auto-merge" ligado.
+# Ver docs/deploy.md, seção 14.
+name: Merge automático do Dependabot
+
+on:
+  pull_request:
+    branches: [developer]
+
+permissions: {}
+
+jobs:
+  ligar-merge-automatico:
+    name: Ligar merge automático
+    # Só PRs abertos pelo próprio Dependabot.
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Ler os dados da atualização
+        id: atualizacao
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Lista do que pode (e não do que não pode): se o tipo vier vazio ou for
+      # major, nada acontece.
+      - name: Ligar o merge automático (minor e patch)
+        if: >-
+          steps.atualizacao.outputs.update-type == 'version-update:semver-minor' ||
+          steps.atualizacao.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENDERECO_PR: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --merge "$ENDERECO_PR"
+
+      - name: Registrar quando fica para o Rafael
+        if: >-
+          steps.atualizacao.outputs.update-type != 'version-update:semver-minor' &&
+          steps.atualizacao.outputs.update-type != 'version-update:semver-patch'
+        env:
+          TIPO: ${{ steps.atualizacao.outputs.update-type }}
+        run: |
+          echo "Atualização '$TIPO' fora do merge automático: espera o ok do Rafael."
