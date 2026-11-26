@@ -1,0 +1,59 @@
+# Aviso de CI quebrado (Issue #32).
+#
+# Quando o CI ou o CodeQL terminam com falha na `developer` ou na `main` (push
+# ou execução agendada), abre uma Issue com o rótulo `ci-quebrado` e o link da
+# execução. Se já houver uma Issue aberta para o mesmo workflow e branch, só
+# comenta nela. Falhas em PRs não abrem Issue: o próprio PR já mostra.
+#
+# Observação: o GitHub só dispara `workflow_run` a partir do arquivo que está
+# na branch padrão (`main`). O aviso passa a valer depois do PR
+# `developer` → `main`. Ver docs/deploy.md, seção 17.
+name: Avisar CI quebrado
+
+on:
+  workflow_run:
+    workflows: [CI, CodeQL]
+    types: [completed]
+    branches: [developer, main]
+
+permissions: {}
+
+jobs:
+  avisar:
+    name: Abrir aviso
+    # O filtro de branches também deixa passar o PR developer → main (a branch
+    # de origem é a developer), por isso o evento pull_request é descartado.
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Baixar o script do aviso
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Abrir ou comentar a Issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOME_WORKFLOW: ${{ github.event.workflow_run.name }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          EVENTO: ${{ github.event.workflow_run.event }}
+          COMMIT: ${{ github.event.workflow_run.head_sha }}
+          ENDERECO_EXECUCAO: ${{ github.event.workflow_run.html_url }}
+        run: |
+          titulo="$NOME_WORKFLOW falhou na $BRANCH (aviso automático)"
+          {
+            echo "O workflow **$NOME_WORKFLOW** falhou na branch \`$BRANCH\`."
+            echo
+            echo "- Execução: $ENDERECO_EXECUCAO"
+            echo "- Commit: \`${COMMIT:0:7}\`"
+            echo "- Disparado por: \`$EVENTO\`"
+            echo
+            echo "Abra a execução, veja o job vermelho e corrija numa Issue própria. Feche este aviso quando o workflow voltar a ficar verde."
+          } > "$RUNNER_TEMP/aviso.md"
+          bash .github/scripts/avisar-por-issue.sh ci-quebrado "$titulo" "$RUNNER_TEMP/aviso.md"

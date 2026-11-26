@@ -301,7 +301,7 @@ No plano gratuito do Render, a API dorme depois de **15 minutos sem uso**, e o p
 **Como funciona:** o workflow `.github/workflows/manter-api-acordada.yml` roda com `cron: '*/10 10-22 * * 1-5'` (o GitHub usa UTC: 10h–22h50 UTC = 7h–19h50 de Brasília). Ele chama `/saude` com até 90 segundos de espera e até 3 novas tentativas, e **falha** se a resposta não for 200.
 
 - **Teste manual:** GitHub → **Actions** → **Manter API acordada** → **Run workflow** (branch `main`). A execução deve terminar verde, com `Resposta de …/saude: 200` no log.
-- **Alerta de queda da API:** quando uma execução falha, o GitHub manda e-mail a quem configurou o agendamento (em **Settings → Notifications → Actions** da conta, deixe ligado "Send notifications for failed workflows only").
+- **Alerta de queda (Issue #32):** o workflow também confere o site. Se a API ou o site falharem depois das novas tentativas, ele abre a Issue **"Produção fora do ar (aviso automático)"**, com o rótulo `producao`, ou comenta nela se já estiver aberta (ver seção 17). O GitHub também manda e-mail sobre a falha a quem configurou o agendamento (em **Settings → Notifications → Actions** da conta, deixe ligado "Send notifications for failed workflows only").
 - **Limitações:** o GitHub pode atrasar execuções agendadas alguns minutos (a API pode dormir de vez em quando), e **desativa agendamentos de repositórios públicos depois de 60 dias sem atividade**. Se o repositório ficar parado, reative em **Actions → Manter API acordada → Enable workflow**.
 - O agendamento só roda a partir da branch padrão (`main`): ele passa a valer depois do PR `developer` → `main`.
 
@@ -354,7 +354,12 @@ O `.github/dependabot.yml` faz o Dependabot procurar atualizações toda **segun
 
 **Como chegam os PRs:** sempre para a **`developer`**, com o rótulo `dependencies` e commit `chore(deps): ...` (ou `chore(deps-dev): ...` para dependências de desenvolvimento). As atualizações minor e patch de cada ecossistema vêm juntas num só PR (grupo `dependencias-menores`); cada atualização major vem num PR separado. No máximo 5 PRs abertos por ecossistema.
 
-**O que fazer com cada PR:**
+**Merge automático das atualizações pequenas (Issue #32):** o workflow `.github/workflows/merge-automatico-dependabot.yml` liga o *auto-merge* do GitHub nos PRs do Dependabot para a `developer` cuja **maior** mudança é minor ou patch. O GitHub mergeia sozinho quando os três checks ficam verdes; se algum falhar, o PR fica aberto. Atualizações **major** não entram.
+
+- **Pré-requisito:** **Settings → General → Allow auto-merge** ligado. Sem isso, o job "Ligar merge automático" falha e o PR espera o merge manual.
+- **Limitação:** o merge feito pelo GitHub Actions não dispara o CI de push na `developer` (regra do GitHub para ações do `GITHUB_TOKEN`). Os checks do próprio PR já rodaram, e o PR `developer` → `main` roda o CI completo antes do deploy.
+
+**O que fazer com os PRs que ficam abertos (major ou com CI vermelho):**
 
 1. Esperar o CI e conferir os três checks verdes (**API**, **Front-end** e **E2E**). Se algum falhar, não mergear: corrigir numa Issue própria ou fechar o PR.
 2. Em atualização **major**, ler o changelog / release notes da dependência (link no corpo do PR) antes de mergear.
@@ -402,3 +407,20 @@ O arquivo [`docs/infra/render.yaml`](infra/render.yaml) descreve em Render Bluep
 > 2. Tire prints das telas de Settings, Environment, Redirects/Rewrites e Headers dos dois serviços.
 > 3. Use a CLI do Render com `--existing-resources adopt` e **Auto Sync desligado**; rode o *plan* e só aprove se ele não mostrar nenhuma mudança além de passar a gerenciar os dois serviços.
 > 4. Confira as seções 3, 4 e 6 (login, cabeçalhos, `curl` da `/saude`). Se algo mudar, corrija no painel; a versão anterior continua no ar se o build falhar.
+
+## 17. Avisos automáticos por Issue (Issue #32)
+
+Dois workflows abrem uma Issue quando algo quebra, para ninguém precisar ficar olhando o GitHub Actions. Os dois usam o script `.github/scripts/avisar-por-issue.sh`: se já houver uma Issue **aberta** com o mesmo título, ele só **comenta** nela, sem abrir outra.
+
+| Aviso | Workflow | Rótulo | Título da Issue |
+| --- | --- | --- | --- |
+| Produção fora do ar (API ou site) | `manter-api-acordada.yml` (seção 12) | `producao` | `Produção fora do ar (aviso automático)` |
+| CI ou CodeQL com falha na `developer` ou na `main` | `avisar-ci-quebrado.yml` | `ci-quebrado` | `<workflow> falhou na <branch> (aviso automático)` |
+
+- **Falhas em PRs** não abrem Issue: o próprio PR já mostra o check vermelho.
+- **Ao resolver:** feche a Issue de aviso. A próxima falha abre uma nova.
+- **Produção:** durante uma queda, cada execução do agendamento (a cada 10 minutos) comenta na Issue aberta, e o comentário mostra se ainda está fora.
+- **CI quebrado:** o GitHub só dispara esse aviso a partir do arquivo na `main`. Ele passa a valer depois do PR `developer` → `main`.
+- Os rótulos são criados sozinhos na primeira vez.
+
+**Teste do aviso de produção:** GitHub → **Actions** → **Manter API acordada** → **Run workflow**, marcando **"Simular falha da API"**. A execução fica vermelha e abre a Issue `[Simulação] Produção fora do ar (aviso automático)`; uma segunda simulação só comenta nela. Feche a Issue de simulação depois do teste.
