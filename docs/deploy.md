@@ -354,7 +354,7 @@ O `.github/dependabot.yml` faz o Dependabot procurar atualizações toda **segun
 
 **Como chegam os PRs:** sempre para a **`developer`**, com o rótulo `dependencies` e commit `chore(deps): ...` (ou `chore(deps-dev): ...` para dependências de desenvolvimento). As atualizações minor e patch de cada ecossistema vêm juntas num só PR (grupo `dependencias-menores`); cada atualização major vem num PR separado. No máximo 5 PRs abertos por ecossistema.
 
-**Merge automático das atualizações pequenas (Issue #32):** o workflow `.github/workflows/merge-automatico-dependabot.yml` liga o *auto-merge* do GitHub nos PRs do Dependabot para a `developer` cuja **maior** mudança é minor ou patch. O GitHub mergeia sozinho quando os três checks ficam verdes; se algum falhar, o PR fica aberto. Atualizações **major** não entram.
+**Merge automático das atualizações pequenas (Issue #32):** o workflow `.github/workflows/merge-automatico-dependabot.yml` liga o *auto-merge* do GitHub nos PRs do Dependabot para a `developer` cuja **maior** mudança é minor ou patch, **só de pacotes npm**. O GitHub mergeia sozinho quando os três checks ficam verdes; se algum falhar, o PR fica aberto. Atualizações **major** não entram, nem as das **GitHub Actions**: elas mudam arquivos em `.github/` e esperam o merge do Rafael (Issue #42).
 
 - **Pré-requisito:** **Settings → General → Allow auto-merge** ligado. Sem isso, o job "Ligar merge automático" falha e o PR espera o merge manual.
 - **Limitação:** o merge feito pelo GitHub Actions não dispara o CI de push na `developer` (regra do GitHub para ações do `GITHUB_TOKEN`). Os checks do próprio PR já rodaram, e o PR `developer` → `main` roda o CI completo antes do deploy.

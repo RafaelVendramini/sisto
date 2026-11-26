@@ -57,10 +57,13 @@ jobs:
           ID_EXECUCAO: ${{ github.event.workflow_run.id }}
           ENDERECO_EXECUCAO: ${{ github.event.workflow_run.html_url }}
         run: |
-          # Se uma execução mais nova do mesmo workflow e branch já ficou
-          # verde, o problema já foi resolvido: não abre aviso atrasado.
+          # Se uma execução mais nova do mesmo workflow, branch e evento já ficou
+          # verde, o problema já foi resolvido: não abre aviso atrasado. O evento
+          # entra no filtro porque o PR developer → main também tem a branch
+          # developer: uma execução verde do PR não prova que o push voltou a
+          # ficar verde (Issue #42).
           verde_mais_nova=$(gh api \
-            "repos/$GITHUB_REPOSITORY/actions/workflows/$ID_WORKFLOW/runs?branch=$BRANCH&status=success&per_page=1" \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/$ID_WORKFLOW/runs?branch=$BRANCH&event=$EVENTO&status=success&per_page=1" \
             --jq '.workflow_runs[0].id // 0')
           if [ "$verde_mais_nova" -gt "$ID_EXECUCAO" ]; then
             echo "Já existe execução verde mais nova ($verde_mais_nova): aviso dispensado."

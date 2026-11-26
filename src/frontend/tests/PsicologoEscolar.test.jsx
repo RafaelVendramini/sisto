@@ -13,6 +13,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MENSAGEM_SESSAO_EXPIRADA_FORMULARIO } from '../src/components/AvisoSessaoExpirada.jsx';
 import {
   DESTINATARIOS,
   MENSAGEM_JUSTIFICATIVA_LONGA,
@@ -592,6 +593,36 @@ describe('Psicólogo escolar — telas (#154)', () => {
         responsavelAcompanhamentoId: 20,
       });
       expect(await screen.findByText('Encaminhamento registrado.')).toBeInTheDocument();
+    });
+
+    it('sessão vencida antes do envio: não envia, mantém a justificativa e não a guarda no navegador (RN24, LGPD)', async () => {
+      const dialogo = await abrirDialogo();
+      await usuario.selectOptions(within(dialogo).getByLabelText('Encaminhar para'), 'Psicólogo escolar');
+      await usuario.selectOptions(
+        within(dialogo).getByLabelText('Psicólogo escolar que vai receber'),
+        'Psicóloga Fictícia',
+      );
+      await usuario.selectOptions(
+        within(dialogo).getByLabelText('Responsável pelo acompanhamento'),
+        'Pedagoga Fictícia',
+      );
+      const justificativa = within(dialogo).getByLabelText('Justificativa para o psicólogo escolar');
+      await usuario.type(justificativa, JUSTIFICATIVA);
+
+      // Mesmo usuário, com o token já vencido.
+      gravarSessaoFicticia({
+        usuario: { id: 9, nome: 'Pessoa Fictícia', perfil: 'GESTAO' },
+        expiraEmSegundos: -60,
+      });
+      await usuario.click(within(dialogo).getByRole('button', { name: 'Encaminhar' }));
+
+      expect(await within(dialogo).findByRole('alert')).toHaveTextContent(
+        MENSAGEM_SESSAO_EXPIRADA_FORMULARIO,
+      );
+      expect(posts('/encaminhamentos')).toHaveLength(0);
+      expect(justificativa).toHaveValue(JUSTIFICATIVA);
+      expect(JSON.stringify({ ...sessionStorage })).not.toContain(JUSTIFICATIVA);
+      expect(JSON.stringify({ ...localStorage })).not.toContain(JUSTIFICATIVA);
     });
   });
 
