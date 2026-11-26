@@ -1,0 +1,20 @@
+# Configuração do CodeQL (Issue #16), usada por .github/workflows/codeql.yml.
+#
+# Analisa só o código que vai para produção (src/backend e src/frontend) e os
+# scripts do repositório. Fica de fora:
+# - node_modules e dist: dependências de terceiros e build gerado (não ficam no
+#   repositório; a linha é só uma proteção caso apareçam);
+# - testes: usam senhas e segredos fictícios de propósito (RN05) e SQL bruto
+#   para limpar o banco de testes, o que geraria alertas sem risco real;
+# - docs/treinamento/html: HTML gerado por docs/treinamento/gerar-material.mjs
+#   (o gerador continua sendo analisado).
+name: Configuração do CodeQL do Sisto
+
+paths-ignore:
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - 'src/backend/tests/**'
+  - 'src/frontend/tests/**'
+  - '**/*.test.js'
+  - '**/*.test.jsx'
+  - 'docs/treinamento/html/**'

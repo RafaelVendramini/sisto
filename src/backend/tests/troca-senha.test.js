@@ -10,6 +10,7 @@ import request from 'supertest';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { CODIGOS_ERRO } from '../src/lib/erros.js';
+import { TENTATIVAS_TRANSACAO } from '../src/lib/transacao.js';
 
 const { findUnique, findMany, create, update, count, $transaction, criarLog } = vi.hoisted(
   () => ({
@@ -840,7 +841,7 @@ describe('Transação da troca de senha (atomicidade e concorrência)', () => {
 
     expect(res.status).toBe(409);
     expect(res.body).toEqual({ erro: MENSAGEM_CONFLITO_TROCA_SENHA, codigo: CODIGOS_ERRO.CONFLITO_CONCORRENTE });
-    expect($transaction).toHaveBeenCalledTimes(3);
+    expect($transaction).toHaveBeenCalledTimes(TENTATIVAS_TRANSACAO);
     expect(buscar(ID_ALVO).troca_senha_obrigatoria).toBe(false);
   });
 

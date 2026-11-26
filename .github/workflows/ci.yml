@@ -47,6 +47,15 @@ jobs:
           cache-dependency-path: src/backend/package-lock.json
       # --include=dev: com NODE_ENV=production o npm pularia o Vitest.
       - run: npm ci --include=dev
+      # Issue #17: falha com vulnerabilidade alta ou crítica nas dependências
+      # de produção, exceto os riscos aceitos no SSD (Seção 10, v1.11 e v1.21):
+      # a cadeia do `effect` (prisma → @prisma/config → effect), que só roda na
+      # linha de comando do Prisma; a correção do npm rebaixaria o Prisma para a 6.
+      # Qualquer outro alerta alto ou crítico, ou a auditoria não rodar, falha o job.
+      - name: Auditoria de dependências
+        run: |
+          npm audit --omit=dev --json > "$RUNNER_TEMP/auditoria.json" || true
+          node ../../.github/scripts/conferir-auditoria.mjs "$RUNNER_TEMP/auditoria.json" effect @prisma/config prisma
       - run: npm test
 
   front:
@@ -66,6 +75,10 @@ jobs:
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
       - run: npm ci
+      # Issue #17: falha com vulnerabilidade alta ou crítica nas dependências
+      # de produção (as de desenvolvimento, como o Vite, não entram no build publicado).
+      - name: Auditoria de dependências
+        run: npm audit --omit=dev --audit-level=high
       - run: npm test
       - run: npm run build
 
