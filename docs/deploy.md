@@ -369,3 +369,18 @@ O `.github/dependabot.yml` faz o Dependabot procurar atualizações toda **segun
 **Limite de PRs:** o limite de 5 PRs abertos por ecossistema vale só para as atualizações de versão. Os PRs de segurança têm um limite próprio do GitHub e podem passar desse número.
 
 **Rótulo:** o rótulo `dependencies` precisa existir no repositório (rótulos inexistentes são ignorados pelo Dependabot). Para criar: `gh label create dependencies -R RafaelVendramini/sisto`.
+
+## 15. CodeQL (Issue #16)
+
+O CodeQL (`.github/workflows/codeql.yml`, check **Analisar JavaScript**) procura vulnerabilidades no JavaScript do back-end e do front-end. Roda em todo PR para `developer` e `main`, em todo push nessas branches e todo domingo às 3h de Brasília. Testes, `node_modules`, `dist` e `docs/treinamento/html` ficam de fora (`.github/codeql/codeql-config.yml`).
+
+**Onde ver:** GitHub → **Security → Code scanning**. Num PR, os alertas novos também aparecem na aba **Checks** e como comentários no diff. Exceção: em PR vindo de um **fork** (cópia do repositório de outra pessoa), o GitHub não deixa o CodeQL publicar os resultados no PR; a análise do código só aparece depois do merge, no push da `developer`.
+
+**Como tratar cada alerta:**
+
+- **Verdadeiro:** corrigir. Se a correção for pequena, na própria Issue em andamento; se for grande, abrir uma Issue própria e citar o alerta (link) nela. O alerta fecha sozinho quando a correção chega à branch analisada.
+- **Falso positivo:** no alerta, **Dismiss alert** → **False positive** (ou **Used in tests** / **Won't fix**), sempre com um comentário curto explicando por quê (ex.: "valor vem de variável de ambiente, não do usuário").
+
+**Proteção das branches:** o check do CodeQL **ainda não é obrigatório** em `main` e `developer` (seção 13). Tornar obrigatório só depois de tratar os alertas iniciais, por decisão do Rafael.
+
+**Atenção:** se o **default setup** do Code scanning estiver ligado em Settings → Code security, o envio deste workflow falha; use só um dos dois (aqui, o workflow).
