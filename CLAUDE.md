@@ -17,6 +17,8 @@ Nunca invente requisitos, regras ou funcionalidades. Se algo não está no SSD o
 
 - Mudanças em `.github/` (workflows de CI, templates) só dentro de uma Issue e com aprovação do Rafael.
 - **Nunca** fazer commit, push, criar branch remota, Issue ou Pull Request sem autorização explícita do Rafael.
+  - **Exceção (Issue #33):** os dois agentes agendados descritos em [docs/agentes-agendados.md](docs/agentes-agendados.md) têm autorização permanente para abrir Issues e, quando a correção for simples e segura, PRs para a `developer`. Eles **nunca** mergeiam. Nas sessões interativas, a regra acima continua valendo.
+  - O merge automático, na `developer`, dos PRs do Dependabot de versões minor e patch (Issue #32) é feito pelo GitHub, não pela IA.
 - Merge na `main` publica em produção (Render, depois do CI verde): só com autorização explícita do Rafael.
 - Nunca declarar testes executados sem executá-los; se não executou, escreva **"não executado"**.
 - Somente **dados fictícios** em seeds, testes e exemplos (RN05 / LGPD). Nenhum dado real de estudante no repositório ou em prompts.
