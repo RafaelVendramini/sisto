@@ -348,6 +348,43 @@ As variáveis de ambiente, o Neon e o agendamento da seção 12 não mudam.
 
 **Atenção (visto em 24/11/2026):** ao trocar o **Repository** (Source), o Render pode **apagar o Build Command** (e, no front-end, a Publish Directory). O deploy seguinte falha com "Empty build command; skipping build" e "Publish directory dist does not exist!". Depois de trocar o Source, confira Root Directory, Build Command, Publish Directory (front-end) e Start Command (API) com as tabelas das seções 3 e 4, e use **Manual Deploy → Deploy latest commit**. Enquanto isso, a versão anterior continua no ar.
 
+## 14. Dependabot (Issue #15)
+
+O `.github/dependabot.yml` faz o Dependabot procurar atualizações toda **segunda-feira às 06:00 (horário de Brasília)** em três ecossistemas: `npm` em `src/backend`, `npm` em `src/frontend` e `github-actions` (ações dos workflows).
+
+**Como chegam os PRs:** sempre para a **`developer`**, com o rótulo `dependencies` e commit `chore(deps): ...` (ou `chore(deps-dev): ...` para dependências de desenvolvimento). As atualizações minor e patch de cada ecossistema vêm juntas num só PR (grupo `dependencias-menores`); cada atualização major vem num PR separado. No máximo 5 PRs abertos por ecossistema.
+
+**O que fazer com cada PR:**
+
+1. Esperar o CI e conferir os três checks verdes (**API**, **Front-end** e **E2E**). Se algum falhar, não mergear: corrigir numa Issue própria ou fechar o PR.
+2. Em atualização **major**, ler o changelog / release notes da dependência (link no corpo do PR) antes de mergear.
+3. Mergear na `developer`. A atualização vai para produção no próximo PR `developer` → `main` (seção 13).
+
+**Alertas de segurança:** o Rafael liga em **Settings → Code security** as opções **Dependabot alerts** e **Dependabot security updates**. Os PRs de correção de segurança usam sempre a branch padrão do repositório (`main`), e não a `developer`, e seguem as mesmas conferências acima.
+
+**PRs de correção de segurança (para a `main`):** como vão direto para a `main`, siga outro caminho: esperar os três checks verdes, mergear na **`main`** (isso publica em produção, então só com autorização do Rafael) e, em seguida, abrir um PR `main` → `developer` para a `developer` não ficar atrás.
+
+**Quando começa a valer:** o Dependabot lê a configuração da **branch padrão (`main`)**. As atualizações agendadas só começam depois que o `dependabot.yml` chega à `main` (PR `developer` → `main`).
+
+**Limite de PRs:** o limite de 5 PRs abertos por ecossistema vale só para as atualizações de versão. Os PRs de segurança têm um limite próprio do GitHub e podem passar desse número.
+
+**Rótulo:** o rótulo `dependencies` precisa existir no repositório (rótulos inexistentes são ignorados pelo Dependabot). Para criar: `gh label create dependencies -R RafaelVendramini/sisto`.
+
+## 15. CodeQL (Issue #16)
+
+O CodeQL (`.github/workflows/codeql.yml`, check **Analisar JavaScript**) procura vulnerabilidades no JavaScript do back-end e do front-end. Roda em todo PR para `developer` e `main`, em todo push nessas branches e todo domingo às 3h de Brasília. Testes, `node_modules`, `dist` e `docs/treinamento/html` ficam de fora (`.github/codeql/codeql-config.yml`).
+
+**Onde ver:** GitHub → **Security → Code scanning**. Num PR, os alertas novos também aparecem na aba **Checks** e como comentários no diff. Exceção: em PR vindo de um **fork** (cópia do repositório de outra pessoa), o GitHub não deixa o CodeQL publicar os resultados no PR; a análise do código só aparece depois do merge, no push da `developer`.
+
+**Como tratar cada alerta:**
+
+- **Verdadeiro:** corrigir. Se a correção for pequena, na própria Issue em andamento; se for grande, abrir uma Issue própria e citar o alerta (link) nela. O alerta fecha sozinho quando a correção chega à branch analisada.
+- **Falso positivo:** no alerta, **Dismiss alert** → **False positive** (ou **Used in tests** / **Won't fix**), sempre com um comentário curto explicando por quê (ex.: "valor vem de variável de ambiente, não do usuário").
+
+**Proteção das branches:** o check do CodeQL **ainda não é obrigatório** em `main` e `developer` (seção 13). Tornar obrigatório só depois de tratar os alertas iniciais, por decisão do Rafael.
+
+**Atenção:** se o **default setup** do Code scanning estiver ligado em Settings → Code security, o envio deste workflow falha; use só um dos dois (aqui, o workflow).
+
 ## 16. render.yaml (Spike #19)
 
 O arquivo [`docs/infra/render.yaml`](infra/render.yaml) descreve em Render Blueprint a configuração **atual** da `sisto-api` e do `sisto` (seções 3 e 4), sem nenhum segredo: as variáveis estão com `sync: false`. **Ele é só documentação versionada e não está ligado ao Render.** O painel continua sendo a fonte de verdade: ao mudar algo lá, atualize também o `render.yaml`. Ele fica em `docs/infra/` (e não na raiz, onde o Render procura o `render.yaml` ao criar um Blueprint) para não ser usado por engano. Para adotar um dia, o caminho do arquivo é informado ao Render (ou o arquivo é copiado para a raiz) seguindo o passo a passo abaixo.
