@@ -362,4 +362,10 @@ O `.github/dependabot.yml` faz o Dependabot procurar atualizações toda **segun
 
 **Alertas de segurança:** o Rafael liga em **Settings → Code security** as opções **Dependabot alerts** e **Dependabot security updates**. Os PRs de correção de segurança usam sempre a branch padrão do repositório (`main`), e não a `developer`, e seguem as mesmas conferências acima.
 
+**PRs de correção de segurança (para a `main`):** como vão direto para a `main`, siga outro caminho: esperar os três checks verdes, mergear na **`main`** (isso publica em produção, então só com autorização do Rafael) e, em seguida, abrir um PR `main` → `developer` para a `developer` não ficar atrás.
+
+**Quando começa a valer:** o Dependabot lê a configuração da **branch padrão (`main`)**. As atualizações agendadas só começam depois que o `dependabot.yml` chega à `main` (PR `developer` → `main`).
+
+**Limite de PRs:** o limite de 5 PRs abertos por ecossistema vale só para as atualizações de versão. Os PRs de segurança têm um limite próprio do GitHub e podem passar desse número.
+
 **Rótulo:** o rótulo `dependencies` precisa existir no repositório (rótulos inexistentes são ignorados pelo Dependabot). Para criar: `gh label create dependencies -R RafaelVendramini/sisto`.
